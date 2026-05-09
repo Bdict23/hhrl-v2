@@ -5,7 +5,10 @@
                 <div>
                     <div class="mb-4">
                         @if ($user->photo_url)
-                            <img src="{{ $user->photo_url }}" alt="Avatar" class="w-20 h-20 rounded-full object-cover" />
+                            <img
+                            {{-- src="{{ $user->photo_url }}"  --}}
+                            src="{{ asset($user->photo_url) }}"
+                            alt="Avatar" class="w-20 h-20 rounded-full object-cover" />
                         @else
                             <div class="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
                                 <span class="text-gray-600 text-sm">No Avatar</span>
