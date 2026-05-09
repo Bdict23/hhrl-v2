@@ -17,7 +17,7 @@
     <body class="font-sans antialiased"
           x-cloak
           x-data="{ name: @js(auth()->user()->name),
-                   avatar: @js(auth()->user()->photo_url ?? asset('assets/images/1772440510.png')),
+                   avatar: @js(asset(auth()->user()->photo_url) ?? asset('assets/images/1772440510.png')),
                 }"
           x-bind:class="{ 'dark bg-gray-800': darkTheme, 'bg-gray-100': !darkTheme }">
     {{-- <div x-show="loading" class="fixed top-0 left-0 right-0 z-[999] h-1 pointer-events-none" style="display: none;"> --}}
