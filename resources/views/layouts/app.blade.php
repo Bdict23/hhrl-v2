@@ -9,7 +9,6 @@
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-         {{-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"> --}}
 
         <tallstackui:script />
         @livewireStyles
@@ -18,34 +17,36 @@
     <body class="font-sans antialiased"
           x-cloak
           x-data="{ name: @js(auth()->user()->name),
-                   avatar: @js(auth()->user()->photo_url ?? asset('assets/images/1772440510.png'))
+                   avatar: @js(auth()->user()->photo_url ?? asset('assets/images/1772440510.png')),
                 }"
-          x-on:name-updated.window="name = $event.detail.name"
           x-bind:class="{ 'dark bg-gray-800': darkTheme, 'bg-gray-100': !darkTheme }">
-    <x-layout>
+    {{-- <div x-show="loading" class="fixed top-0 left-0 right-0 z-[999] h-1 pointer-events-none" style="display: none;"> --}}
+
+    </div>
+    <x-ts-layout>
         <x-slot:top>
-            <x-dialog />
-            <x-toast />
+            <x-ts-dialog />
+            <x-ts-toast />
         </x-slot:top>
         <x-slot:header>
-            <x-layout.header>
+            <x-ts-layout.header>
                 <x-slot:right>
                     <div class="mr-10 flex items-center gap-2">
                         {{-- Bell Icon --}}
-                        <x-button.circle icon="bell"
+                        <x-ts-button.circle icon="bell"
                                          flat
                                          lg
                                          color="primary"
                                          class="dark:!text-white dark:hover:!bg-white/10 dark:focus:!bg-white/10 [&>svg]:dark:!text-white" />
 
                         {{-- Chat Icon with Dynamic Color --}}
-                        <x-button.circle icon="chat-bubble-left-right"
+                        <x-ts-button.circle icon="chat-bubble-left-right"
                                         flat
                                         lg
                                         color="primary"
                                         class="dark:!text-white dark:hover:!bg-white/10 dark:focus:!bg-white/10 [&>svg]:dark:!text-white" />
                     </div>
-                    <x-dropdown>
+                    <x-ts-dropdown>
                         <x-slot:action>
                             <button class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition" x-on:click="show = !show">
                                 <img :src="avatar" alt="Avatar" class="w-10 h-10 rounded-full object-cover" />
@@ -53,362 +54,367 @@
                             </button>
                         </x-slot:action>
                         <x-slot:header>
-                            <x-theme-switch block />
+                            <x-ts-theme-switch block />
                         </x-slot:header>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <x-dropdown.items :text="__('Profile')" :href="route('user.profile')" />
-                            <x-dropdown.items :text="__('Logout')" onclick="event.preventDefault(); this.closest('form').submit();" separator />
+                            <x-ts-dropdown.items :text="__('Profile')" :href="route('user.profile')" />
+                            <x-ts-dropdown.items :text="__('Logout')" onclick="event.preventDefault(); this.closest('form').submit();" separator />
                         </form>
-                    </x-dropdown>
+                    </x-ts-dropdown>
                 </x-slot:right>
-            </x-layout.header>
+            </x-ts-layout.header>
         </x-slot:header>
         <x-slot:menu>
-            <x-side-bar smart collapsible>
-                <x-slot:brand>
-                    <div class="my-4 flex items-center justify-center">
-                        <img src="{{ asset('assets/images/1772440510.png') }}" width="80" height="80" />
-                    </div>
-                </x-slot:brand>
-                <x-slot:brand-collapsed>
-                    <div class="my-4 flex items-center justify-center">
-                        <img src="{{ asset('assets/images/1772440510.png') }}" width="40" height="40" />
-                    </div>
-                </x-slot:brand-collapsed>
+            @persist('side-bar')
+                <x-ts-side-bar smart collapsible>
+                    <x-slot:brand>
+                        <div class="my-4 flex items-center justify-center">
+                            <img src="{{ asset('assets/images/1772440510.png') }}" width="80" height="80" />
+                        </div>
+                    </x-slot:brand>
+                    <x-slot:brand-collapsed>
+                        <div class="my-4 flex items-center justify-center">
+                            <img src="{{ asset('assets/images/1772440510.png') }}" width="40" height="40" />
+                        </div>
+                    </x-slot:brand-collapsed>
 
-                <!-- Dashboard -->
-                <x-side-bar.item text="Dashboard" icon="home" :route="route('dashboard')" />
+                    <!-- Dashboard -->
+                    <x-ts-side-bar.item text="Dashboard" icon="home" :route="route('dashboard')" />
 
-                <!-- Front Desk Section -->
-                <x-side-bar.item text="Front Desk">
-                    <x-slot:icon>
-                        <x-icon-desktop-computer class="w-5 h-5" />
-                    </x-slot:icon>
-                </x-side-bar.item>
+                    <!-- Front Desk Section -->
+                    <x-ts-side-bar.item text="Front Desk">
+                        <x-slot:icon>
+                            <x-icon-desktop-computer class="w-5 h-5" />
+                        </x-slot:icon>
+                    </x-ts-side-bar.item>
 
-                <!-- Rooms & suites -->
-                <x-side-bar.item text="Rooms & Suites">
-                     <x-slot:icon>
-                        <x-icon-door class="w-5 h-5" />
-                    </x-slot:icon>
-                    <x-side-bar.item text="Booking Transaction">
-                         <x-slot:icon>
-                                <x-icon-dot class="w-5 h-5" />
+                    <!-- Rooms & suites -->
+                    <x-ts-side-bar.item text="Rooms & Suites">
+                        <x-slot:icon>
+                            <x-icon-door class="w-5 h-5" />
                         </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                        <x-ts-side-bar.item text="Booking Transaction">
+                            <x-slot:icon>
+                                    <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
 
-                <!-- Restaurant -->
-                <x-side-bar.item text="Restaurant" icon="building-storefront">
-                     <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-chef-hat class="w-5 h-5" />
-                        </x-slot:icon>
-                    <x-side-bar.item text="F&B Order">
+                    <!-- Restaurant -->
+                    <x-ts-side-bar.item text="Restaurant" icon="building-storefront">
                         <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Recipe">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Menu">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Monitor">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Daily Report">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG diri --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-chef-hat class="w-5 h-5" />
+                            </x-slot:icon>
+                        <x-ts-side-bar.item text="F&B Order">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Recipe">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Menu">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Monitor">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Daily Report">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG diri --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
 
-                <!-- Banquet Events -->
-                <x-side-bar.item text="Events" icon="calendar">
-                    <x-side-bar.item text="Event Booking">
+                    <!-- Banquet Events -->
+                    <x-ts-side-bar.item text="Events" icon="calendar">
+                        <x-ts-side-bar.item text="Event Booking">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Event Orders (BEO)">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Event Budget (BEB)">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
+                    <x-ts-side-bar.item text="Inventory">
                         <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-box class="w-5 h-5" />
                         </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Event Orders (BEO)">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Event Budget (BEB)">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
-                <x-side-bar.item text="Inventory">
-                    <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-box class="w-5 h-5" />
-                    </x-slot:icon>
-                    <x-side-bar.item text="Cardex">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Purchase Order">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Receiving PO">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Item Withdrawal">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Merchandise Inventory">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Item Location">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
-                <x-side-bar.item text="Transaction" icon="arrow-path-rounded-square">
-                    <x-side-bar.item text="Advances for Liquidation">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Acknowledgement">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Provisional Receipt">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Petty Cash Voucher">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Cash Return">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Cash Flow">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Cashier Shifts">
-                        <x-slot:icon>
-                            {{-- Tawga ang imong custom SVG --}}
-                            <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                        <x-ts-side-bar.item text="Cardex" x-on:click="$tsui.open.modal('modal-cardex')">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Purchase Order" :route="route('purchase-order-summary')">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Receiving PO" :route="route('receiving-summary')">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Item Withdrawal">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Merchandise Inventory">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Item Location">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
+                    <x-ts-side-bar.item text="Transaction" icon="arrow-path-rounded-square">
+                        <x-ts-side-bar.item text="Advances for Liquidation">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Acknowledgement">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Provisional Receipt">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Petty Cash Voucher">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Cash Return">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Cash Flow">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Cashier Shifts">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
 
-                <!-- Validations Section -->
-                <x-side-bar.item text="Validations" icon="check-badge">
-                    <x-side-bar.item text="Purchase Order" icon="truck">
-                        <x-side-bar.item text="P.O - Review">
+                    <!-- Validations Section -->
+                    <x-ts-side-bar.item text="Validations" icon="check-badge">
+                        <x-ts-side-bar.item text="Purchase Order" icon="truck">
+                            <x-ts-side-bar.item text="P.O - Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="P.O Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Item Withdrawal" icon="archive-box-x-mark">
+                            <x-ts-side-bar.item text="Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Recipe">
                             <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-cooking-pot class="w-5 h-5" />
                             </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="P.O Approval">
+                            <x-ts-side-bar.item text="Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Event Budget (BEB)">
                             <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-chart-pie class="w-5 h-5" />
                             </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Item Withdrawal" icon="archive-box-x-mark">
-                        <x-side-bar.item text="Review">
+                            <x-ts-side-bar.item text="Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Event Liquidation">
                             <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-scale class="w-5 h-5" />
                             </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Approval">
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Validate">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Equipment Request">
                             <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-item-remove class="w-5 h-5" />
                             </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Recipe">
+                            <x-ts-side-bar.item text="Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Fixed Asset">
+                            <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-hand-coins class="w-5 h-5" />
+                            </x-slot:icon>
+                            <x-ts-side-bar.item text="Review">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                            <x-ts-side-bar.item text="Approval">
+                                <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
+
+                    <!-- Accounting  -->
+                    <x-ts-side-bar.item text="Accounting" icon="calculator">
+                        <x-ts-side-bar.item text="COA - Management">
+                            <x-slot:icon>
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
+
+                    <!-- Business -->
+                    <x-ts-side-bar.item text="Business">
                         <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-cooking-pot class="w-5 h-5" />
+                            {{-- Tawga ang imong custom SVG --}}
+                            <x-icon-store class="w-5 h-5" />
                         </x-slot:icon>
-                        <x-side-bar.item text="Review">
+                        <x-ts-side-bar.item text="Supplier">
                             <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
+                                    {{-- Tawga ang imong custom SVG --}}
+                                    <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Approval">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                     <x-side-bar.item text="Event Budget (BEB)">
-                        <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-chart-pie class="w-5 h-5" />
-                        </x-slot:icon>
-                        <x-side-bar.item text="Review">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Approval">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                     <x-side-bar.item text="Event Liquidation">
-                        <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-scale class="w-5 h-5" />
-                        </x-slot:icon>
-                        <x-side-bar.item text="Approval">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Validate">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                     <x-side-bar.item text="Equipment Request">
-                        <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-item-remove class="w-5 h-5" />
-                        </x-slot:icon>
-                        <x-side-bar.item text="Review">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Approval">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                    <x-side-bar.item text="Fixed Asset">
-                        <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-hand-coins class="w-5 h-5" />
-                        </x-slot:icon>
-                        <x-side-bar.item text="Review">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                        <x-side-bar.item text="Approval">
-                            <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-side-bar.item>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
 
-                <!-- Accounting  -->
-                <x-side-bar.item text="Accounting" icon="calculator">
-                    <x-side-bar.item text="COA - Management">
-                         <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                    <!-- Data Management -->
+                    <x-ts-side-bar.item text="Data Management" icon="server-stack" />
 
-                <!-- Business -->
-                <x-side-bar.item text="Business">
-                     <x-slot:icon>
-                        {{-- Tawga ang imong custom SVG --}}
-                        <x-icon-store class="w-5 h-5" />
-                    </x-slot:icon>
-                    <x-side-bar.item text="Supplier">
-                         <x-slot:icon>
-                                {{-- Tawga ang imong custom SVG --}}
-                                <x-icon-dot class="w-5 h-5" />
-                        </x-slot:icon>
-                    </x-side-bar.item>
-                </x-side-bar.item>
+                    <!-- Role Management -->
+                    <x-ts-side-bar.item text="Role Management" icon="shield-check" />
 
-                <!-- Data Management -->
-                <x-side-bar.item text="Data Management" icon="server-stack" />
+                    <!-- Settings -->
+                    <x-ts-side-bar.item text="Settings" icon="cog-6-tooth" />
 
-                <!-- Role Management -->
-                <x-side-bar.item text="Role Management" icon="shield-check" />
 
-                <!-- Settings -->
-                <x-side-bar.item text="Settings" icon="cog-6-tooth" />
-
-                <!-- Logout -->
-                <form method="POST" action="{{ route('logout') }}" class="mt-4">
-                    @csrf
-                    <x-side-bar.item text="Logout" icon="arrow-left-start-on-rectangle" onclick="event.preventDefault(); this.closest('form').submit();" />
-                </form>
-            </x-side-bar>
+                    <!-- Logout -->
+                    <form method="POST" action="{{ route('logout') }}" class="mt-4">
+                        @csrf
+                        <x-ts-side-bar.item text="Logout" icon="arrow-left-start-on-rectangle" onclick="event.preventDefault(); this.closest('form').submit();" />
+                    </form>
+                </x-ts-side-bar>
+            @endpersist
         </x-slot:menu>
         {{ $slot }}
-    </x-layout>
+
+        <livewire:inventory.cardex />
+    </x-ts-layout>
     @livewireScripts
     </body>
 </html>

@@ -19,8 +19,10 @@
         "php": "^8.2",
         "blade-ui-kit/blade-icons": "^1.10",
         "laravel/framework": "^13.0",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.0.0",
+        "livewire/volt": "^1.10",
         "tallstackui/tallstackui": "^3.0"
     },
     "require-dev": {

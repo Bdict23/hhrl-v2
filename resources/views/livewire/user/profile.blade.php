@@ -1,5 +1,5 @@
 <div @updated="$dispatch('name-updated', { name: $event.detail.name })">
-    <x-card :header="__('Edit Your Profile')">
+    <x-ts-card :header="__('Edit Your Profile')">
         <form id="update-profile" wire:submit="save">
             <div class="space-y-6">
                 <div>
@@ -26,13 +26,13 @@
                     </label>
                 </div>
                 <div>
-                    <x-input label="{{ __('Name') }} *" wire:model="user.name" required />
+                    <x-ts-input label="{{ __('Name') }} *" wire:model="user.name" required />
                 </div>
                 <div>
-                    <x-input label="{{ __('Email') }} *" value="{{ $user->email }}" disabled />
+                    <x-ts-input label="{{ __('Email') }} *" value="{{ $user->email }}" disabled />
                 </div>
                 <div>
-                    <x-password :label="__('Password')"
+                    <x-ts-password :label="__('Password')"
                                 :hint="__('The password will only be updated if you set the value of this field')"
                                 wire:model="password"
                                 rules
@@ -40,21 +40,21 @@
                                 x-on:generate="$wire.set('password_confirmation', $event.detail.password)" />
                 </div>
                 <div>
-                    <x-password :label="__('Confirm password')" wire:model="password_confirmation" rules />
+                    <x-ts-password :label="__('Confirm password')" wire:model="password_confirmation" rules />
                 </div>
             </div>
             <x-slot:footer>
-                <x-button type="submit">
+                <x-ts-button type="submit">
                     @lang('Save')
-                </x-button>
+                </x-ts-button>
             </x-slot:footer>
         </form>
         <x-slot:footer>
             <div class="flex justify-end">
-                <x-button type="submit" form="update-profile">
+                <x-ts-button type="submit" form="update-profile">
                     @lang('Save')
-                </x-button>
+                </x-ts-button>
             </div>
         </x-slot:footer>
-    </x-card>
+    </x-ts-card>
 </div>

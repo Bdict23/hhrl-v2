@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Services\Inventory;
+
+use App\Models\Inventory\PurchaseOrder;
+use Illuminate\Support\Facades\DB;
+
+class PurchaseOrderService
+{
+    /**
+     * This Purchase order are using dependecy injection -ben
+     */
+    protected $purchaseOrder;
+
+    //  injects the model
+    public function __construct(PurchaseOrder $purchaseOrder)
+    {
+        $this->purchaseOrder = $purchaseOrder;
+    }
+
+    public function create(array $data): PurchaseOrder
+    {
+        return DB::transaction(function () use ($data) {
+        $totalAmount = 0;
+        $itemsToInsert = [];
+
+        foreach ($data['items'] as $item) {
+            $totalAmount += (float)$item['quantity'] * (float)$item['cost'];
+
+            $itemsToInsert[] = [
+                'item_id'        => $item['id'],
+                'qty'            => $item['quantity'],
+                'price_level_id' => $item['price_id'],
+            ];
+        }
+
+        $currentYear = now()->year;
+        $branchId = $data['branch_id'];
+        $yearlyCount = $this->purchaseOrder->where('from_branch_id', $branchId)
+            ->whereYear('trans_date', $currentYear)
+            ->count() + 1;
+        $requisitionNumber = 'PO-' . $data['branch_id'] . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+
+            // 1. Create the Header (requisition_infos)
+            $po = $this->purchaseOrder->create([
+                'event_id'                  => $data['event_id'],
+                'requisition_number'        => $requisitionNumber,
+                'from_branch_id'            => $branchId,
+                'trans_date'                =>  now(),
+                'merchandise_po_number'     => $data['merchandiseNumber'],
+                'prepared_by'               => $data['preparedBy'],
+                'reviewed_by'               => $data['reviewedBy'],
+                'approved_by'               => $data['approvedBy'],
+                'category'                  => 'PO',
+                'term_type_id'              => $data['term_id'],
+                'remarks'                   => $data['notes'] ?? null,
+                'total_amount'              => $totalAmount,
+                'supplier_id'               => $data['supplier_id'],
+                'production_id'             => $data['production_id'],
+                'type_id'                   => $data['type_id'] ?? null,
+            ]);
+
+            // 3. Bulk Insert Items (1 Query instead of N Queries)
+            $po->purchaseOrderItems()->createMany($itemsToInsert);
+
+            return $po;
+        });
+    }
+
+    public function update(array $data): PurchaseOrder
+    {
+        return DB::transaction(function () use ($data) {
+            $totalAmount = 0;
+            $itemsToInsert = [];
+
+            foreach ($data['items'] as $item) {
+                $totalAmount += (float)$item['quantity'] * (float)$item['cost'];
+
+                $itemsToInsert[] = [
+                    'item_id'        => $item['id'],
+                    'qty'            => $item['quantity'],
+                    'price_level_id' => $item['price_id'],
+                ];
+            }
+            $po = $this->purchaseOrder->findOrFail($data['purchase_order_id']);
+            $po->update([
+                'event_id'                  => $data['event_id'],
+                'merchandise_po_number'     => $data['merchandiseNumber'],
+                'prepared_by'               => $data['preparedBy'],
+                'reviewed_by'               => $data['reviewedBy'],
+                'approved_by'               => $data['approvedBy'],
+                'term_type_id'              => $data['term_id'],
+                'remarks'                   => $data['notes'] ?? null,
+                'total_amount'              => $totalAmount,
+                'supplier_id'               => $data['supplier_id'],
+                'production_id'             => $data['production_id'],
+                'type_id'                   => $data['type_id'] ?? null,
+
+
+                ]);
+                //delete items first
+                $po->purchaseOrderItems()->delete();
+                $po->purchaseOrderItems()->createMany($itemsToInsert);
+             return $po;
+        });
+    }
+}
