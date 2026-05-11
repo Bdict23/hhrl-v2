@@ -201,6 +201,11 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Fixed Asset" :route="route('fixed-asset.menu')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
                     </x-ts-side-bar.item>
                     <x-ts-side-bar.item text="Transaction" icon="arrow-path-rounded-square">
                         <x-ts-side-bar.item text="Advances for Liquidation">
@@ -404,10 +409,13 @@
 
 
                     <!-- Logout -->
-                    <form method="POST" action="{{ route('logout') }}" class="mt-4">
+                    {{-- <form method="POST" action="{{ route('logout') }}" class="mt-4">
                         @csrf
                         <x-ts-side-bar.item text="Logout" icon="arrow-left-start-on-rectangle" onclick="event.preventDefault(); this.closest('form').submit();" />
-                    </form>
+                    </form> --}}
+                    <x-slot:footer>
+                        <p class="text-sm text-gray-500">v1.0.0</p>
+                    </x-slot:footer>
                 </x-ts-side-bar>
             @endpersist
         </x-slot:menu>

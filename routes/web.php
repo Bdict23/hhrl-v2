@@ -9,6 +9,7 @@ use App\Livewire\Inventory\PurchaseOrderAction;
 use Livewire\Volt\Volt;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Api\SupplierApiController as SupplierApi;
+use App\Livewire\Inventory\FixedAsset;
 
 
 
@@ -32,6 +33,11 @@ Route::middleware(['auth'])->group(function () {
 
     //Receiving Order
     Volt::route('/receiving-order/summary', 'inventory.receiving-order.receiving-purchase-order-summary')->name('receiving-summary');
+
+    // Fixed Asset
+    Volt::route('/fixed-asset-menu','inventory.fixed-asset.fixed-asset-menu')->name('fixed-asset.menu');
+    Volt::route('/fixed-asset-registration','inventory.fixed-asset.fixed-asset-registration')->name('fixed-asset.registration');
+
 });
 
 require __DIR__.'/auth.php';

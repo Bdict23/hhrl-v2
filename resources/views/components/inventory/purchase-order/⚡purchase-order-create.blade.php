@@ -233,9 +233,9 @@ new class extends Component
 <div>
     <div class="flex justify-between">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                              ['label' => 'Inventory', 'icon' => 'archive-box' ],
+                              ['label' => 'Inventory', 'link' => route('purchase-order-summary'), 'icon' => 'archive-box' ],
                               ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Create Purchase Order', 'link' => route('purchase-order-create'), 'icon' => 'pencil-square'],
+                              ['label' => 'Create Purchase Order', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
     </div>
 

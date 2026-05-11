@@ -6,9 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Models\Settings\SystemParameter;
 use App\Models\Validation\Signatory;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use App\Models\Inventory\PurchaseOrder;
+use App\Models\Inventory\Receiving;
 
 
 class PurchaseOrderApiController extends Controller
@@ -53,6 +52,25 @@ class PurchaseOrderApiController extends Controller
                 ];
             });
         return response()->json($approvers);
+    }
+    public function receivedPurchaseOrderFilter1(Request $request){
+        $branch_id = $request->query('branch_id');
+        $purchaseOrder = PurchaseOrder::query()->where('from_branch_id', $branch_id)
+        ->whereDoesntHave('assetBatchHeader')
+        ->whereIn('requisition_status', ['PARTIALLY FULFILLED','COMPLETED'])
+        ->get();
+        return response()->json($purchaseOrder);
+
+    }
+    public function getReceivedItems(Request $request){
+        $purchase_order_id = $request->query('purchase_order_id');
+        $purchaseOrderItems = PurchaseOrder::with('purchaseOrderItems')->where('id', $purchase_order_id)->first();
+        return response()->json($purchaseOrderItems);
+    }
+    public function getReceivingReferences(Request $request){
+        $purchase_order_id = $request->query('purchase_order_id');
+        $receivingReferences = Receiving::where('requisition_id', $purchase_order_id)->get();
+        return response()->json($receivingReferences);
     }
 
 }

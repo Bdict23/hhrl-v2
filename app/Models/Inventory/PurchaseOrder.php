@@ -5,6 +5,7 @@ namespace App\Models\Inventory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Business\Employee;
 use App\Models\BanquetEvent\Event;
+use App\Models\Inventory\FixedAsset\AssetBatchHeader;
 
 class PurchaseOrder extends Model
 {
@@ -41,5 +42,8 @@ class PurchaseOrder extends Model
     }
     public function purchaseOrderItems(){
         return $this->hasMany(PurchaseOrderItems::class,'requisition_info_id');
+    }
+    public function assetBatchHeader(){
+        return $this->hasMany(AssetBatchHeader::class,'requisition_id');
     }
 }

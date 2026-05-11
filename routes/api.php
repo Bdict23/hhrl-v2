@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\SupplierApiController;
 use App\Http\Controllers\Api\PurchaseOrderApiController;
 use App\Http\Controllers\Api\BanquetEventApiController;
 use App\Http\Controllers\Api\RestaurantApiController;
+use App\Http\Controllers\Api\InventoryApiController;
 
 
 
@@ -13,6 +14,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+//purchase order api
 Route::middleware('auth:sanctum')->get('/suppliers', [SupplierApiController::class, 'index'])->name('api.supplier.index');
 Route::middleware('auth:sanctum')->get('/active-purchase-type', [PurchaseOrderApiController::class,'activePurchaseType'])->name('api.active.purchase-type');
 Route::middleware('auth:sanctum')->get('/active-purchase-term', [PurchaseOrderApiController::class,'activePurchaseTerm'])->name('api.active.purchase-term');
@@ -20,3 +22,11 @@ Route::middleware('auth:sanctum')->get('/active-approvers', [PurchaseOrderApiCon
 Route::middleware('auth:sanctum')->get('/active-reviewers', [PurchaseOrderApiController::class,'activeReviewers'])->name('api.active.reviewers');
 Route::middleware('auth:sanctum')->get('/active-event', [BanquetEventApiController::class,'activeEvent'])->name('api.active.event');
 Route::middleware('auth:sanctum')->get('/active-production-order', [RestaurantApiController::class,'activeProductionOrder'])->name('api.active.production-order');
+
+// fixed asset api
+Route::middleware('auth:sanctum')->get('/received-purchase-order-filter1', [PurchaseOrderApiController::class,'receivedPurchaseOrderFilter1'])->name('api.received.purchase-order.filter1');
+Route::middleware('auth:sanctum')->get('/active-asset-registration-type', [InventoryApiController::class,'activeAssetRegistrationType'])->name('api.active.asset-registration-type');
+Route::middleware('auth:sanctum')->get('/active-asset-registration-reviewers', [InventoryApiController::class,'activeAssetRegistrationReviewers'])->name('api.active.asset-registration-reviewers');
+Route::middleware('auth:sanctum')->get('/active-asset-registration-approvers', [InventoryApiController::class,'activeAssetRegistrationApprovers'])->name('api.active.asset-registration-approvers');
+Route::middleware('auth:sanctum')->get('/get-received-items', [PurchaseOrderApiController::class,'getReceivedItems'])->name('api.get.received-items');
+Route::middleware('auth:sanctum')->get('/get-receiving-references', [PurchaseOrderApiController::class,'getReceivingReferences'])->name('api.get.receiving-references');

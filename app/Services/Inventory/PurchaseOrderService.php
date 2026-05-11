@@ -3,6 +3,7 @@
 namespace App\Services\Inventory;
 
 use App\Models\Inventory\PurchaseOrder;
+use App\Models\Business\Branch;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseOrderService
@@ -11,11 +12,14 @@ class PurchaseOrderService
      * This Purchase order are using dependecy injection -ben
      */
     protected $purchaseOrder;
+    protected $branch;
+
 
     //  injects the model
-    public function __construct(PurchaseOrder $purchaseOrder)
+    public function __construct(PurchaseOrder $purchaseOrder, Branch $branch)
     {
         $this->purchaseOrder = $purchaseOrder;
+        $this->branch = $branch;
     }
 
     public function create(array $data): PurchaseOrder
@@ -36,10 +40,11 @@ class PurchaseOrderService
 
         $currentYear = now()->year;
         $branchId = $data['branch_id'];
+        $branchCode = $this->branch->find($branchId)->branch_code;
         $yearlyCount = $this->purchaseOrder->where('from_branch_id', $branchId)
             ->whereYear('trans_date', $currentYear)
             ->count() + 1;
-        $requisitionNumber = 'PO-' . $data['branch_id'] . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+        $requisitionNumber = 'PO-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
 
             // 1. Create the Header (requisition_infos)
             $po = $this->purchaseOrder->create([

@@ -238,7 +238,7 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
-                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
+                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes" :readonly="true"/>
                     <x-ts-stats :number="$grand_total" title="Total Cost" animated>
                             <x-slot:icon>
                                 <x-icon-peso class="w-6 h-6" />
