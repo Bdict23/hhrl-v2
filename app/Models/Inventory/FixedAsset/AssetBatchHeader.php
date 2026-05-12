@@ -3,6 +3,9 @@
 namespace App\Models\Inventory\FixedAsset;
 use App\Models\Business\Employee;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Settings\SystemParameter;
+use App\Models\Business\Branch;
+use App\Models\Inventory\PurchaseOrder;
 
 class AssetBatchHeader extends Model
 {
@@ -40,5 +43,17 @@ class AssetBatchHeader extends Model
      public function assetBatchDetails()
      {
          return $this->hasMany(AssetBatchDetail::class, 'batch_id');
+     }
+     public function type()
+     {
+         return $this->belongsTo(SystemParameter::class, 'type_id');
+     }
+     public function branch()
+     {
+         return $this->belongsTo(Branch::class, 'branch_id');
+     }
+     public function purchaseOrder()
+     {
+         return $this->belongsTo(PurchaseOrder::class, 'requisition_id');
      }
 }

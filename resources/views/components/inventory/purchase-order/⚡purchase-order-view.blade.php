@@ -91,8 +91,9 @@ new class extends Component
                 ];
             }
             $this->selectedItem = collect($this->selectedRows)->pluck('id')->toArray();
-
-
+    }
+    public function edit(){
+        return redirect()->route('purchase-order-edit', ['id' => $this->purchase_order_id]);
     }
 
     public function with(): array
@@ -189,12 +190,7 @@ new class extends Component
                 <div class="p-10 grid gap-3">
                     {{-- <span class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 w-full">DRAFT</span> --}}
                     <x-ts-badge :text="$status" light  class="w-full justify-center" lg round/>
-                    <div @if($status == 'DRAFT') class="grid grid-cols-2" @else class="grid grid-cols-1" @endif>
-                        @if($status == 'DRAFT')
-                            <x-ts-button icon="pencil-square" class="underline" round flat href="{{route('purchase-order-edit', ['id' => $purchase_order_id])}}">Edit</x-ts-button>
-                        @endif
-                        <x-ts-button icon="printer" round flat class="underline-offset-1 underline">PRINT</x-ts-button>
-                    </div>
+
                 </div>
             </div>
         </x-ts-card>
@@ -243,6 +239,12 @@ new class extends Component
                             <x-slot:icon>
                                 <x-icon-peso class="w-6 h-6" />
                             </x-slot:icon>
+                            <x-slot:right>
+                                @if($status == 'DRAFT')
+                                    <x-ts-button icon="pencil-square" class="underline"  flat wire:click='edit'>Edit</x-ts-button>
+                                @endif
+                                <x-ts-button icon="printer"  flat class="underline-offset-1 underline">Print</x-ts-button>
+                            </x-slot:right>
                     </x-ts-stats>
                 </div>
                 <div class="grid gap-2 p-3">

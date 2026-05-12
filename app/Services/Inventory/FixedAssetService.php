@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Inventory\FixedAsset\AssetBatchDetail;
 use App\Models\Inventory\FixedAsset\AssetBatchHeader;
 use App\Models\Business\Branch;
+use App\Models\Inventory\Cardex;
+use Carbon\Carbon;
 
 class FixedAssetService
 {
@@ -79,7 +81,7 @@ class FixedAssetService
                         'item_id'     => $item['item_id'],
                         'branch_id'   => $branchId,
                         'serial'      => null,
-                        'cost'        => $item['sub_total'], // Bulk cost
+                        'cost'        => $item['cost'] * $item['quantity'],
                         'lifespan'    => $usefulLife,
                         'span_ended'  => now()->addYears($usefulLife),
                         'condition'   => $item['condition'],
@@ -108,5 +110,65 @@ class FixedAssetService
 
             return $batchHeader;
         });
+    }
+    public function finalizeBatch($batchId)
+    {
+        // Update status from DRAFT to FOR REVIEW
+        $batchHeader = $this->assetBatchHeader->findOrFail($batchId);
+        if ($batchHeader->status !== 'DRAFT') {
+            throw new \Exception('Only batches in DRAFT status can be finalized.');
+        }
+        $batchHeader->status = 'OPEN';
+        $batchHeader->save();
+        return $batchHeader;
+    }
+    public function batchReviewed($batchId)
+    {
+        $batchHeader = $this->assetBatchHeader->findOrFail($batchId);
+        if ($batchHeader->reviewed_date !== null) {
+            throw new \Exception('Batch has already been reviewed.');
+        }
+        $batchHeader->reviewed_date = now();
+        $batchHeader->save();
+        return $batchHeader;
+    }
+    public function batchApproved($batchId)
+    {
+        $batchHeader = $this->assetBatchHeader->findOrFail($batchId);
+        if ($batchHeader->approved_date !== null) {
+            throw new \Exception('Batch has already been approved.');
+        }
+        $batchHeader->approved_date = now();
+        $batchHeader->status = 'CLOSED';
+        $batchHeader->save();
+        return $batchHeader;
+    }
+    public function batchRevised($batchId)
+    {
+        $batchHeader = $this->assetBatchHeader->findOrFail($batchId);
+        if ($batchHeader->status !== 'OPEN') {
+            throw new \Exception('Only batches in OPEN status can be revised.');
+        }
+        $batchHeader->status = 'DRAFT';
+        $batchHeader->approved_date = null;
+        $batchHeader->reviewed_date = null;
+        $batchHeader->save();
+        // add cardex entry
+        $details = $batchHeader->assetBatchDetails;
+        foreach($details as $detail){
+            Cardex::create([
+                'item_id' => $detail->item_id,
+                'source_branch_id' => $batchHeader->branch_id,
+                'reference' => $batchHeader->reference,
+                'qty_out' => 1,
+                'status' => 'FINAL',
+                'transaction_type' => 'ADJUSTMENT',
+                'price_level_id' => null,
+                'batch_id' => $batchHeader->id,
+                'created_at' => Carbon::now('Asia/Manila')
+            ]);
+        }
+
+        return $batchHeader;
     }
 }

@@ -123,9 +123,9 @@ new class extends Component
                     'item_code'        => $sourceData['item']['item_code'],
                     'item_description' => $sourceData['item']['item_description'],
                     'price_id'         => $sourceData['cost']['id'] ?? null,
-                    'cost'             => $sourceData['cost']['amount'] ?? 0,
+                    'cost'             => ($sourceData['cost']['amount'] ?? 0),
                     'quantity'         => $qty,
-                    'sub_total'        => (float) ($sourceData['cost']['amount'] ?? 0),
+                    'sub_total'        => (float) (($sourceData['cost']['amount'] ?? 0) * $qty),
                     'is_serialized'    => $isSerialized,
                     'condition'        => 'NEW',
                     'useful_life'      => null,
@@ -139,6 +139,7 @@ new class extends Component
                             'serial_number' => '',
                             'condition'     => 'NEW',
                             'useful_life'   => null,
+
                         ];
                     }
                 }
@@ -267,7 +268,15 @@ new class extends Component
                     @endinteract
 
                     @interact('column_action', $row)
-                        <x-ts-button.circle icon="trash" color="red" sm wire:click="removeItem({{ $loop->index }})" />
+                        <x-ts-button outline color="rose"
+                            sm
+                            wire:click="removeItem({{ $loop->index }})"
+                            loading="removeItem({{ $loop->index }})">
+                            <x-ts-icon name="trash"
+                                    wire:loading.remove
+                                    wire:target="removeItem({{ $loop->index }})"
+                                    class="w-5 h-5" />
+                        </x-ts-button>
                     @endinteract
 
                     {{-- SUB-TABLE FOR SERIALIZED ITEMS --}}
@@ -393,7 +402,8 @@ new class extends Component
                  hint="Make sure to select purchase order first before selecting receiving reference"
                  :options="$receivingReferences"
                  wire:model.live="selectedReceivingId"
-                 select="label:RECEIVING_NUMBER|value:id" />
+                 select="label:RECEIVING_NUMBER|value:id"
+                 />
 
             <x-ts-table :headers="$itemsHeader" :rows="$itemRow" striped selectable wire:model.live="selectedItem">
                 @interact('column_item_code', $row)

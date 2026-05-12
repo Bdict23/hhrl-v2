@@ -37,6 +37,16 @@ Route::middleware(['auth'])->group(function () {
     // Fixed Asset
     Volt::route('/fixed-asset-menu','inventory.fixed-asset.fixed-asset-menu')->name('fixed-asset.menu');
     Volt::route('/fixed-asset-registration','inventory.fixed-asset.fixed-asset-registration')->name('fixed-asset.registration');
+    Volt::route('/fixed-asset-batch-view/{id}','inventory.fixed-asset.fixed-asset-batch-view')->name('fixed-asset.batch-view');
+
+
+// VALIDATION
+
+    //Fixed Asset
+    Volt::route('/fixed-asset/validation-summary', 'inventory.fixed-asset.fixed-asset-validation-summary')->name('fixed-asset.validation-summary');
+    volt::route('/fixed-asset/validation-review-view/{id}', 'inventory.fixed-asset.fixed-asset-validation-review-view')->name('fixed-asset.validation.review-view');
+    volt::route('/fixed-asset/validation-approval-view/{id}', 'inventory.fixed-asset.fixed-asset-validation-approval-view')->name('fixed-asset.validation.approval-view');
+
 
 });
 

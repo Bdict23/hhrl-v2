@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models\Inventory\FixedAsset;
-
+use App\Models\DataManagement\Item;
 use Illuminate\Database\Eloquent\Model;
 
 class AssetBatchDetail extends Model
@@ -22,4 +22,8 @@ class AssetBatchDetail extends Model
         'updated_at',
         'qty',
     ];
+
+    public function item(){
+        return $this->belongsTo(Item::class, 'item_id');
+    }
 }

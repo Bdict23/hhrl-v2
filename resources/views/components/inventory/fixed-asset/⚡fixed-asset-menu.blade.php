@@ -92,7 +92,7 @@ new class extends Component
                                 <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                             </a>
                         @endif
-                        <a href="{{route('purchase-order-view', ['id' => $row->id])}}">
+                        <a href="{{route('fixed-asset.batch-view', ['id' => $row->id])}}">
                             <x-ts-dropdown.items text="View" separator icon="eye" />
                         </a>
                         <a>
