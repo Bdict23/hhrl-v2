@@ -55,6 +55,7 @@ new class extends Component
                 'item_description' => $firstRecord->item->item_description,
                 'is_serialized'    => $isSerialized,
                 'total_qty'        => $group->sum('qty'),
+                'location'          => $isSerialized ? '(various items)' : $firstRecord->location,
                 // For main row display: show 'VARIOUS' if items have different conditions
                 'condition'        => $isSerialized ? '(various items)' : $firstRecord->condition,
                 'useful_life'      => $isSerialized ? '(various items)' : $firstRecord->lifespan,
@@ -203,7 +204,7 @@ new class extends Component
             <div class="grid grid-cols-3 w-full">
                 <div class="grid gap-3 p-2">
 
-                    <x-ts-input label="Purchase Order Reference" hint="Insert your name" wire:model='poRef' readonly/>
+                    <x-ts-input label="Purchase Order Reference" wire:model='poRef' readonly/>
                     <x-ts-date format="DD [of] MMMM [of] YYYY" wire:model='dateIssued' label="Date Issued" readonly/>
                     @error('dateIssued')
                         <p class="text-red-500 text-sm font-semibold">{{ $message }}</p>
@@ -249,6 +250,7 @@ new class extends Component
                                     <thead>
                                         <tr class="text-gray-600 border-b border-blue-200">
                                             <th class="p-2 text-left">Asset Tag</th>
+                                            <th class="p-2 text-left">Location</th>
                                             <th class="p-2 text-left">Serial Number</th>
                                             <th class="p-2 text-left">Condition</th>
                                             <th class="p-2 text-left">Ends On</th>
@@ -258,6 +260,7 @@ new class extends Component
                                         @foreach($row['serialized_items'] as $detail)
                                             <tr class="border-b border-blue-100 last:border-0">
                                                 <td class="p-2 font-mono text-blue-700">{{ $detail['code'] }}</td>
+                                                <td class="p-2 font-mono text-blue-700">{{ $detail['location'] }}</td>
                                                 <td class="p-2 font-bold">{{ $detail['serial'] }}</td>
                                                 <td class="p-2">{{ $detail['condition'] }}</td>
                                                 <td class="p-2">{{ \Carbon\Carbon::parse($detail['span_ended'])->format('M d, Y') }}</td>
@@ -274,6 +277,7 @@ new class extends Component
                                     <thead>
                                         <tr class="text-gray-600 border-b border-blue-200">
                                             <th class="p-2 text-left">Asset Tag</th>
+                                            <th class="p-2 text-left">Location</th>
                                             <th class="p-2 text-left">Ends On</th>
                                         </tr>
                                     </thead>
@@ -281,6 +285,7 @@ new class extends Component
                                         @foreach($row['serialized_items'] as $detail)
                                             <tr class="border-b border-blue-100 last:border-0">
                                                 <td class="p-2 font-mono text-blue-700">{{ $detail['code'] }}</td>
+                                                <td class="p-2 font-mono text-blue-700">{{ $detail['location'] }}</td>
                                                 <td class="p-2">{{ \Carbon\Carbon::parse($detail['span_ended'])->format('M d, Y') }}</td>
                                             </tr>
                                         @endforeach

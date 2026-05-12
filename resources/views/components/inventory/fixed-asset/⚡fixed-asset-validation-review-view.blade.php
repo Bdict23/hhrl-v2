@@ -167,7 +167,7 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-3 w-full">
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Purchase Order Reference" hint="Insert your name" wire:model="reference" readonly/>
+                    <x-ts-input label="Purchase Order Reference" wire:model="reference" readonly/>
                     <x-ts-date format="DD [of] MMMM [of] YYYY" wire:model='dateIssued' label="Date Issued" readonly/>
                     @error('dateIssued')
                         <p class="text-red-500 text-sm font-semibold">{{ $message }}</p>
