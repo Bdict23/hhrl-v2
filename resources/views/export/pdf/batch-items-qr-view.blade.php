@@ -135,6 +135,9 @@
                                                 alt="QR Code: {{ $item->code }}"
                                             >
                                             <div class="item-code">{{ $item->code }}</div>
+                                            @if($item->isSerialized())
+                                                <div class="item-code" style="font-size: 7px; margin-top: 4px;">S/N: {{ $item->serial }}</div>
+                                            @endif
                                         @else
                                             <div class="item-code" style="color: #999;">NO CODE</div>
                                         @endif
