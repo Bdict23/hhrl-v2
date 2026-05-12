@@ -128,6 +128,7 @@
                                 <td>
                                     <div class="sticker">
                                         @if($item->code)
+                                            <div class="item-code">{{ $item->item->item_description }}</div>
                                             <img
                                                 class="qr-image"
                                                 src="data:image/svg+xml;base64,{{ base64_encode(\QrCode::format('svg')->size(300)->generate($item->code)) }}"
