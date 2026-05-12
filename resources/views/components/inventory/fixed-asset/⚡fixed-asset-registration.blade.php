@@ -129,7 +129,8 @@ new class extends Component
                     'is_serialized'    => $isSerialized,
                     'condition'        => 'NEW',
                     'useful_life'      => null,
-                    'serialized_items' => []
+                    'serialized_items' => [],
+                    'location'         => '',
                 ];
 
                 // Populate individual sub-rows for serialized items
@@ -139,7 +140,7 @@ new class extends Component
                             'serial_number' => '',
                             'condition'     => 'NEW',
                             'useful_life'   => null,
-
+                            'location'      => '',
                         ];
                     }
                 }
@@ -174,6 +175,7 @@ new class extends Component
                 ['index' => 'quantity', 'label' => 'Qty'], // Read Only
                 ['index' => 'condition', 'label' => 'Condition', 'sortable' => false],
                 ['index' => 'useful_life', 'label' => 'Useful Life', 'sortable' => false],
+                ['index' => 'location', 'label' => 'Location', 'sortable' => false],
                 ['index' => 'action', 'label' => 'Action', 'sortable' => false],
             ],
             'itemsHeader' => [
@@ -248,6 +250,13 @@ new class extends Component
                     @interact('column_quantity', $row)
                         <span class="font-bold">{{ $row['quantity'] }}</span>
                     @endinteract
+                    @interact('column_location', $row)
+                        @if(!$row['is_serialized'])
+                            <x-ts-input wire:model.live="selectedRows.{{ $loop->index }}.location"/>
+                        @else
+                            <span class="text-gray-400 italic text-xs">See sub-table</span>
+                        @endif
+                    @endinteract
 
                     @interact('column_condition', $row)
                         @if(!$row['is_serialized'])
@@ -291,6 +300,8 @@ new class extends Component
                                             <th class="p-2 text-left">Serial Number</th>
                                             <th class="p-2 text-left">Condition</th>
                                             <th class="p-2 text-left">Useful Life (Years)</th>
+                                            <th class="p-2 text-left">Location</th>
+
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -307,6 +318,9 @@ new class extends Component
                                                 </td>
                                                 <td class="p-2">
                                                     <x-ts-input type="number" wire:model="selectedRows.{{ $loop->parent->index }}.serialized_items.{{ $subIndex }}.useful_life" sm />
+                                                </td>
+                                                <td class="p-2">
+                                                    <x-ts-input wire:model="selectedRows.{{ $loop->parent->index }}.serialized_items.{{ $subIndex }}.location" sm placeholder="Location..."/>
                                                 </td>
                                             </tr>
                                         @endforeach

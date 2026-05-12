@@ -65,6 +65,7 @@ class FixedAssetService
                             'span_ended'  => now()->addYears($usefulLife),
                             'condition'   => $subItem['condition'],
                             'qty'         => 1, // Always 1 for serialized
+                            'location'    => $subItem['location'] ?? null,
                         ];
                         $assetTagCounter++;
                     }
@@ -86,6 +87,7 @@ class FixedAssetService
                         'span_ended'  => now()->addYears($usefulLife),
                         'condition'   => $item['condition'],
                         'qty'         => $item['quantity'],
+                        'location'    => $item['location'] ?? null,
                     ];
                 }
             }

@@ -21,6 +21,7 @@ class AssetBatchDetail extends Model
         'created_at',
         'updated_at',
         'qty',
+        'location',
     ];
 
     public function item(){
