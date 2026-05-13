@@ -8,24 +8,28 @@ use App\Models\Inventory\FixedAsset\AssetBatchHeader;
 use App\Models\Business\Branch;
 use App\Models\Inventory\Cardex;
 use Carbon\Carbon;
+use App\Models\Inventory\FixedAsset\AssetCardex;
 
 class FixedAssetService
 {
     protected $assetBatchHeader;
     protected $assetBatchDetail;
     protected $branch;
+    protected $assetCardex;
 
-    public function __construct(AssetBatchHeader $assetBatchHeader, AssetBatchDetail $assetBatchDetail, Branch $branch)
+    public function __construct(AssetBatchHeader $assetBatchHeader, AssetBatchDetail $assetBatchDetail, Branch $branch, AssetCardex $assetCardex)
     {
         $this->assetBatchHeader = $assetBatchHeader;
         $this->assetBatchDetail = $assetBatchDetail;
         $this->branch = $branch;
+        $this->assetCardex = $assetCardex;
     }
 
     public function createBatch(array $data): AssetBatchHeader
     {
         return DB::transaction(function () use ($data) {
             $itemsToInsert = [];
+            $itemsToInsertCardex = [];
 
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
@@ -67,6 +71,17 @@ class FixedAssetService
                             'qty'         => 1, // Always 1 for serialized
                             'location'    => $subItem['location'] ?? null,
                         ];
+                        $itemsToInsertCardex[] = [
+                            'reference'     => $reference,
+                            'item_id'       => $item['item_id'],
+                            'branch_id'     => $branchId,
+                            'qr_code'       => $code,
+                            'qty'           => 1,
+                            'is_serialized' => true,
+                            'status'        => 'TEMP',
+                            'type'          => 'IN',
+                            'transaction'   => 'ADJUSTMENT',
+                        ];
                         $assetTagCounter++;
                     }
                 } else {
@@ -89,6 +104,17 @@ class FixedAssetService
                         'qty'         => $item['quantity'],
                         'location'    => $item['location'] ?? null,
                     ];
+                    $itemsToInsertCardex[] = [
+                        'reference'     => $reference,
+                        'item_id'       => $item['item_id'],
+                        'branch_id'     => $branchId,
+                        'qr_code'       => $code,
+                        'qty'           => $item['quantity'],
+                        'is_serialized' => false,
+                        'status'        => 'TEMP',
+                        'type'          => 'IN',
+                        'transaction'   => 'ADJUSTMENT',
+                    ];
                 }
             }
 
@@ -109,6 +135,8 @@ class FixedAssetService
 
             // Bulk Insert Details
             $batchHeader->assetBatchDetails()->createMany($itemsToInsert);
+            // Bulk Insert Cardex Entries
+            $batchHeader->assetCardex()->createMany($itemsToInsertCardex);
 
             return $batchHeader;
         });
@@ -137,8 +165,14 @@ class FixedAssetService
     public function batchApproved($batchId)
     {
         $batchHeader = $this->assetBatchHeader->findOrFail($batchId);
+        //find cardex entries with batch id and update status to FINAL
+        $cardexEntries = $batchHeader->assetCardex()->get();
         if ($batchHeader->approved_date !== null) {
             throw new \Exception('Batch has already been approved.');
+        }
+        foreach($cardexEntries as $entry){
+            $entry->status = 'ACTIVE';
+            $entry->save();
         }
         $batchHeader->approved_date = now();
         $batchHeader->status = 'CLOSED';

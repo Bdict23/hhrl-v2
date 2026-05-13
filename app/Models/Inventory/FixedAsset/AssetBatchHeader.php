@@ -56,4 +56,8 @@ class AssetBatchHeader extends Model
      {
          return $this->belongsTo(PurchaseOrder::class, 'requisition_id');
      }
+     public function assetCardex()
+     {
+         return $this->hasMany(AssetCardex::class, 'batch_id');
+     }
 }
