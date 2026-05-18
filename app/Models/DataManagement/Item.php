@@ -5,6 +5,7 @@ namespace App\Models\DataManagement;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\UnitOfMeasure;
 use App\Models\DataManagement\Price;
+use App\Models\Inventory\FixedAsset\AssetCardex;
 
 class Item extends Model
 {
@@ -40,5 +41,8 @@ class Item extends Model
     }
     public function category(){
         return $this->belongsTo(Category::class,'category_id');
+    }
+    public function assetCardex(){
+        return $this->hasMany(AssetCardex::class, 'item_id');
     }
 }

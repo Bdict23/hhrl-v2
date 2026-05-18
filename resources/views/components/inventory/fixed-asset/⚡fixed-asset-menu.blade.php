@@ -5,6 +5,8 @@ use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 
 use App\Models\Inventory\FixedAsset\AssetBatchHeader;
+use App\Models\Inventory\FixedAsset\AssetCardex;
+use App\Models\DataManagement\Item;
 
 new class extends Component
 {
@@ -30,6 +32,13 @@ new class extends Component
                 ['index' => 'approved_by', 'label' => 'Approved By',  'sortable' => false],
                 ['index' => 'action', 'label' => 'Action',  'sortable' => false],
             ],
+            'assetListHeader' => [
+                ['index' => 'item_description', 'label' => 'Item'],
+                ['index' => 'item_code', 'label' => 'code', 'sortable' => false],
+                ['index' => 'is_serialized', 'label' => 'With Serial' , 'sortable' => false],
+                ['index' => 'qty', 'label' => 'Quantity'],
+                ['index' => 'action', 'label' => 'Action',  'sortable' => false],
+            ],
             'batchRows' => AssetBatchHeader::query()
                 ->with('preparedBy','reviewedBy','approvedBy')
                 ->when($this->search, function (Builder $query) {
@@ -41,8 +50,19 @@ new class extends Component
                 })
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
-                ->withQueryString()
-        ];
+                ->withQueryString(),
+
+            'assetListRows' => Item::query()
+                ->with('assetCardex')
+                ->whereHas('assetCardex') // Only items that exist in the cardex
+                ->when($this->search, function ($query) {
+                    $query->where('item_description', 'like', "%{$this->search}%")
+                        ->orWhere('item_code', 'like', "%{$this->search}%");
+                })
+                ->orderBy(...array_values($this->sort))
+                ->paginate($this->quantity)
+                ->withQueryString(),
+                    ];
     }
 };
 ?>
@@ -50,7 +70,25 @@ new class extends Component
 <div>
     <x-ts-tab wire:model.live="tab">
         <x-ts-tab.items tab="Asset Lists">
-            Not Available
+                <x-ts-table :headers="$assetListHeader" :rows="$assetListRows" striped :$sort paginate persistent loading filter>
+                    @interact('column_is_serialized', $row)
+                        @if($row->assetCardex->first()->is_serialized)
+                            <x-ts-badge text="Yes" color="fuchsia" />
+                        @else
+                            <x-ts-badge text="No" color="sky" />
+                        @endif
+                    @endinteract
+                    @interact('column_qty', $row)
+                        {{ $row->assetCardex->sum('qty') }}
+                    @endinteract
+                    @interact('column_action', $row)
+                        <x-ts-dropdown icon="ellipsis-vertical" static lg>
+                            <a href="">
+                                <x-ts-dropdown.items text="View Cardex" icon="eye" />
+                            </a>
+                        </x-ts-dropdown>
+                    @endinteract
+                </x-ts-table>
         </x-ts-tab.items>
         <x-ts-tab.items tab="Registration">
             <x-ts-table :headers="$batchHeader" :rows="$batchRows" striped :$sort paginate persistent loading filter>
