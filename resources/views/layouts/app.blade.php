@@ -226,7 +226,7 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="Petty Cash Voucher">
+                        <x-ts-side-bar.item text="Petty Cash Voucher" :route="route('petty-cash-voucher.summary')">
                             <x-slot:icon>
                                 {{-- Tawga ang imong custom SVG --}}
                                 <x-icon-dot class="w-5 h-5" />

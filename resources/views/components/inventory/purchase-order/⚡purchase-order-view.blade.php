@@ -189,7 +189,7 @@ new class extends Component
                 </div>
                 <div class="p-10 grid gap-3">
                     {{-- <span class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 w-full">DRAFT</span> --}}
-                    <x-ts-badge :text="$status" light  class="w-full justify-center" lg round/>
+                    <x-ts-badge :text="$status" light  class="w-auto h-fit justify-center" lg round/>
 
                 </div>
             </div>

@@ -62,6 +62,15 @@ class PurchaseOrderApiController extends Controller
         return response()->json($purchaseOrder);
 
     }
+    public function activePurchaseOrder(Request $request){
+        $branch_id = $request->query('branch_id');
+        $purchaseOrder = PurchaseOrder::query()->where('from_branch_id', $branch_id)
+        ->whereDoesntHave('assetBatchHeader')
+        ->whereIn('requisition_status', ['PARTIALLY FULFILLED','TO RECEIVE'])
+        ->get();
+        return response()->json($purchaseOrder);
+
+    }
     public function getReceivedItems(Request $request){
         $purchase_order_id = $request->query('purchase_order_id');
         $purchaseOrderItems = PurchaseOrder::with('purchaseOrderItems')->where('id', $purchase_order_id)->first();

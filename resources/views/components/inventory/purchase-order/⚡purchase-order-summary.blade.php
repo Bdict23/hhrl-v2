@@ -74,20 +74,15 @@ new class extends Component
 ?>
 
 <div>
-    <div class="lg:flex lg:justify-between grid mb-4">
-        <x-ts-breadcrumbs :items="[
-                        ['label' => 'Inventory', ],
-                        ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary')],
-            ]"  class="mb-3"/>
-
-    </div>
-
     <div>
         <x-ts-table :$headers :$rows :$sort paginate persistent loading striped filter>
             <x-slot:header>
                 <div class="lg:flex lg:justify-between mb-3 grid">
                     <div class="w-auto mb-3">
-                        <x-ts-button :href="route('purchase-order-create')" icon="plus" >New</x-ts-button>
+                         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
+                            ['label' => 'Inventory', 'icon' => 'archive-box' ],
+                            ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
+                        ]"  class="mb-3"/>
                     </div>
                     <div class="lg:flex gap-2 grid grid-cols-2">
                         <x-ts-select.native
@@ -161,4 +156,8 @@ new class extends Component
         </x-ts-table>
     </div>
     <x-ts-back-to-top />
+    <x-ts-dial lg>
+            <x-ts-dial.items icon="plus" label="New Purchase Order" href="{{ route('purchase-order-create')}}" navigate />
+            <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
+        </x-ts-dial>
 </div>

@@ -39,6 +39,15 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/fixed-asset-registration','inventory.fixed-asset.fixed-asset-registration')->name('fixed-asset.registration');
     Volt::route('/fixed-asset-batch-view/{id}','inventory.fixed-asset.fixed-asset-batch-view')->name('fixed-asset.batch-view');
 
+// TRANSACTION
+
+    //Petty Cash Voucher
+    Volt::route('/petty-cash-voucher/summary', 'transactions.petty-cash-voucher.petty-cash-voucher-summary')->name('petty-cash-voucher.summary');
+    Volt::route('/petty-cash-voucher/create', 'transactions.petty-cash-voucher.petty-cash-voucher-create')->name('petty-cash-voucher.create');
+    Volt::route('/petty-cash-voucher/view/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-view')->name('petty-cash-voucher.view');
+    Volt::route('/petty-cash-voucher/edit/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-edit')->name('petty-cash-voucher.edit');
+
+
 
 // VALIDATION
 
