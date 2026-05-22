@@ -49,7 +49,11 @@ class PettyCashVoucherService{
     return DB::transaction(function () use ($data) {
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
-            $event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id;
+            if(!$data['requisition_id'])
+               { $event_id = null;}
+            else
+            {$event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id;}
+
             $accountType = $this->accountType->findOrFail($data['account_types_id']);
             $transactionTitle = $this->transactionTemplate->findOrFail($data['template_id'])->templateName->template_name;
             $branchCode = $branch->branch_code;
@@ -91,12 +95,10 @@ class PettyCashVoucherService{
     {
         return DB::transaction(function () use ($data) {
             $itemsToInsert = [];
-            $branchId = $data['branch_id'];
-            $branch = $this->branch->findOrFail($branchId);
-            $event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id;
+            if(!$data['requisition_id'])
+            {$event_id = null;}else{$event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id ?? null;}
             $accountType = $this->accountType->findOrFail($data['account_types_id']);
             $transactionTitle = $this->transactionTemplate->findOrFail($data['template_id'])->templateName->template_name;
-            $company_id = $branch->company_id;
 
             foreach($data['items'] as $item)
             {

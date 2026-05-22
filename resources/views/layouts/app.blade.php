@@ -232,7 +232,7 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="Cash Return">
+                        <x-ts-side-bar.item text="Cash Return" :route="route('cash-return.summary-tab')">
                             <x-slot:icon>
                                 {{-- Tawga ang imong custom SVG --}}
                                 <x-icon-dot class="w-5 h-5" />

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\RestaurantApiController;
 use App\Http\Controllers\Api\InventoryApiController;
 use App\Http\Controllers\Api\SystemParameterApiController;
 use App\Http\Controllers\Api\AccountingApiController;
+use App\Http\Controllers\Api\PettyCashVoucherApiController;
+
 
 
 Route::get('/user', function (Request $request) {
@@ -37,6 +39,8 @@ Route::middleware('auth:sanctum')->get('/get-receiving-references', [PurchaseOrd
 
 // petty cash voucher
 Route::middleware('auth:sanctum')->get('/get-pcv-type', [SystemParameterApiController::class,'pcvType'])->name('api.get.pcv-type');
+Route::middleware('auth:sanctum')->get('/get-active-petty-cash-voucher', [PettyCashVoucherApiController::class,'activeDisbursementTypePettyCashVoucher'])->name('api.get.active.petty-cash-voucher');
+
 
 
 // Accounting

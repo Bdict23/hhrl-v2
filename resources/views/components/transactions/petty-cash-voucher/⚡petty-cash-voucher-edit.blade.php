@@ -6,6 +6,8 @@ use App\Models\Accounting\TemplateDetail;
 use App\Services\Transaction\PettyCashVoucherService;
 use App\Models\Transaction\PettyCashVoucher;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Accounting\TransactionTemplate;
+
 
 
 new class extends Component
@@ -35,11 +37,10 @@ new class extends Component
 
     protected function rules()
     {
-        protected $rules = [
+        $rules = [
         'transTypeId' => 'required|exists:system_parameters,id',
         'transactionId' => 'required|exists:actng_trans_templates,id',
         'pcvType' => 'required|exists:system_parameters,id',
-        'purchaseOrderId' => 'required|exists:requisition_infos,id',
         'notes' => 'nullable|string|max:255',
         'payeeId' => 'required|exists:'.($this->isCustomer ? 'customers,id' : 'employees,id'),
 
@@ -51,9 +52,12 @@ new class extends Component
             } else {
                 $rules['purchaseOrderId'] = 'nullable|exists:requisition_infos,id';
             }
-
             return $rules;
-
+    }
+    public function isPurchaseOrderRequired(): bool
+    {
+        $isRequire = TransactionTemplate::find($this->transactionId)->for_requisition ?? 0;
+        return $isRequire == 1;
     }
 
 
@@ -249,12 +253,14 @@ new class extends Component
 ?>
 
 <div>
-    <div >
+    <div class="flex justify-between">
          <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                             ['label' => 'Transaction', 'link' => route('petty-cash-voucher.summary') , 'icon' => 'cog'],
                             ['label' => 'Petty cash voucher summary', 'link' => route('petty-cash-voucher.summary'), 'icon' => 'list-bullet'],
                             ['label' => 'Petty cash voucher edit', 'icon' => 'pencil-square'],
                         ]"  class="mb-3"/>
+        <label class="text-2xl italic">( {{ $reference }} )</label>
+
     </div>
     <div class="grid gap-4 grid-cols-2 mt-5">
         <div>

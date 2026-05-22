@@ -17,8 +17,6 @@ use App\Livewire\Inventory\FixedAsset;
 Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
-    // Route::view('/dashboard', 'dashboard')->name('dashboard');
-
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/users', Index::class)->name('users.index');
@@ -42,10 +40,29 @@ Route::middleware(['auth'])->group(function () {
 // TRANSACTION
 
     //Petty Cash Voucher
-    Volt::route('/petty-cash-voucher/summary', 'transactions.petty-cash-voucher.petty-cash-voucher-summary')->name('petty-cash-voucher.summary');
-    Volt::route('/petty-cash-voucher/create', 'transactions.petty-cash-voucher.petty-cash-voucher-create')->name('petty-cash-voucher.create');
-    Volt::route('/petty-cash-voucher/view/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-view')->name('petty-cash-voucher.view');
-    Volt::route('/petty-cash-voucher/edit/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-edit')->name('petty-cash-voucher.edit');
+        Volt::route('/petty-cash-voucher/summary', 'transactions.petty-cash-voucher.petty-cash-voucher-summary')->name('petty-cash-voucher.summary');
+        Volt::route('/petty-cash-voucher/create', 'transactions.petty-cash-voucher.petty-cash-voucher-create')->name('petty-cash-voucher.create');
+        Volt::route('/petty-cash-voucher/view/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-view')->name('petty-cash-voucher.view');
+        Volt::route('/petty-cash-voucher/edit/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-edit')->name('petty-cash-voucher.edit');
+
+
+    // CASH RETURN
+        Volt::route('/cash-return/summary-tabs', 'transactions.cash-return.cash-return-summary-tab')->name('cash-return.summary-tab');
+            //PCV
+                Volt::route('/cash-return/pcv-crs-create', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-create')->name('cash-return.pcv-crs.create');
+                Volt::route('/cash-return/pcv-view/{id}', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-view')->name('cash-return.pcv-crs.view');
+                Volt::route('/cash-return/pcv-edit/{id}', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-edit')->name('cash-return.pcv-crs.edit');
+            //EVENT
+                Volt::route('/cash-return/event-crs-create', 'transactions.cash-return.cash-return-event.cash-return-event-create')->name('cash-return.event-crs.create');
+                Volt::route('/cash-return/event-crs-view/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
+                Volt::route('/cash-return/event-crs-edit/{id}',  'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
+            //CASH ADVANCES
+                Volt::route('/cash-return/cash-advance-crs-create', 'transactions.cash-return.cash-return-ca.cash-return-ca-create')->name('cash-return.cash-advance-crs.create');
+                Volt::route('/cash-return/cash-advance-crs-view/{id}', 'transactions.cash-return.cash-return-ca.cash-return-ca-view')->name('cash-return.cash-advance-crs.view');
+                Volt::route('/cash-return/cash-advance-crs-edit/{id}', 'transactions.cash-return.cash-return-ca.cash-return-ca-edit')->name('cash-return.cash-advance-crs.edit');
+
+
+
 
 
 
