@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cash_return_details', function (Blueprint $table) {
+            $table->id();
             $table->foreignId('cash_return_id')->constrained('cash_returns')->onDelete('cascade');
             $table->foreignId('branch_id')->constrained('branches')->onDelete('cascade');
             $table->timestamp('purchase_date')->useCurrent();

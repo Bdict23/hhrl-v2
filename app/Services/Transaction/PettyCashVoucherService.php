@@ -9,6 +9,8 @@ use App\Models\Inventory\PurchaseOrder;
 use App\Models\Accounting\AccountType;
 use App\Models\Accounting\TransactionTemplate;
 use Illuminate\Support\Facades\DB;
+use App\Models\Transaction\RevolvingFund;
+
 
 
 
@@ -20,8 +22,7 @@ class PettyCashVoucherService{
     protected $purchaseOrder;
     protected $accountType;
     protected $transactionTemplate;
-
-
+    protected $revolvingFund;
 
 
 
@@ -32,7 +33,8 @@ class PettyCashVoucherService{
             Branch $branch,
             PurchaseOrder $purchaseOrder,
             AccountType $accountType,
-            TransactionTemplate $transactionTemplate
+            TransactionTemplate $transactionTemplate,
+            RevolvingFund $revolvingFund,
             )
     {
         $this->pettyCashVoucher = $pettyCashVoucher;
@@ -41,6 +43,7 @@ class PettyCashVoucherService{
         $this->purchaseOrder = $purchaseOrder;
         $this->accountType = $accountType;
         $this->transactionTemplate = $transactionTemplate;
+        $this->revolvingFund = $revolvingFund;
     }
 
     public function create(array $data): PettyCashVoucher
@@ -85,6 +88,20 @@ class PettyCashVoucherService{
 
             ]);
             $pcv->pettyCashVoucherDetail()->createMany($data['items']);
+            $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
+            if($activeRevolvingFund)
+            {
+                //save expense on revolving fund ledger
+                $activeRevolvingFund->revolvingFundDetail()->create([
+                    'type' => 'OUT',
+                    'pcv_id' => $pcv->id,
+                    'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
+                    'amount' => $data['total_amount'],
+                    'balance' => $data['fund_balance'] - $data['total_amount'],
+                    'description' => 'PETTY CASH VOUCHER',
+                ]);
+
+            }
 
         return $pcv;
     });

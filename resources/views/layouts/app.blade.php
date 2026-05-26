@@ -208,13 +208,13 @@
                         </x-ts-side-bar.item>
                     </x-ts-side-bar.item>
                     <x-ts-side-bar.item text="Transaction" icon="arrow-path-rounded-square">
-                        <x-ts-side-bar.item text="Advances for Liquidation">
+                        <x-ts-side-bar.item text="Advances for Liquidation" :route="route('afl.summary')">
                             <x-slot:icon>
                                 {{-- Tawga ang imong custom SVG --}}
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="Acknowledgement">
+                        <x-ts-side-bar.item text="Acknowledgement" :route="route('acknowledgement-receipt.summary')">
                             <x-slot:icon>
                                 {{-- Tawga ang imong custom SVG --}}
                                 <x-icon-dot class="w-5 h-5" />
@@ -233,6 +233,12 @@
                             </x-slot:icon>
                         </x-ts-side-bar.item>
                         <x-ts-side-bar.item text="Cash Return" :route="route('cash-return.summary-tab')">
+                            <x-slot:icon>
+                                {{-- Tawga ang imong custom SVG --}}
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                         <x-ts-side-bar.item text="Revolving Fund" :route="route('revolving-fund.overview')">
                             <x-slot:icon>
                                 {{-- Tawga ang imong custom SVG --}}
                                 <x-icon-dot class="w-5 h-5" />

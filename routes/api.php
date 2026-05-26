@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\InventoryApiController;
 use App\Http\Controllers\Api\SystemParameterApiController;
 use App\Http\Controllers\Api\AccountingApiController;
 use App\Http\Controllers\Api\PettyCashVoucherApiController;
+use App\Http\Controllers\Api\RevolvingFundApiController;
+use App\Http\Controllers\Api\CustomerApiController;
 
 
 
@@ -41,10 +43,15 @@ Route::middleware('auth:sanctum')->get('/get-receiving-references', [PurchaseOrd
 Route::middleware('auth:sanctum')->get('/get-pcv-type', [SystemParameterApiController::class,'pcvType'])->name('api.get.pcv-type');
 Route::middleware('auth:sanctum')->get('/get-active-petty-cash-voucher', [PettyCashVoucherApiController::class,'activeDisbursementTypePettyCashVoucher'])->name('api.get.active.petty-cash-voucher');
 
-
+//revolving fund
+Route::middleware('auth:sanctum')->get('/get-revolving-fund-type', [RevolvingFundApiController::class,'activeAcknowledgementForRevolvingFund'])->name('api.get.active.acknowledgement-for-revolving-fund');
 
 // Accounting
 Route::middleware('auth:sanctum')->get('/get-selected-transaction_template', [AccountingApiController::class,'selectedTransactionTemplate'])->name('api.get.selected-transaction_template');
 Route::middleware('auth:sanctum')->get('/get-active-account-type', [AccountingApiController::class,'activeAccountType'])->name('api.get.active-account-type');
 Route::middleware('auth:sanctum')->get('/get-pcv-payee-employee', [AccountingApiController::class,'pcvPayeeEmployee'])->name('api.get.pcv-payee-employee');
 Route::middleware('auth:sanctum')->get('/get-pcv-payee-customer', [AccountingApiController::class,'pcvPayeeCustomer'])->name('api.get.pcv-payee-customer');
+
+//CUSTOMERS API
+Route::middleware('auth:sanctum')->get('/get-branch-customers',[CustomerApiController::class,'getBranchCustomers'])->name('api.get.branch-customers');
+

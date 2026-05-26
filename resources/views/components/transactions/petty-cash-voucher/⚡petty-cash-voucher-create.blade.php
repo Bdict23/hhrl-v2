@@ -6,6 +6,7 @@ use App\Models\Accounting\TemplateDetail;
 use App\Models\Accounting\TransactionTemplate;
 use App\Services\Transaction\PettyCashVoucherService;
 use Illuminate\Support\Facades\Auth;
+use App\Services\Transaction\RevolvingFundService;
 
 
 new class extends Component
@@ -28,9 +29,7 @@ new class extends Component
 
     // view
     public $debit_total = 0.00;
-    public $credit_total = 0.00;
-
-
+    public $credit_total = 0.00 ,$fundBalance = 0;
 
 
     protected function rules()
@@ -51,6 +50,9 @@ new class extends Component
         }
 
         return $rules;
+    }
+    public function mount(){
+        $this->fundBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
     }
 
     public function saveAsFinalAction(){
@@ -110,6 +112,7 @@ new class extends Component
                 'account_types_id' => $this->transTypeId, //COA header
                 'template_id' => $this->transactionId, // Template Id
                 'type_id' => $this->pcvType,
+                'fund_balance' => $this->fundBalance,
                 'items' => $this->particularsRow,
             ];
 
@@ -330,14 +333,21 @@ new class extends Component
 
             </div>
 
-                <div class="flex  justify-end mt-3 gap-2">
-                    <x-ts-dropdown>
-                        <x-slot:action>
-                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
-                        </x-slot:action>
-                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
-                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator  wire:click="saveAsFinalAction()" />
-                    </x-ts-dropdown>
+                <div class="flex  justify-between mt-3 gap-2">
+                    <x-ts-stats :number="$fundBalance" title="Fund Balance" animated>
+                            <x-slot:icon>
+                                <x-icon-peso class="w-6 h-6" />
+                            </x-slot:icon>
+                    </x-ts-stats>
+                    <div class="whitespace-nowrap content-center">
+                        <x-ts-dropdown>
+                            <x-slot:action>
+                                <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
+                            </x-slot:action>
+                            <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
+                            <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator  wire:click="saveAsFinalAction()" />
+                        </x-ts-dropdown>
+                    </div>
                 </div>
 
 

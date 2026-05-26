@@ -4,12 +4,7 @@ use App\Livewire\User\Profile;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Users\Index;
 use App\Livewire\Home\Dashboard;
-use Illuminate\Support\Facades\Http;
-use App\Livewire\Inventory\PurchaseOrderAction;
 use Livewire\Volt\Volt;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Api\SupplierApiController as SupplierApi;
-use App\Livewire\Inventory\FixedAsset;
 
 
 
@@ -38,6 +33,15 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/fixed-asset-batch-view/{id}','inventory.fixed-asset.fixed-asset-batch-view')->name('fixed-asset.batch-view');
 
 // TRANSACTION
+    //Cash Advances
+        Volt::route('/advances-for-liquidation/summary', 'transactions.advances-for-liquidation.advances-for-liquidation-summary')->name('afl.summary');
+
+    //Acknowledgement Receipt
+        Volt::route('/acknowledgement-receipt/summary', 'transactions.acknowledgement-receipt.acknowledgement-receipt-summary')->name('acknowledgement-receipt.summary');
+        Volt::route('acknowledgement-receipt/create', 'transactions.acknowledgement-receipt.acknowledgement-receipt-create')->name('acknowledgement-receipt.create');
+
+
+
 
     //Petty Cash Voucher
         Volt::route('/petty-cash-voucher/summary', 'transactions.petty-cash-voucher.petty-cash-voucher-summary')->name('petty-cash-voucher.summary');
@@ -61,12 +65,13 @@ Route::middleware(['auth'])->group(function () {
                 Volt::route('/cash-return/cash-advance-crs-view/{id}', 'transactions.cash-return.cash-return-ca.cash-return-ca-view')->name('cash-return.cash-advance-crs.view');
                 Volt::route('/cash-return/cash-advance-crs-edit/{id}', 'transactions.cash-return.cash-return-ca.cash-return-ca-edit')->name('cash-return.cash-advance-crs.edit');
 
+    // REVOLVING FUND
+        Volt::route('/revolving-fund/overview', 'transactions.revolving-fund.revolving-fund-overview')->name('revolving-fund.overview');
 
 
 
 
-
-// VALIDATION
+                // VALIDATION
 
     //Fixed Asset
     Volt::route('/fixed-asset/validation-summary', 'inventory.fixed-asset.fixed-asset-validation-summary')->name('fixed-asset.validation-summary');
