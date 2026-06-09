@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Event extends Model
 {
     protected $table = "banquet_events";
-     protected $fillable = [
+    protected $fillable = [
         'event_name',
         'reference',
         'event_address',
@@ -28,8 +28,8 @@ class Event extends Model
     ];
 
 
-     public function banquetEventBudget()
+    public function banquetEventBudget()
     {
-        return $this->hasMany(BanquetProcurement::class, 'event_id');
+        return $this->hasOne(BanquetProcurement::class, 'event_id');
     }
 }

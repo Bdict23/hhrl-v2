@@ -24,10 +24,11 @@ new class extends Component
             'headers' => [
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'reference', 'label' => 'Reference'],
+                ['index' => 'source', 'label' => 'fund source'],
                 ['index' => 'paid_to', 'label' => 'Paid To', 'sortable' => false],
                 ['index' => 'created_at', 'label' => 'Date'],
                 ['index' => 'total_amount', 'label' => 'Amount' , 'sortable' => false],
-                ['index' => 'requisition_id', 'label' => 'REQ. NO.' , 'sortable' => false],
+                ['index' => 'requisition_id', 'label' => 'P.O REF' , 'sortable' => false],
                 ['index' => 'created_by', 'label' => 'Prepared By',  'sortable' => false],
                 ['index' => 'action', 'label' => 'Action',  'sortable' => false],
             ],
@@ -100,6 +101,13 @@ new class extends Component
                     @endif
                 </div>
             @endinteract
+            @interact('column_source', $row)
+                @if($row->advance_liquidation_id)
+                    <span>AFL</span>
+                @else
+                    <span>REVOLVING</span>
+                @endif
+            @endinteract
             @interact('column_created_at', $row)
                 {{ \Illuminate\Support\Carbon::parse($row->trans_date)->format('M. d, Y') }}
             @endinteract
@@ -134,7 +142,6 @@ new class extends Component
 
         <x-ts-dial lg>
             <x-ts-dial.items icon="plus" label="New PCV " href="{{ route('petty-cash-voucher.create')}}" navigate />
-            <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
         </x-ts-dial>
 
 </div>

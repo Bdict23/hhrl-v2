@@ -5,9 +5,9 @@ namespace App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Transaction\Acknowledgement;
 
-class RevolvingFundDetail extends Model
+class RevolvingFundSnapshot extends Model
 {
-    protected $table = 'revolving_fund_details';
+    protected $table = 'revolving_fund_snapshots';
     protected $fillable = [
         'revolving_fund_id',
         'type',

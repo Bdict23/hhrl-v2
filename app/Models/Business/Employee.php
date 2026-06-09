@@ -4,6 +4,11 @@ namespace App\Models\Business;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Settings\Position;
+use App\Models\Settings\Signatory;
+use App\Models\Settings\ModulePermission;
+
+
+
 
 class Employee extends Model
 {
@@ -21,7 +26,13 @@ class Employee extends Model
         'status',
         'birth_date'
     ];
-    protected $appends = ['full_name'];
+    protected $appends = ['full_name', 'position_name'];
+
+    public function getPositionNameAttribute(): string
+    {
+        return $this->position->position_name;
+    }
+
 
     public function getFullNameAttribute(): string
     {
@@ -31,4 +42,15 @@ class Employee extends Model
     public function position(){
         return $this->belongsTo(Position::class, 'position_id');
     }
+    public function signatory()
+    {
+        return $this->hasMany(Signatory::class, 'employee_id');
+    }
+
+    public function modulePermission()
+    {
+        return $this->hasMany(ModulePermission::class, 'employee_id');
+    }
+
+
 }

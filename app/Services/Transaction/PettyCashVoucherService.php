@@ -10,11 +10,18 @@ use App\Models\Accounting\AccountType;
 use App\Models\Accounting\TransactionTemplate;
 use Illuminate\Support\Facades\DB;
 use App\Models\Transaction\RevolvingFund;
+use App\Models\Transaction\AdvancesForLiquidation;
+use App\Models\Transaction\PcvLiquidationSnapshot;
 
 
 
 
-class PettyCashVoucherService{
+
+
+
+
+class PettyCashVoucherService
+{
 
     protected $branch;
     protected $pettyCashVoucher;
@@ -23,20 +30,24 @@ class PettyCashVoucherService{
     protected $accountType;
     protected $transactionTemplate;
     protected $revolvingFund;
+    protected $advancesForLiquidation;
+    protected $pcvLiquidationSnapshot;
 
 
 
 
-        public function __construct(
-            PettyCashVoucher $pettyCashVoucher,
-            PettyCashVoucherDetail $pettyCashVoucherDetail,
-            Branch $branch,
-            PurchaseOrder $purchaseOrder,
-            AccountType $accountType,
-            TransactionTemplate $transactionTemplate,
-            RevolvingFund $revolvingFund,
-            )
-    {
+
+    public function __construct(
+        PettyCashVoucher $pettyCashVoucher,
+        PettyCashVoucherDetail $pettyCashVoucherDetail,
+        Branch $branch,
+        PurchaseOrder $purchaseOrder,
+        AccountType $accountType,
+        TransactionTemplate $transactionTemplate,
+        RevolvingFund $revolvingFund,
+        AdvancesForLiquidation $advancesForLiquidation,
+        PcvLiquidationSnapshot $pcvLiquidationSnapshot
+    ) {
         $this->pettyCashVoucher = $pettyCashVoucher;
         $this->pettyCashVoucherDetail = $pettyCashVoucherDetail;
         $this->branch = $branch;
@@ -44,18 +55,21 @@ class PettyCashVoucherService{
         $this->accountType = $accountType;
         $this->transactionTemplate = $transactionTemplate;
         $this->revolvingFund = $revolvingFund;
+        $this->advancesForLiquidation = $advancesForLiquidation;
+        $this->pcvLiquidationSnapshot = $pcvLiquidationSnapshot;
     }
 
     public function create(array $data): PettyCashVoucher
     {
 
-    return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data) {
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
-            if(!$data['requisition_id'])
-               { $event_id = null;}
-            else
-            {$event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id;}
+            if (!$data['requisition_id']) {
+                $event_id = null;
+            } else {
+                $event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id;
+            }
 
             $accountType = $this->accountType->findOrFail($data['account_types_id']);
             $transactionTitle = $this->transactionTemplate->findOrFail($data['template_id'])->templateName->template_name;
@@ -84,41 +98,69 @@ class PettyCashVoucherService{
                 'account_type' => $accountType->type_name,
                 'template_id' => $data['template_id'],
                 'transaction_title' => $transactionTitle,
-                'type_id' => $data['type_id'],
+                'advance_liquidation_id' => $data['afl_id'],
+
+
 
             ]);
-            $pcv->pettyCashVoucherDetail()->createMany($data['items']);
-            $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
-            if($activeRevolvingFund)
-            {
-                //save expense on revolving fund ledger
-                $activeRevolvingFund->revolvingFundDetail()->create([
+            $pcvItems = [];
+            foreach ($data['items'] as $item) {
+                $pcvItems[] = [
+                    'transaction_title_id'      => $item['transaction_title_id'],
+                    'transaction_title'         => $item['transaction_title'],
+                    'type'                      => $item['type'],
+                    'amount'                    => $item['debit'] == 0 ? $item['credit'] : $item['debit'],
+                ];
+            }
+
+            $pcv->pettyCashVoucherDetail()->createMany($pcvItems);
+
+            // check if the fund source passed is revolving fund else AFL fund
+            $balance = $data['fund_balance'] - $data['total_amount'];
+            if ($data['fund_source'] == 'REVOLVING') {
+                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
+                if ($activeRevolvingFund) {
+                    //save expense on revolving fund ledger
+                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                        'type' => 'OUT',
+                        'pcv_id' => $pcv->id,
+                        'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
+                        'amount' => $data['total_amount'],
+                        'balance' => $balance,
+                        'description' => 'PETTY CASH VOUCHER',
+                    ]);
+                }
+            } else {
+                $afl = $this->advancesForLiquidation->findOrFail($data['afl_id']);
+                $afl->advanceLiquidationSnapshot()->create([
+                    'branch_id' => $branchId,
                     'type' => 'OUT',
                     'pcv_id' => $pcv->id,
                     'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
                     'amount' => $data['total_amount'],
-                    'balance' => $data['fund_balance'] - $data['total_amount'],
+                    'balance' => $balance,
                     'description' => 'PETTY CASH VOUCHER',
                 ]);
-
             }
 
-        return $pcv;
-    });
 
+            return $pcv;
+        });
     }
 
     public function update(array $data): PettyCashVoucher
     {
         return DB::transaction(function () use ($data) {
             $itemsToInsert = [];
-            if(!$data['requisition_id'])
-            {$event_id = null;}else{$event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id ?? null;}
+            if (!$data['requisition_id']) {
+                $event_id = null;
+            } else {
+                $event_id = $this->purchaseOrder->findOrFail($data['requisition_id'])->event_id ?? null;
+            }
             $accountType = $this->accountType->findOrFail($data['account_types_id']);
             $transactionTitle = $this->transactionTemplate->findOrFail($data['template_id'])->templateName->template_name;
 
-            foreach($data['items'] as $item)
-            {
+            foreach ($data['items'] as $item) {
                 $itemsToInsert[] = [
                     'transaction_title_id'      => $item['transaction_title_id'],
                     'transaction_title'         => $item['transaction_title'],
@@ -140,17 +182,77 @@ class PettyCashVoucherService{
                 'account_type' => $accountType->type_name,
                 'template_id' => $data['template_id'],
                 'transaction_title' => $transactionTitle,
-                'type_id' => $data['type_id'],
+            ]);
+
+            // Delete existing PCV details, AFL snapshots, and Revolving Fund snapshots related to this PCV before inserting updated records
+            $pcv->advancesForLiquidationSnapshot()->delete();
+            $pcv->revolvingFundSnapshot()->delete();
+            $pcv->pettyCashVoucherDetail()->delete();
+            $pcv->pettyCashVoucherDetail()->createMany($itemsToInsert);
+            // check if the fund source passed is revolving fund else AFL fund
+            $balance = $data['fund_balance'] - $data['total_amount'];
+            if ($data['fund_source'] == 'REVOLVING') {
+                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $data['branch_id'])->where('status', 'OPEN')->first();
+                if ($activeRevolvingFund) {
+                    //save expense on revolving fund ledger
+                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                        'type' => 'OUT',
+                        'pcv_id' => $pcv->id,
+                        'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
+                        'amount' => $data['total_amount'],
+                        'balance' => $balance,
+                        'description' => 'PETTY CASH VOUCHER',
+                    ]);
+                }
+            } else {
+                $afl = $this->advancesForLiquidation->findOrFail($data['afl_id']);
+                $afl->advanceLiquidationSnapshot()->create([
+                    'branch_id' => $data['branch_id'],
+                    'type' => 'OUT',
+                    'pcv_id' => $pcv->id,
+                    'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
+                    'amount' => $data['total_amount'],
+                    'balance' => $balance,
+                    'description' => 'PETTY CASH VOUCHER',
                 ]);
-
-                $pcv->pettyCashVoucherDetail()->delete();
-                $pcv->pettyCashVoucherDetail()->createMany($itemsToInsert);
-
+            }
             return $pcv;
-
-            });
+        });
     }
 
+    public function liquidate(array $data): PettyCashVoucher
+    {
+        return DB::transaction(function () use ($data) {
+            $itemsToInsert = [];
+            foreach ($data['items'] as $item) {
+                $itemsToInsert[] = [
+                    'pcv_id'                    => $data['pcv_id'],
+                    'branch_id'                 => $data['branch_id'],
+                    'purchase_date'             => $item['purchase_date'],
+                    'vendor'                    => $item['vendor'],
+                    'reference'                 => $item['reference'],
+                    'particular'                => $item['particular'],
+                    'amount'                    => (float) str_replace(",", "", $item['amount']),
+                ];
+            }
+            // Change 'createMany' to 'insert'
+            $this->pcvLiquidationSnapshot->insert($itemsToInsert);
 
+            $pcvHeader = $this->pettyCashVoucher->findOrFail($data['pcv_id']);
+            $liquidatedAmt = collect($itemsToInsert)->sum('amount');
+            if ($pcvHeader->total_amount == $liquidatedAmt) {
+                $pcvHeader->update([
+                    'status' => 'CLOSED',
+                ]);
+            }
+            return $pcvHeader;
+        });
+    }
 
+    public static function liquidatedAmount(int $id)
+    {
+        $detailData = PcvLiquidationSnapshot::where('pcv_id', $id)->get();
+        $expense = $detailData->sum('amount');
+        return $expense;
+    }
 }

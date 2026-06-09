@@ -23,6 +23,8 @@ class CashReturn extends Model
         'created_at',
         'approved_by',
         'approved_date',
+        'advances_liquidation_id',
+
     ];
 
     public function preparedBy()
@@ -35,8 +37,18 @@ class CashReturn extends Model
     }
     public function cashReturnDetail()
     {
-        return $this->hasMany(CashReturnDetail::class,'cash_return_id');
+        return $this->hasMany(CashReturnDetail::class, 'cash_return_id');
     }
-
-
+    public function advancesLiquidationSnapshot()
+    {
+        return $this->hasOne(AdvancesForLiquidationSnapshot::class, 'cash_return_id');
+    }
+    public function advancesForLiquidation()
+    {
+        return $this->belongsTo(AdvancesForLiquidation::class, 'advances_liquidation_id');
+    }
+    public function revolvingFundSnapshot()
+    {
+        return $this->hasOne(RevolvingFundSnapshot::class, 'cash_return_id');
+    }
 }

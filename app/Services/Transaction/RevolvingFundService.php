@@ -5,28 +5,29 @@ namespace App\Services\Transaction;
 use App\Models\Business\Branch;
 use Illuminate\Support\Facades\DB;
 use App\Models\Transaction\RevolvingFund;
-use App\Models\Transaction\RevolvingFundDetail;
+use App\Models\Transaction\RevolvingFundSnapshot;
 
 
 
 
-class RevolvingFundService{
+class RevolvingFundService
+{
 
     protected $branch;
     protected $revolvingFund;
-    protected $revolvingFundDetail;
+    protected $revolvingFundSnapshot;
 
-        public function __construct( Branch $branch, RevolvingFund $revolvingFund, RevolvingFundDetail $detail)
+    public function __construct(Branch $branch, RevolvingFund $revolvingFund, RevolvingFundSnapshot $detail)
     {
         $this->branch = $branch;
         $this->revolvingFund = $revolvingFund;
-        $this->revolvingFundDetail = $detail;
+        $this->revolvingFundSnapshot = $detail;
     }
 
     public function createBatch(array $data): RevolvingFund
     {
 
-    return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data) {
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
             $ceilingAmount = $branch->ceilingAmount->name;
@@ -48,6 +49,8 @@ class RevolvingFundService{
                 'ceiling_amount' => $ceilingAmount,
                 'starting_balance' =>  $data['balance'],
                 'amount' => $data['replenished_amount'] + $data['balance'],
+                'acknowledgement_id' => $data['acknowledgement_id'],
+
 
             ]);
             $itemsToInsert = [];
@@ -67,26 +70,25 @@ class RevolvingFundService{
             }
 
             // UPDATE THE PREV. REVOLVING FUND TO CLOSE
-            if($data['current_revolving_fund_id'] != null){
-                 $this->revolvingFund->findorFail($data['current_revolving_fund_id'])->update([
-                'status' => 'CLOSED',
-                'ending_balance' => $data['balance'],
-                'closed_at' => now()
-            ]);
+            if ($data['current_revolving_fund_id'] != null) {
+                $this->revolvingFund->findorFail($data['current_revolving_fund_id'])->update([
+                    'status' => 'CLOSED',
+                    'ending_balance' => $data['balance'],
+                    'closed_at' => now()
+                ]);
             }
 
 
 
-            $rev->revolvingFundDetail()->createMany($itemsToInsert);
+            $rev->revolvingFundSnapshot()->createMany($itemsToInsert);
 
-        return $rev;
-    });
-
+            return $rev;
+        });
     }
     public static function currentBalance(string $branchId)
     {
-        $fundId = RevolvingFund::with('revolvingFundDetail')->where('branch_id',$branchId)->where('status', 'OPEN')->first()->id ?? null;
-        $detailData = RevolvingFundDetail::where('revolving_fund_id', $fundId)->get();
+        $fundId = RevolvingFund::with('revolvingFundSnapshot')->where('branch_id', $branchId)->where('status', 'OPEN')->first()->id ?? null;
+        $detailData = RevolvingFundSnapshot::where('revolving_fund_id', $fundId)->get();
         $expense = $detailData->where('status', 'FINAL')->where('type', 'OUT')->sum('amount');
         $fund = $detailData->where('status', 'FINAL')->where('type', 'IN')->sum('amount');
         $result = (float) ($fund - $expense);
@@ -95,11 +97,9 @@ class RevolvingFundService{
 
     public static function expensedAmount(string $branchId)
     {
-        $fundId = RevolvingFund::with('revolvingFundDetail')->where('branch_id',$branchId)->where('status', 'OPEN')->first()->id ?? null;
-        $detailData = RevolvingFundDetail::where('revolving_fund_id', $fundId)->get();
+        $fundId = RevolvingFund::with('revolvingFundSnapshot')->where('branch_id', $branchId)->where('status', 'OPEN')->first()->id ?? null;
+        $detailData = RevolvingFundSnapshot::where('revolving_fund_id', $fundId)->get();
         $expense = $detailData->where('status', 'FINAL')->where('type', 'OUT')->sum('amount');
         return $expense;
-
     }
-
 }

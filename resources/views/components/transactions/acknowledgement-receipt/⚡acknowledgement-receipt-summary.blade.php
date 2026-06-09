@@ -107,11 +107,11 @@ new class extends Component
             @interact('column_action', $row)
             <x-ts-dropdown icon="ellipsis-vertical" static lg>
                 @if($row->status == 'DRAFT')
-                    <a href="{{route('petty-cash-voucher.edit',  ['id' => $row->id])}}">
+                    <a href="{{route('acknowledgement-receipt.edit',  ['id' => $row->id])}}">
                         <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                     </a>
                 @endif
-                <a href="{{route('petty-cash-voucher.view', ['id' => $row->id])}}">
+                <a href="{{route('acknowledgement-receipt.view', ['id' => $row->id])}}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
                 <a>

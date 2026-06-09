@@ -444,6 +444,6 @@ new class extends Component
                 <x-ts-button flat x-on:click="$tsui.close.modal('modal-add-item')">Close</x-ts-button>
         </x-slot:footer>
     </x-ts-modal>
-
+    <x-ts-loading delay="short" loading="store" />
     <x-ts-back-to-top />
 </div>

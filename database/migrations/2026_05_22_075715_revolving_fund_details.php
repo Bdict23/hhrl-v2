@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('revolving_fund_details', function (Blueprint $table) {
+        Schema::create('revolving_fund_snapshots', function (Blueprint $table) {
             $table->id();
             $table->foreignId('revolving_fund_id')->constrained('revolving_funds')->onDelete('cascade');
             $table->enum('type', ['IN', 'OUT'])->default('IN');

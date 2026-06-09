@@ -1,16 +1,18 @@
 <?php
 
 namespace App\Models\Transaction;
+
 use App\Models\Business\Employee;
 use App\Models\Business\Customer;
 use App\Models\Inventory\PurchaseOrder;
+use App\Models\BanquetEvent\Event;
 
 use Illuminate\Database\Eloquent\Model;
 
 class PettyCashVoucher extends Model
 {
     protected $table = 'petty_cash_vouchers';
-        protected $fillable = [
+    protected $fillable = [
         'branch_id',
         'company_id',
         'event_id',
@@ -31,6 +33,7 @@ class PettyCashVoucher extends Model
         'template_id',
         'transaction_title',
         'type_id',
+        'advance_liquidation_id',
     ];
 
     public function paidToEmployee()
@@ -53,7 +56,34 @@ class PettyCashVoucher extends Model
     }
     public function pettyCashVoucherDetail()
     {
-        return $this->hasMany(PettyCashVoucherDetail::class,'petty_cash_voucher_id');
+        return $this->hasMany(PettyCashVoucherDetail::class, 'petty_cash_voucher_id');
     }
-
+    public function liquidationData()
+    {
+        return $this->hasMany(PcvLiquidationSnapshot::class, 'pcv_id');
+    }
+    public function advanceLiquidation()
+    {
+        return $this->belongsTo(AdvancesForLiquidation::class, 'advance_liquidation_id');
+    }
+    public function reimbursements()
+    {
+        return $this->hasOne(Reimbursement::class, 'pcv_id');
+    }
+    public function cashReturns()
+    {
+        return $this->hasMany(CashReturn::class, 'pcv_id');
+    }
+    public function revolvingFundSnapshot()
+    {
+        return $this->hasOne(RevolvingFundSnapshot::class, 'pcv_id');
+    }
+    public function advancesForLiquidationSnapshot()
+    {
+        return $this->hasOne(AdvancesForLiquidationSnapshot::class, 'pcv_id');
+    }
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id');
+    }
 }

@@ -3,6 +3,9 @@
 namespace App\Models\Transaction;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Transaction\Acknowledgement;
+use App\Models\Business\Employee;
+
 
 class RevolvingFund extends Model
 {
@@ -21,10 +24,23 @@ class RevolvingFund extends Model
         'closed_at',
         'created_at',
         'updated_at',
+        'acknowledgement_id',
     ];
 
-    public function revolvingFundDetail()
+    public function revolvingFundSnapshot()
     {
-        return $this->hasMany(RevolvingFundDetail::class,'revolving_fund_id');
+        return $this->hasMany(RevolvingFundSnapshot::class, 'revolving_fund_id');
+    }
+    public function acknowledgement()
+    {
+        return $this->belongsTo(Acknowledgement::class, 'acknowledgement_id');
+    }
+    public function preparedBy()
+    {
+        return $this->belongsTo(Employee::class, 'prepared_by');
+    }
+    public function approvedBy()
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
     }
 }

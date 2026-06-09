@@ -7,6 +7,11 @@ use App\Models\Accounting\TransactionTemplate;
 use App\Services\Transaction\PettyCashVoucherService;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Transaction\RevolvingFundService;
+use App\Services\Transaction\AdvancesForLiquidationService;
+use App\Models\Transaction\AdvancesForLiquidation;
+
+use App\Models\Inventory\PurchaseOrder;
+
 
 
 new class extends Component
@@ -17,19 +22,23 @@ new class extends Component
 
 
     // entries
-    public $transTypeId;
-    public $transactionId;
-    public $payeeId; //mount
-    public $pcvType;
-    public $purchaseOrderId;
-    public $notes;
-    public $isCustomer;
-    public $status;
-    public $createdBy;
+    public $transTypeId, 
+    $transactionId,
+    $payeeId,
+    $purchaseOrderId,
+    $notes,
+    $isCustomer,
+    $status,
+    $createdBy,
+    $aflId,
+    $fundSource = 'REVOLVING',
+    $eventId;
+
 
     // view
     public $debit_total = 0.00;
-    public $credit_total = 0.00 ,$fundBalance = 0;
+    public $credit_total = 0.00 ,$dynamicBalance = 0, $staticBalance = 0,
+    $hasEvent = false;
 
 
     protected function rules()
@@ -37,7 +46,6 @@ new class extends Component
         $rules = [
             'transTypeId' => 'required|exists:system_parameters,id',
             'transactionId' => 'required|exists:actng_trans_templates,id',
-            'pcvType' => 'required|exists:system_parameters,id',
             'notes' => 'nullable|string|max:255',
             'payeeId' => 'required|exists:'.($this->isCustomer ? 'customers,id' : 'employees,id'),
         ];
@@ -48,11 +56,34 @@ new class extends Component
         } else {
             $rules['purchaseOrderId'] = 'nullable|exists:requisition_infos,id';
         }
-
         return $rules;
     }
     public function mount(){
-        $this->fundBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
+        $this->dynamicBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
+        $this->staticBalance = $this->dynamicBalance;
+
+    }
+    public function updatedAflId(){
+        if($this->aflId){
+            $this->dynamicBalance = AdvancesForLiquidationService::currentBalance($this->aflId);
+            $this->staticBalance = $this->dynamicBalance;
+            $this->fundSource = 'ADVANCES';
+            $this->eventId = AdvancesForLiquidation::find($this->aflId)->event_id;
+            $this->purchaseOrderId = null;
+            if($this->eventId){
+                $this->hasEvent = true;
+            }
+        }else{
+            $this->hasEvent = false;
+            $this->dynamicBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
+            $this->staticBalance = $this->dynamicBalance;
+            $this->fundSource = 'REVOLVING';
+        }
+        if($this->particularsRow){
+            $this->debit_total = collect($this->particularsRow)->sum('debit');
+            $this->credit_total = collect($this->particularsRow)->sum('credit');
+            $this->dynamicBalance = $this->staticBalance - $this->credit_total;
+        }
     }
 
     public function saveAsFinalAction(){
@@ -66,7 +97,6 @@ new class extends Component
             )
         ->cancel('Cancel')
         ->send();
-
     }
 
     public function isPurchaseOrderRequired(): bool
@@ -94,6 +124,16 @@ new class extends Component
             $paid_to_customer_id = null;
             $paid_to_employee_id = null;
 
+            if($this->credit_total != $this->debit_total){
+                $this->toast()->error('Error', 'Debit and credit amounts do not match')->send();
+                return;
+            }else{
+                if($this->dynamicBalance < 0){
+                    $this->toast()->error('Error', 'Insufficient fund balance')->send();
+                    return;
+                }
+            }
+
             if($this->isCustomer){
                 $paid_to_customer_id = $this->payeeId;
             }else{
@@ -111,8 +151,9 @@ new class extends Component
                 'requisition_id'    => $this->purchaseOrderId,
                 'account_types_id' => $this->transTypeId, //COA header
                 'template_id' => $this->transactionId, // Template Id
-                'type_id' => $this->pcvType,
-                'fund_balance' => $this->fundBalance,
+                'fund_balance' => $this->staticBalance,
+                'fund_source' => $this->fundSource,
+                'afl_id' => $this->aflId,
                 'items' => $this->particularsRow,
             ];
 
@@ -135,14 +176,22 @@ new class extends Component
     public function updatedParticularsRow($value, $key)
     {
 
-        $this->debit_total = number_format(collect($this->particularsRow)->sum('debit'), 2 );
-        $this->credit_total = number_format(collect($this->particularsRow)->sum('credit'), 2 );
-        $isDebit = $this->particularsRow[$key]['debit'] ?? false;
-        if($isDebit)
-            $this->particularsRow[$key]['amount'] = $this->particularsRow[$key]['debit'];
-        else{
-            $this->particularsRow[$key]['amount'] = $this->particularsRow[$key]['credit'];
+        $parts = explode('.', $key);
+        $index = $parts[0];
+        if (isset($parts[1]) && $parts[1] === 'debit') {
+            if($this->particularsRow[$index]['debit'])
+                {
+                    $this->debit_total = collect($this->particularsRow)->sum('debit');
+                }
         }
+         if (isset($parts[1]) && $parts[1] === 'credit') {
+             if($this->particularsRow[$index]['credit'])
+                {
+                    $this->credit_total = collect($this->particularsRow)->sum('credit');
+                }
+        }
+
+        $this->dynamicBalance = $this->staticBalance - $this->credit_total;
 
     }
 
@@ -178,10 +227,12 @@ new class extends Component
             $item = TemplateDetail::with('accountTitle')->where('template_id', $this->transactionId)->get();
             foreach ($item as $row) {
             $this->particularsRow[] = [
-                    'transaction_title_id' => $row->accountTitle->id,
-                    'transaction_title'    => $row->accountTitle->account_title,
-                    'type'             => $row->type,
-                    'amount'            => 0,
+                    'transaction_title_id'  => $row->accountTitle->id,
+                    'transaction_title'     => $row->accountTitle->account_title,
+                    'type'                  => $row->type,
+                    'amount'                => 0,
+                    'debit'                 => 0,
+                    'credit'                => 0,
                 ];
             }
         }
@@ -214,7 +265,7 @@ new class extends Component
             <x-ts-table :headers="$particularsHeader" :rows="$particularsRow" striped>
                 @interact('column_debit', $row)
                     @if($row['type'] == 'DEBIT')
-                        <x-ts-input wire:model.live.debounce.750ms="particularsRow.{{ $loop->index }}.debit"/>
+                        <x-ts-input wire:model.live.debounce.750ms="particularsRow.{{ $loop->index }}.debit" type="number"/>
                     @endif
                 @endinteract
                 @interact('column_credit', $row)
@@ -238,31 +289,54 @@ new class extends Component
                         @endif
                     @endinteract
             </x-ts-table>
+            <div class="mt-3">
+                @if ($aflId)
+                    <x-ts-alert :dismiss="5" close title="Important Note" text="Choosing Advances for Liquidation option will allocate the PCV entries to AFL" light />
+                @endif
+            </div>
         </div>
         <x-ts-card>
             <div>
                 <div class="grid gap-3 grid-cols-2 mt-3">
                     <x-ts-select.styled
-                        :request="route('api.get.pcv-type', ['branch_id' => auth()->user()->branch_id ])"
-                        select="label:name|value:id"
-                        wire:model="pcvType"
-                        label="Type"
+                        :request="route('api.get.active-afl', ['branch_id' => auth()->user()->branch_id ])"
+                        select="label:reference|value:id|description:description_one"
+                        wire:model.live="aflId"
+                        label="Advances for liquidation"
                         :placeholders="[
                         'default' => 'Select',
                         'empty'   => 'No type found',
-                        ]" required/>
-
-                        <x-ts-select.styled
-                        label="Purchase Order"
-                        select="label:requisition_number|value:id|description:remarks"
-                        :placeholders="[
-                            'default' => 'Select',
-                            'search'  => 'Search Purchase Order',
-                            'empty'   => 'No received purchase order found',
                         ]"
-                        wire:model.live="purchaseOrderId"
-                        :request="route('api.active.purchase-order', ['branch_id' => auth()->user()->branch_id])"
-                    />
+                        />
+
+                        @if(!$hasEvent)
+                             <x-ts-select.styled
+                                label="Purchase Order"
+                                select="label:requisition_number|value:id|description:remarks"
+                                :placeholders="[
+                                    'default' => 'Select',
+                                    'search'  => 'Search Purchase Order',
+                                    'empty'   => 'No received purchase order found',
+                                ]"
+                                wire:model.live="purchaseOrderId"
+                                :request="route('api.get.non-event-purchase-order', ['branch_id' => auth()->user()->branch_id])"
+                            />
+                        @else
+                            <div wire:key="event-purchase-order-container-{{ $eventId }}">
+                                <x-ts-select.styled
+                                    label="Event Purchase Order"
+                                    select="label:requisition_number|value:id|description:remarks"
+                                    :placeholders="[
+                                        'default' => 'Select',
+                                        'search'  => 'Search Event Purchase Order',
+                                        'empty'   => 'No received event purchase order found',
+                                    ]"
+                                    wire:model.live="purchaseOrderId"
+                                    :request="route('api.get.event-purchase-order', ['event_id' => $eventId])"
+                                />
+                            </div>
+                        @endif
+                    
                 </div>
 
                     <div class="mt-3">
@@ -290,67 +364,65 @@ new class extends Component
                                 ]" required />
                     </div>
 
-                    <div class="mt-3 grid grid-cols-3 gap-3 w-full">
-                        <div class="col-span-2" wire:key="payee-select-container-{{ (int) $isCustomer }}">
+                <div class="mt-3 grid grid-cols-3 gap-3 w-full">
+                    <div class="col-span-2" wire:key="payee-select-container-{{ (int) $isCustomer }}">
 
-                        @if($isCustomer)
-                            <x-ts-select.styled
+                    @if($isCustomer)
+                        <x-ts-select.styled
+                        wire:model.live="payeeId"
+                        :request="route('api.get.pcv-payee-customer', ['branch_id' => auth()->user()->branch_id])"
+                        select="label:name|value:id"
+                        label="Payee (customer)"
+                        :placeholders="[
+                        'default' => 'Select',
+                        'empty'   => 'No payee found',
+                        ]" required/>
+                    @else
+                        <x-ts-select.styled
                             wire:model.live="payeeId"
-                            :request="route('api.get.pcv-payee-customer', ['branch_id' => auth()->user()->branch_id])"
+                            :request="route('api.get.pcv-payee-employee', ['branch_id' => auth()->user()->branch_id])"
                             select="label:name|value:id"
-                            label="Payee (customer)"
+                            label="Payee (employee)"
                             :placeholders="[
                             'default' => 'Select',
                             'empty'   => 'No payee found',
                             ]" required/>
-                        @else
-                            <x-ts-select.styled
-                                wire:model.live="payeeId"
-                                :request="route('api.get.pcv-payee-employee', ['branch_id' => auth()->user()->branch_id])"
-                                select="label:name|value:id"
-                                label="Payee (employee)"
-                                :placeholders="[
-                                'default' => 'Select',
-                                'empty'   => 'No payee found',
-                                ]" required/>
-                        @endif
-                        </div>
-                        <div class="flex items-end pb-2">
-                            <x-ts-checkbox label="Customer" wire:model.live="isCustomer" />
-                        </div>
+                    @endif
                     </div>
-
-                    <div class="grid gap-3 grid-cols-2 mt-3">
-                        <x-ts-input label="Debit" sm placeholder="0.00" readonly wire:model='debit_total'/>
-                        <x-ts-input label="Credit" sm placeholder="0.00" readonly wire:model='credit_total'/>
-                    </div>
-                        <div class="mt-3">
-                            <x-ts-input label="Disburse amount" sm placeholder="0.00" readonly wire:model='credit_total'/>
-                        </div>
-                        <div class="mt-3">
-                            <x-ts-textarea label="Note" resize maxlength="250" count placeholder="Add note .." wire:model="notes"/>
-                        </div>
-
-            </div>
-
-                <div class="flex  justify-between mt-3 gap-2">
-                    <x-ts-stats :number="$fundBalance" title="Fund Balance" animated>
-                            <x-slot:icon>
-                                <x-icon-peso class="w-6 h-6" />
-                            </x-slot:icon>
-                    </x-ts-stats>
-                    <div class="whitespace-nowrap content-center">
-                        <x-ts-dropdown>
-                            <x-slot:action>
-                                <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
-                            </x-slot:action>
-                            <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
-                            <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator  wire:click="saveAsFinalAction()" />
-                        </x-ts-dropdown>
+                    <div class="flex items-end pb-2">
+                        <x-ts-checkbox label="Customer" wire:model.live="isCustomer" />
                     </div>
                 </div>
+                <div class="grid gap-3 grid-cols-2 mt-3">
+                    <x-ts-input label="Debit" sm placeholder="0.00" readonly wire:model='debit_total'/>
+                    <x-ts-input label="Credit" sm placeholder="0.00" readonly wire:model='credit_total'/>
+                </div>
+                <div class="mt-3">
+                    <x-ts-input label="Disburse amount" sm placeholder="0.00" readonly wire:model='credit_total'/>
+                </div>
+                <div class="mt-3">
+                    <x-ts-textarea label="Note" resize maxlength="250" count placeholder="Add note .." wire:model="notes"/>
+                </div>
+            </div>
 
-
+            <div class="flex  justify-between mt-3 gap-2">
+                <x-ts-stats :number="$dynamicBalance" title="Fund Balance" animated>
+                        <x-slot:icon>
+                            <x-icon-peso class="w-6 h-6" />
+                        </x-slot:icon>
+                </x-ts-stats>
+            </div>
+            <x-slot:footer>
+                 <div class="whitespace-nowrap flex justify-end">
+                    <x-ts-dropdown>
+                        <x-slot:action>
+                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
+                        </x-slot:action>
+                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
+                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator  wire:click="saveAsFinalAction()" />
+                    </x-ts-dropdown>
+                </div>
+            </x-slot:footer>
         </x-ts-card>
     </div>
 </div>

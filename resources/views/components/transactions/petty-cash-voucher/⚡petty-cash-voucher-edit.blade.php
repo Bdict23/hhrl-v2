@@ -7,6 +7,9 @@ use App\Services\Transaction\PettyCashVoucherService;
 use App\Models\Transaction\PettyCashVoucher;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Accounting\TransactionTemplate;
+use App\Services\Transaction\RevolvingFundService;
+use App\Services\Transaction\AdvancesForLiquidationService;
+
 
 
 
@@ -23,7 +26,6 @@ new class extends Component
     public $transTypeId;
     public $transactionId;
     public $payeeId; //mount
-    public $pcvType;
     public $purchaseOrderId;
     public $notes;
     public $isCustomer;
@@ -34,13 +36,16 @@ new class extends Component
     public $debit_total = 0.00;
     public $credit_total = 0.00;
     public $reference;
+    public $dynamicBalance = 0;
+    public $staticBalance = 0;
+    public $fundSource;
+    public $aflId;
 
     protected function rules()
     {
         $rules = [
         'transTypeId' => 'required|exists:system_parameters,id',
         'transactionId' => 'required|exists:actng_trans_templates,id',
-        'pcvType' => 'required|exists:system_parameters,id',
         'notes' => 'nullable|string|max:255',
         'payeeId' => 'required|exists:'.($this->isCustomer ? 'customers,id' : 'employees,id'),
 
@@ -63,8 +68,28 @@ new class extends Component
 
     public function mount($id)
     {
+        $this->staticBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
+        $this->dynamicBalance = $this->staticBalance;
         $this->pcvId = $id;
         $this->fetchData();
+        $this->updatedAflId();
+    }
+
+    public function updatedAflId(){
+        if($this->aflId){
+            $this->dynamicBalance = AdvancesForLiquidationService::currentBalance($this->aflId);
+            $this->staticBalance = $this->dynamicBalance;
+            $this->fundSource = 'ADVANCES';
+        }else{
+            $this->dynamicBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
+            $this->staticBalance = $this->dynamicBalance;
+            $this->fundSource = 'REVOLVING';
+        }
+        if($this->particularsRow){
+            $this->debit_total = collect($this->particularsRow)->sum('debit');
+            $this->credit_total = collect($this->particularsRow)->sum('credit');
+            $this->dynamicBalance = $this->staticBalance - $this->credit_total;
+        }
     }
     public function resetData()
     {
@@ -72,7 +97,6 @@ new class extends Component
         $this->transTypeId = null;
         $this->transactionId = null;
         $this->payeeId = null;
-        $this->pcvType = null;
         $this->purchaseOrderId = null;
         $this->notes = null;
         $this->isCustomer = null;
@@ -80,6 +104,10 @@ new class extends Component
         $this->createdBy = null;
         $this->debit_total = 0.00;
         $this->credit_total = 0.00;
+        $this->dynamicBalance = 0;
+        $this->staticBalance = 0;
+        $this->fundSource = null; 
+        $this->aflId = null;
         $this->fetchData();
     }
     public function fetchData()
@@ -104,11 +132,13 @@ new class extends Component
         $this->transactionId = $this->pcvData->template_id;
         $this->isCustomer = $this->pcvData->paid_to_customer_id != null ? true : false;
         $this->payeeId = $this->pcvData->paid_to_employee_id ?? $this->pcvData->paid_to_customer_id;
-        $this->pcvType = $this->pcvData->type_id;
         $this->purchaseOrderId = $this->pcvData->requisition_id;
         $this->notes = $this->pcvData->purpose;
         $this->status = $this->pcvData->status;
         $this->reference = $this->pcvData->reference;
+        $this->dynamicBalance = $this->dynamicBalance - $this->pcvData->total_amount;
+        $this->aflId = $this->pcvData->advance_liquidation_id;
+        $this->fundSource = $this->aflId ? 'ADVANCES' : 'REVOLVING';
     }
 
     public function saveAsFinalAction(){
@@ -144,6 +174,16 @@ new class extends Component
             $paid_to_customer_id = null;
             $paid_to_employee_id = null;
 
+            if($this->credit_total != $this->debit_total){
+                $this->toast()->error('Error', 'Debit and credit amounts do not match')->send();
+                return;
+            }else{
+                if($this->dynamicBalance < 0){
+                    $this->toast()->error('Error', 'Insufficient fund balance')->send();
+                    return;
+                }
+            }
+
             if($this->isCustomer){
                 $paid_to_customer_id = $this->payeeId;
             }else{
@@ -162,7 +202,9 @@ new class extends Component
                 'requisition_id'    => $this->purchaseOrderId,
                 'account_types_id' => $this->transTypeId, //COA header
                 'template_id' => $this->transactionId, // Template Id
-                'type_id' => $this->pcvType,
+                'fund_balance' => $this->staticBalance,
+                'fund_source' => $this->fundSource,
+                'afl_id' => $this->aflId,
                 'items' => $this->particularsRow,
             ];
 
@@ -184,17 +226,22 @@ new class extends Component
 
     public function updatedParticularsRow($value, $key)
     {
-
         $parts = explode('.', $key);
         $index = $parts[0];
-
         if (isset($parts[1]) && $parts[1] === 'debit') {
-           $this->debit_total = collect($this->particularsRow)->sum('debit');
+            if($this->particularsRow[$index]['debit'])
+                {
+                    $this->debit_total = collect($this->particularsRow)->sum('debit');
+                }
         }
          if (isset($parts[1]) && $parts[1] === 'credit') {
-           $this->credit_total = collect($this->particularsRow)->sum('credit');
+             if($this->particularsRow[$index]['credit'])
+                {
+                    $this->credit_total = collect($this->particularsRow)->sum('credit');
+                }
         }
 
+        $this->dynamicBalance = $this->staticBalance - $this->credit_total;
     }
 
     public function with(): array
@@ -296,14 +343,15 @@ new class extends Component
             <div>
                 <div class="grid gap-3 grid-cols-2 mt-3">
                     <x-ts-select.styled
-                        :request="route('api.get.pcv-type', ['branch_id' => auth()->user()->branch_id ])"
-                        select="label:name|value:id"
-                        wire:model="pcvType"
-                        label="Type"
+                        :request="route('api.get.active-afl', ['branch_id' => auth()->user()->branch_id ])"
+                        select="label:reference|value:id|description:description_one"
+                        wire:model.live="aflId"
+                        label="Advances for liquidation"
                         :placeholders="[
                         'default' => 'Select',
                         'empty'   => 'No type found',
-                        ]" required/>
+                        ]"
+                        />
 
                         <x-ts-select.styled
                         label="Purchase Order"
@@ -388,14 +436,21 @@ new class extends Component
             </div>
 
                 <div class="flex  justify-between mt-3 gap-2">
-                    <x-ts-button outline color="rose" icon="arrow-path" wire:click='resetData()' loading="resetData()">Reset</x-ts-button>
-                    <x-ts-dropdown>
-                        <x-slot:action>
-                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
-                        </x-slot:action>
-                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
-                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" wire:click="saveAsFinalAction()" loading="saveAsFinalAction()" />
-                    </x-ts-dropdown>
+                    <x-ts-stats :number="$dynamicBalance" title="Fund Balance" animated>
+                            <x-slot:icon>
+                                <x-icon-peso class="w-6 h-6" />
+                            </x-slot:icon>
+                    </x-ts-stats>
+                    <div class="inline-flex h-fit gap-1 whitespace-nowrap content-center">
+                        <x-ts-button outline color="rose" icon="arrow-path" wire:click='resetData()' loading="resetData()">Reset</x-ts-button>
+                        <x-ts-dropdown>
+                            <x-slot:action>
+                                <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">UPDATE AS</x-ts-button>
+                            </x-slot:action>
+                            <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT" wire:click="saveAsDraftAction()"/>
+                            <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" wire:click="saveAsFinalAction()" loading="saveAsFinalAction()" />
+                        </x-ts-dropdown>
+                    </div>
                 </div>
 
 
