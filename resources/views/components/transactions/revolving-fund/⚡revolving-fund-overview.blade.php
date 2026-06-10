@@ -45,10 +45,10 @@ new class extends Component {
         $this->revolvingFundId = $activeRevolvingFund->id ?? null;
         $this->reference = $activeRevolvingFund->reference ?? 'NOT AVAILABLE';
         $this->replenishedAmount = $activeRevolvingFund->replenished_amount ?? 0;
-        $this->ceilingAmount = $activeRevolvingFund->starting_balance ?? 0;
+        $this->ceilingAmount = $activeRevolvingFund?->starting_balance ?? 0;
         $this->maxEpenditurePercentage = $myBranch->maxExpenditurePercentage->name;
         $this->balance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
-        $this->expensedAmount = $activeRevolvingFund->starting_balance - $this->balance;
+        $this->expensedAmount = $activeRevolvingFund?->starting_balance - $this->balance;
 
         if ($this->ceilingAmount > 0) {
             $this->expenditurePercentage = (float) ($this->expensedAmount / $this->ceilingAmount) * 100;
