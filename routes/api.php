@@ -31,6 +31,9 @@ Route::middleware('auth:sanctum')->get('/active-production-order', [RestaurantAp
 Route::middleware('auth:sanctum')->get('/active-purchase-order', [PurchaseOrderApiController::class, 'activePurchaseOrder'])->name('api.active.purchase-order');
 Route::middleware('auth:sanctum')->get('/received-purchase-order-filter1', [PurchaseOrderApiController::class, 'receivedPurchaseOrderFilter1'])->name('api.received.purchase-order.filter1');
 
+//RECEIVING
+Route::middleware('auth:sanctum')->get('/to-receive-purchase-order', [PurchaseOrderApiController::class, 'toReceivePurchaseOrder'])->name('api.get.to-receive-purchase-order');
+
 
 // fixed asset api
 Route::middleware('auth:sanctum')->get('/active-asset-registration-type', [InventoryApiController::class, 'activeAssetRegistrationType'])->name('api.active.asset-registration-type');

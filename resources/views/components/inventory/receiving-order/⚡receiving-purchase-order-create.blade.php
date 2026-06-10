@@ -158,23 +158,14 @@ new class extends Component
             'selectedItemHeader' => [
                 ['index' => 'item_code', 'label' => 'Code'],
                 ['index' => 'item_description', 'label' => 'Description'],
-                ['index' => 'unit', 'label' => 'Unit' , 'sortable' => false],
-                ['index' => 'cost', 'label' => 'Cost' , 'sortable' => false],
-                ['index' => 'quantity', 'label' => 'Qty' , 'sortable' => false],
-                ['index' => 'sub_total', 'label' => 'Sub-total',  'sortable' => false],
-                ['index' => 'action', 'label' => 'Action',  'sortable' => false],
-            ],
-            'itemsHeader' => [
-                ['index' => 'item_code', 'label' => 'ID'],
-                ['index' => 'item_description', 'label' => 'Description'],
-            ],
-            'itemRow' => Item::query()
-                ->where('company_id', auth()->user()->branch->company_id)
-                ->when($this->search, function (Builder $query) {
-                    return $query->where('item_description', 'like', "%{$this->search}%");
-                })
-                ->paginate($this->quantity)
-                ->withQueryString()
+                ['index' => 'unit', 'label' => 'Unit' ],
+                ['index' => 'unit', 'label' => 'request qty' ],
+                ['index' => 'cost', 'label' => 'to receive qty'],
+                ['index' => 'quantity', 'label' => 'received' ],
+                ['index' => 'sub_total', 'label' => 'old cost'],
+                ['index' => 'sub_total', 'label' => 'new cost'],
+                ['index' => 'sub_total', 'label' => 'sub total'],
+            ]
         ];
     }
 
@@ -251,8 +242,8 @@ new class extends Component
     <div class="flex justify-between">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                               ['label' => 'Inventory', 'link' => route('purchase-order-summary'), 'icon' => 'archive-box' ],
-                              ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Create Purchase Order', 'icon' => 'pencil-square'],
+                              ['label' => 'Receiving Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
+                              ['label' => 'Create Receiving', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
     </div>
 
@@ -262,66 +253,34 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-4 w-full">
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Merchandise P.O #" placeholder="(optional)" wire:model="merchandisePONumber"/>
-
                     <x-ts-select.styled
-                        :request="route('api.active.purchase-type', ['branch_id' => auth()->user()->branch_id])"
-                        label="Type"
-                        select="label:name|value:id"
-                        placeholder="Select"
-                        wire:model='type_id'
-                        required
-                        />
-                </div>
-                <div class="grid gap-3 p-2">
-                    <x-ts-select.styled
-                        :request="route('api.supplier.index', ['company_id' => auth()->user()->branch->company_id])"
-                        label="Supplier"
-                        wire:model='supplier_id'
-                        select="label:supp_name|value:id|description:description"
+                        :request="route('api.get.to-receive-purchase-order', ['branch_id' => auth()->user()->branch_id])"
+                        label="Purchase Order"
+                        wire:model='purchase_order_id'
+                        select="label:requisition_number|value:id|description:remarks"
                         :placeholders="[
-                            'default' => 'Select Supplier',
-                            'search'  => 'Search Supplier',
-                            'empty'   => 'No Added Supplier',
+                            'default' => 'Select purchase order',
+                            'search'  => 'Search purchase order',
+                            'empty'   => 'No to receive purchase order found',
                         ]"
                     />
-                    <x-ts-select.styled
-                        :request="route('api.active.purchase-term', ['branch_id' => auth()->user()->branch_id])"
-                        select="label:name|value:id|description:description"
-                            wire:model="term_id"
-                            label="Terms"
-                            :placeholders="[
-                            'default' => 'Terms',
-                            'empty'   => 'No available terms found',
-                        ]" ... />
+
+                    <x-ts-input label="Waybill No̱." />
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-select.styled
-                    :request="route('api.active.event', ['branch_id' => auth()->user()->branch_id])"
-                    wire:model="event_id"
-                    select="label:event_name|value:id|description:reference"
-                    label="Event"
-                    :placeholders="[
-                    'default' => 'Select Event (Optional)',
-                    'search'  => 'Search Event',
-                    'empty'   => 'No Event found',
-                    ]" ... />
-
-                    <x-ts-select.styled
-                    label="Production Order"
-                    :request="route('api.active.production-order',['branch_id' => auth()->user()->branch_id])"
-                    wire:model="productionOrder_id"
-                    select="label:reference|value:id"
-                    :placeholders="[
-                    'default' => 'Select Production (Optional)',
-                    'search'  => 'Search Production order',
-                    'empty'   => 'No production order found',
-                    ]" ... />
-
+                    <x-ts-input label="Supplier" readonly />
+                    <x-ts-input label="Delivery Receipt No̱." />
+                </div>
+                <div class="grid gap-3 p-2">
+                    <x-ts-input label="Delivered By"/>
+                    <x-ts-input label="Invoice No̱." />
                 </div>
                 <div class="p-10 justify-center">
-                    {{-- <span class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 w-full">DRAFT</span> --}}
-                    <x-ts-badge text="DRAFT" light  class="w-full justify-center" lg/>
+                    <x-ts-stats :number="$grand_total" title="Total Cost" animated>
+                            <x-slot:icon>
+                                <x-icon-peso class="w-6 h-6" />
+                            </x-slot:icon>
+                    </x-ts-stats>
                 </div>
             </div>
         </x-ts-card>
@@ -330,23 +289,6 @@ new class extends Component
         <div class="w-full">
             <x-ts-card>
                 <x-ts-table :headers="$selectedItemHeader" :rows="$selectedRows" striped expandable>
-                    <x-slot:footer>
-                        <x-ts-button icon="plus" position="left" class="mt-2" x-on:click="$tsui.open.modal('modal-add-item')" flat>Add Item </x-ts-button>
-                    </x-slot:footer>
-                    @interact('column_action', $row)
-                        <x-ts-button
-                                color="rose"
-                                outline
-                                wire:click="removeItem({{ $loop->index }})"
-                                loading="removeItem({{ $loop->index }})">
-
-                                <x-ts-icon name="trash"
-                                    wire:loading.remove
-                                    wire:target="removeItem({{ $loop->index }})"
-                                    class="w-5 h-5" />
-                            </x-ts-button>
-                    @endinteract
-
                     @interact('column_quantity', $row)
                        <x-ts-input type="number"
                         sm
@@ -380,14 +322,9 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
-                    <x-ts-stats :number="$grand_total" title="Total Cost" animated>
-                            <x-slot:icon>
-                                <x-icon-peso class="w-6 h-6" />
-                            </x-slot:icon>
-                    </x-ts-stats>
                 </div>
                 <div class="grid gap-2 p-3">
-                    <div class="grid grid-cols-5 gap-2">
+                    <div class="grid grid-cols-1 gap-2">
                         <div class="col-span-2">
                             <x-ts-select.styled
                             :request="route('api.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
@@ -414,66 +351,27 @@ new class extends Component
 
                         <div class="col-span-1 items-center inline-flex mt-2">
                             <div class="flex justify-end">
-                                <x-ts-dropdown>
-                                    <x-slot:action>
-                                        <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE
-                                            AS</x-ts-button>
-                                    </x-slot:action>
-                                    <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
-                                        wire:click="saveAsDraftAction()" />
-                                    <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
-                                        wire:click="saveAsFinalAction()" />
-                                </x-ts-dropdown>
+                                
                             </div>
                         </div>
                     </div>
-
-                    <div>
-                        <x-ts-step selected="1" circles>
-                            <x-ts-step.items step="1"
-                                        title="Create Order"
-                                        description="Step 1">
-                            </x-ts-tep.items>
-                            <x-ts-step.items step="2"
-                                        title="For Review"
-                                        description="Step 2">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="3"
-                                        completed
-                                        title="For Approval"
-                                        description="Step 3">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="4"
-                                        completed
-                                        title="To Receive"
-                                        description="Step 4">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="5"
-                                        completed
-                                        title="For Completion"
-                                        description="Step 5">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="6"
-                                        completed
-                                        title="Completed"
-                                        description="Step 6">
-                                        <b>Order Completed!</b>
-                            </x-ts-step.items>
-                        </x-ts-step>
-                    </div>
                 </div>
             </div>
+            <x-slot:footer>
+                <div class="flex justify-end">
+                    <x-ts-dropdown>
+                        <x-slot:action>
+                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
+                        </x-slot:action>
+                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
+                            wire:click="saveAsDraftAction()" />
+                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
+                            wire:click="saveAsFinalAction()" />
+                    </x-ts-dropdown>
+                </div>
+            </x-slot:footer>
         </x-ts-card>
     </div>
-
-    <x-ts-modal id="modal-add-item" size="5xl">
-            <x-ts-card class="p-4 max-h-200 overflow-y-auto">
-                <x-ts-table  :headers="$itemsHeader" :rows="$itemRow" striped  filter  paginate selectable wire:model.live='selectedItem' />
-            </x-ts-card>
-            <x-slot:footer>
-                <x-ts-button icon="check" x-on:click="$tsui.close.modal('modal-add-item')">Done</x-ts-button>
-            </x-slot:footer>
-    </x-ts-modal>
 
     <x-ts-back-to-top />
 </div>

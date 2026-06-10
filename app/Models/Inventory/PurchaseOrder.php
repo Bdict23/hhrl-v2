@@ -37,13 +37,24 @@ class PurchaseOrder extends Model
     {
         return $this->belongsTo(Employee::class, 'prepared_by');
     }
-    public function event(){
-        return $this->belongsTo(Event::class,'event_id');
+    public function reviewedBy()
+    {
+        return $this->belongsTo(Employee::class, 'reviewed_by');
     }
-    public function purchaseOrderItems(){
-        return $this->hasMany(PurchaseOrderItems::class,'requisition_info_id');
+    public function approvedBy()
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
     }
-    public function assetBatchHeader(){
-        return $this->hasMany(AssetBatchHeader::class,'requisition_id');
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id');
+    }
+    public function purchaseOrderItems()
+    {
+        return $this->hasMany(PurchaseOrderItems::class, 'requisition_info_id');
+    }
+    public function assetBatchHeader()
+    {
+        return $this->hasMany(AssetBatchHeader::class, 'requisition_id');
     }
 }

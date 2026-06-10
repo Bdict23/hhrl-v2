@@ -32,6 +32,7 @@ new class extends Component
     public $reference;
     public $grand_total = 0.00;
     public $step;
+    public $saveAs;
 
 
     //selected
@@ -208,14 +209,29 @@ new class extends Component
         $this->calculateGrandTotal();
     }
 
-      public function updateAction(): void
+      public function updateAsDraftAction(): void
     {
          // 1. Validate the UI State
         $validated = $this->validate();
+        $this->saveAs = "PREPARING";
 
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Edit Purchase Order', 'Are you sure to update this order ?')
+        ->question('Edit Purchase Order', 'Are you sure to update this order as draft?')
+        ->confirm(
+            'Confirm',
+            'update', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function updateAsFinalAction(): void
+    {
+        $validated = $this->validate();
+        $this->saveAs = "FOR REVIEW";
+        // 2. show confirmation dialog
+         $this->dialog()
+        ->question('Edit Purchase Order', 'Are you sure to update this order as final?')
         ->confirm(
             'Confirm',
             'update', //pass a functio to call
@@ -242,6 +258,7 @@ new class extends Component
                 'items'       => $this->selectedRows,
                 'production_id' => $this->productionOrder_id,
                 'purchase_order_id' => $this->purchase_order_id,
+                'status'  => $this->saveAs,
             ];
 
             // Call the Service
@@ -290,9 +307,9 @@ new class extends Component
 <div>
     <div class="flex justify-between mb-3">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                          ['label' => 'Inventory', 'icon' => 'archive-box' ],
+                          ['label' => 'Inventory', 'link' => route('purchase-order-summary'),  'icon' => 'archive-box' ],
                           ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
-                          ['label' => 'Edit Purchase Order', 'link' => route('purchase-order-edit', ['id' => $purchase_order_id]), 'icon' => 'pencil-square'],
+                          ['label' => 'Edit Purchase Order', 'icon' => 'pencil-square'],
               ]"  />
         <span class="text-2xl italic">( {{ $reference }} )</span>
     </div>
@@ -362,8 +379,7 @@ new class extends Component
                 </div>
                 <div class="p-10 grid gap-3">
                     {{-- <span class="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 w-full">DRAFT</span> --}}
-                    <x-ts-badge text="DRAFT" light  class="w-full justify-center" lg round/>
-                    <x-ts-button icon="printer" round flat>PRINT</x-ts-button>
+                    <x-ts-badge text="DRAFT" light  class="w-full h-fit justify-center" lg round/>
                 </div>
             </div>
         </x-ts-card>
@@ -422,7 +438,7 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
-                    <x-ts-stats :number="$grand_total" title="Total Cost" animated>
+                    <x-ts-stats number="{{$grand_total}}" title="Total Cost">
                             <x-slot:icon>
                                 <x-icon-peso class="w-6 h-6" />
                             </x-slot:icon>
@@ -455,7 +471,16 @@ new class extends Component
                         </div>
 
                         <div class="col-span-1 items-center inline-flex mt-2">
-                            <x-ts-button class="lg:h-9" wire:click='updateAction' loading='saveAction'>Update</x-ts-button>
+                            <x-ts-dropdown>
+                                <x-slot:action>
+                                    <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">UPDATE
+                                        AS</x-ts-button>
+                                </x-slot:action>
+                                <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
+                                    wire:click="updateAsDraftAction()" />
+                                <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
+                                    wire:click="updateAsFinalAction()" />
+                            </x-ts-dropdown>
                         </div>
                     </div>
 

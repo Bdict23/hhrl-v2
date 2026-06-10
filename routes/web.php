@@ -24,9 +24,15 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/purcahse-order/create', 'inventory.purchase-order.purchase-order-create')->name('purchase-order-create');
     Volt::route('/purcahse-order/edit/{id}', 'inventory.purchase-order.purchase-order-edit')->name('purchase-order-edit');
     Volt::route('/purcahse-order/view/{id}', 'inventory.purchase-order.purchase-order-view')->name('purchase-order-view');
+    Volt::route('/purchase-order-validation-tab', 'inventory.purchase-order.purchase-order-validation-tabs')->name('purchase-order.validation-tabs');
+    Volt::route('/purchase-order-validation-review-show/{id}', 'inventory.purchase-order.purchase-order-validation-review-show')->name('purchase-order.validation.review-show');
+    Volt::route('/purchase-order-validation-approval-show/{id}', 'inventory.purchase-order.purchase-order-validation-approval-show')->name('purchase-order.validation.approval-show');
+
 
     //Receiving Order
     Volt::route('/receiving-order/summary', 'inventory.receiving-order.receiving-purchase-order-summary')->name('receiving-summary');
+    Volt::route('/receiving-order/create', 'inventory.receiving-order.receiving-purchase-order-create')->name('purcahse-order.receving.create');
+
 
     // Fixed Asset
     Volt::route('/fixed-asset-menu', 'inventory.fixed-asset.fixed-asset-menu')->name('fixed-asset.menu');

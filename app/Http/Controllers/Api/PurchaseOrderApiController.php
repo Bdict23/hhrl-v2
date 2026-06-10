@@ -101,4 +101,13 @@ class PurchaseOrderApiController extends Controller
             ->get();
         return response()->json($purchaseOrder);
     }
+
+    public function toReceivePurchaseOrder(Request $request)
+    {
+        $branch_id = $request->query('branch_id');
+        $purchaseOrder = PurchaseOrder::query()->where('from_branch_id', $branch_id)
+            ->whereIn('requisition_status', ['TO RECEIVE', 'PARTIALLY FULFILLED'])
+            ->get();
+        return response()->json($purchaseOrder);
+    }
 }

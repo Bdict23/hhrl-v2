@@ -28,6 +28,7 @@ new class extends Component
     public $step;
     public $reference;
     public $grand_total = 0.00;
+    public $reviewedAs;
 
     //selected
     public $selectedItem = [];
@@ -92,9 +93,6 @@ new class extends Component
             }
             $this->selectedItem = collect($this->selectedRows)->pluck('id')->toArray();
     }
-    public function edit(){
-        return redirect()->route('purchase-order-edit', ['id' => $this->purchase_order_id]);
-    }
 
     public function with(): array
     {
@@ -110,6 +108,52 @@ new class extends Component
 
         ];
     }
+    public function reviseAction()
+    {
+        $this->reviewedAs = "PREPARING";
+        $this->dialog()
+        ->question('Review Purchase Order', 'Are you sure to revise this order?')
+        ->confirm(
+            'Confirm',
+            'update', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+
+    }
+    public function reviewedAction()
+    {
+        $this->reviewedAs = "FOR APPROVAL";
+        $this->dialog()
+        ->question('Review Purchase Order', 'Are you sure to process this order for approval?')
+        ->confirm(
+            'Confirm',
+            'update', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function update(PurchaseOrderService $service)
+    {
+        try {
+            $data =[
+                'reviewed_as' => $this->reviewedAs,
+                'purchase_order_id' => $this->purchase_order_id
+
+            ];
+             $po = $service->reviewed($data);
+
+            // Success Feedback
+            $this->toast()->success('Success', "Purchase Order {$po->requisition_number} reviewed successfully!")->send();
+            $this->reset();
+            return redirect()->route('purchase-order.validation-tabs');
+        } catch (\Throwable $th) {
+           \Log::error("PO update Failed: " . $th->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while applying changes : ' . $e->getMessage())->send();
+        
+        }
+    }
+
 };
 ?>
 
@@ -118,7 +162,7 @@ new class extends Component
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                           ['label' => 'Inventory','link' => route('purchase-order-view', ['id' => $purchase_order_id]), 'icon' => 'archive-box' ],
                           ['label' => 'Purchase Summary', 'link' => route('purchase-order-summary'), 'icon' => 'list-bullet'],
-                          ['label' => 'View Purchase Order', 'icon' => 'eye', 'color' => 'primary-500'],
+                          ['label' => 'Purchase order review', 'icon' => 'eye', 'color' => 'primary-500'],
               ]"  />
         <label class="text-2xl italic">( {{ $reference }} )</label>
     </div>
@@ -240,10 +284,8 @@ new class extends Component
                                 <x-icon-peso class="w-6 h-6" />
                             </x-slot:icon>
                             <x-slot:right>
-                                @if($status == 'DRAFT')
-                                    <x-ts-button icon="pencil-square" class="underline"  flat  wire:click="edit()">Edit</x-ts-button>
-                                @endif
-                                <x-ts-button icon="printer"  flat class="underline-offset-1 underline" disabled>Print</x-ts-button>
+                                <x-ts-button icon="check" class="underline"  flat  wire:click="edit()" wire:click="reviewedAction">Reviewed</x-ts-button>
+                                <x-ts-button icon="arrow-path-rounded-square"  flat class="underline-offset-1 underline" wire:click="reviseAction">Revise</x-ts-button>
                             </x-slot:right>
                     </x-ts-stats>
                 </div>

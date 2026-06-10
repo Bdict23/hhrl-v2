@@ -13,6 +13,8 @@ new class extends Component
 
     public ?int $quantity = 10;
     public ?string $search = null;
+    public ?string $status = null;
+    public ?array $dates = null;
 
     public array $sort = [
             'column' => 'created_at',
@@ -24,7 +26,7 @@ new class extends Component
         return [
             'headers' => [
                 ['index' => 'RECEIVING_STATUS', 'label' => 'Status'],
-                ['index' => 'REQUISITION_ID', 'label' => 'P.O Number'],
+                ['index' => 'REQUISITION_ID', 'label' => 'P.O Number', 'sortable' => false],
                 ['index' => 'created_at', 'label' => 'Receive Date'],
                 ['index' => 'receive_amount', 'label' => 'Receive Amount' , 'sortable' => false],
                 ['index' => 'remarks', 'label' => 'Remarks' , 'sortable' => false],
@@ -37,6 +39,14 @@ new class extends Component
                         $query->where('requisition_number', 'like', "%{$this->search}%");
                     });
                 })
+                ->when($this->dates, function (Builder $query) {
+                    if (is_array($this->dates) && count($this->dates) === 2 && !empty($this->dates[0]) && !empty($this->dates[1])) {
+                        return $query->whereBetween('created_at', $this->dates);
+                    }
+                })
+                ->when($this->status, function (Builder $query) {
+                    return $query->where('RECEIVING_STATUS', $this->status);
+                })
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()
@@ -47,29 +57,24 @@ new class extends Component
 
 <div>
     <div class="lg:flex lg:justify-between grid mb-4">
-        <x-ts-breadcrumbs :items="[
-                        ['label' => 'Inventory', ],
-                        ['label' => 'Receiving Summary', 'link' => route('PO-summary')],
-            ]"  class="mb-3"/>
+            <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
+                          ['label' => 'Inventory','link' => route('receiving-summary'), 'icon' => 'archive-box' ],
+                          ['label' => 'Receiving Summary', 'icon' => 'list-bullet'],
+              ]"  />
+                <div class="lg:flex gap-3 grid grid-cols-3">
+                    <x-ts-select.native wire:model.live="status"
+                            placeholder="All Statuses"
+                            :options="[
+                            ['name' => 'All', 'id' => null],
+                            ['name' => 'DRAFT', 'id' => 'DRAFT'],
+                            ['name' => 'FINAL', 'id' => 'FINAL'],
+                    ]" select="label:name|value:id" />
+                    <x-ts-date wire:model.live="dates" range placeholder="Date range" />
+                </div>
     </div>
 
     <div>
         <x-ts-table :$headers :$rows :$sort paginate persistent filter loading striped >
-            <x-slot:header>
-                <div class="lg:flex lg:justify-between mb-3 grid">
-                    <div class="w-auto mb-3">
-                        <x-ts-button href="https://google.com.br" target="_blank" icon="plus">New</x-ts-button>
-                    </div>
-                    <div class="lg:flex gap-3 grid grid-cols-3">
-                        <x-ts-select.native :options="[
-                            ['name' => 'DRAFT', 'id' => 1],
-                            ['name' => 'FINAL', 'id' => 2],
-                        ]" select="label:name|value:id" />
-                        <x-ts-date range placeholder="Date range" />
-                        <x-ts-button icon="funnel" position="left" sm class="text-center lg:w-20 lg:h-9">Filter</x-ts-button>
-                    </div>
-                </div>
-            </x-slot:header>
             @interact('column_created_at', $row)
                 {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
             @endinteract
@@ -95,5 +100,9 @@ new class extends Component
             @endinteract
         </x-ts-table>
     </div>
-    <x-ts-back-to-top />
+    <x-ts-dial lg>
+            <x-ts-dial.items icon="plus" label="New Receiving" href="{{ route('purcahse-order.receving.create')}}" navigate />
+            <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
+        </x-ts-dial>
+    <x-ts-back-to-top lg/>
 </div>

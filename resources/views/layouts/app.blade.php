@@ -256,7 +256,7 @@
                     <!-- Validations Section -->
                     <x-ts-side-bar.item text="Validations" icon="check-badge">
 
-                            <x-ts-side-bar.item text="Purchase Order">
+                            <x-ts-side-bar.item text="Purchase Order" :route="route('purchase-order.validation-tabs')">
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
