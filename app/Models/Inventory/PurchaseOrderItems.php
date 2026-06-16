@@ -17,7 +17,12 @@ class PurchaseOrderItems extends Model
         'created_at',
     ];
 
-    public function item(){
+    public function item()
+    {
         return $this->belongsTo(Item::class, 'item_id');
+    }
+    public function cardexIn()
+    {
+        return $this->hasMany(Cardex::class, 'requisition_id', 'requisition_info_id')->where('item_id', $this->item_id);
     }
 }

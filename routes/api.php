@@ -15,6 +15,9 @@ use App\Http\Controllers\Api\CustomerApiController;
 use App\Http\Controllers\Api\DataManagement\BankApiController;
 use App\Http\Controllers\Api\Transaction\AflApiController;
 use App\Models\Transaction\AdvancesForLiquidation;
+use App\Http\Controllers\Api\Business\EmployeeApiController;
+
+
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -56,6 +59,10 @@ Route::middleware('auth:sanctum')->get('/get-pcv-type', [SystemParameterApiContr
 Route::middleware('auth:sanctum')->get('/get-active-petty-cash-voucher', [PettyCashVoucherApiController::class, 'getActivePettyCashVouchers'])->name('api.get.active.petty-cash-voucher');
 Route::middleware('auth:sanctum')->get('/get-event-purchase-order', [PurchaseOrderApiController::class, 'eventPurchaseOrder'])->name('api.get.event-purchase-order');
 Route::middleware('auth:sanctum')->get('/get-non-event-purchase-order', [PurchaseOrderApiController::class, 'nonEventPurchaseOrder'])->name('api.get.non-event-purchase-order');
+Route::middleware('auth:sanctum')->get('/get-pcv-active_afl', [AflApiController::class, 'getActiveAdvancesForLiquidation'])->name('api.pcv.get.active-afl');
+Route::middleware('auth:sanctum')->get('/get-for-disbusement-cash-advances', [EmployeeApiController::class, 'getActiveCashAdvancesForDisburse'])->name('api.get.for-disbusement-cash-advances');
+
+
 
 //revolving fund
 Route::middleware('auth:sanctum')->get('/get-revolving-fund-type', [RevolvingFundApiController::class, 'activeAcknowledgementForRevolvingFund'])->name('api.get.active.acknowledgement-for-revolving-fund');
@@ -79,3 +86,6 @@ Route::middleware('auth:sanctum')->get('/get-active-fundedEvent', [BanquetEventA
 Route::middleware('auth:sanctum')->get('/get-afl-approvers', [AflApiController::class, 'getBranchApprovers'])->name('api.get.afl-approvers');
 Route::middleware('auth:sanctum')->get('/get-disbursers', [AflApiController::class, 'getBranchDisbursers'])->name('api.get.disbursers');
 Route::middleware('auth:sanctum')->get('/get-active-afl', [AflApiController::class, 'getActiveAdvancesForLiquidation'])->name('api.get.active-afl');
+
+// ADVANCES FOR EMPLOYEES
+Route::middleware('auth:sanctum')->get('/get-active-employees', [EmployeeApiController::class, 'getActiveBranchEmployees'])->name('api.get.active-employees-advances');

@@ -3,157 +3,100 @@
 use Livewire\Component;
 use App\Models\Business\Customer;
 use TallStackUi\Traits\Interactions;
-use App\Models\Transaction\AdvancesForLiquidation;
-use App\Models\Transaction\AdvancesForLiquidationSnapshot;
-use App\Services\Transaction\AdvancesForLiquidationService;
+use App\Services\Transaction\EmployeesAdvanceService;
+use App\Models\BanquetEvent\Event;
+use App\Models\Transaction\EmployeeAdvance;
+use App\Models\Transaction\EmployeeAdvanceSnapshot;
 
-new class extends Component {
+
+
+
+new class extends Component
+{
     use Interactions;
 
     public $approvedById;
     public $preparedById;
     public $note;
-    public $disburserId;
+    public $employeeId;
     public $receivedAmount;
-    public $eventId;
     public $status;
-    public $aflId;
-    public $isDraft;
     public $reference;
-    public $balance;
-    public $data;
-    public $expenditurePercentage;
 
+
+
+    // mount
+    public $id;
+    public $data;
+    public $balance;
+    public $expenditurePercentage;
+    public $isDraft;
     public ?int $quantity = 100;
     public array $sort = [
         'column' => 'created_at',
         'direction' => 'asc',
     ];
 
-    protected $rules = [
+    protected $rules =[
         'approvedById' => 'required|exists:employees,id',
         'preparedById' => 'required|exists:employees,id',
-        'eventId' => 'nullable|exists:banquet_events,id',
-    ];
+        'employeeId' => 'required|exists:employees,id',
+        ];
 
     public function mount($id)
     {
-        $this->aflId = $id;
+        $this->id = $id;
         $this->fetchData();
     }
 
     public function fetchData()
     {
-        $data = AdvancesForLiquidation::find($this->aflId);
+        $data = EmployeeAdvance::find($this->id);
         $this->data = $data;
         $this->approvedById = $data->approved_by;
         $this->preparedById = $data->prepared_by;
-        $this->note = $data->notes;
-        $this->disburserId = $data->received_by;
-        $this->receivedAmount = $data->amount_received;
-        $this->eventId = $data->event_id;
+        $this->note = $data->remarks;
+        $this->employeeId = $data->received_by;
+        $this->receivedAmount = $data->amount;
         $this->status = $data->status;
-        $this->isDraft = $data->status == 'DRAFT' ? true : false;
         $this->reference = $data->reference;
-        $this->balance = AdvancesForLiquidationService::currentBalance($this->aflId);
-        $expence = $this->receivedAmount - $this->balance;
-        $this->expenditurePercentage = ($expence / $this->receivedAmount) * 100;
+        $this->isDraft = $data->status == 'DRAFT' ? true : false;
+        $this->balance = EmployeesAdvanceService::currentBalance($this->id);
+
     }
 
-    public function saveAsDraftAction()
-    {
-        $validated = $this->validate();
-        $this->status = 'DRAFT';
-        $this->dialog()
-            ->question('New Acknowledgement Receipt', 'Are you sure to save this acknowledgement receipt as draft?')
-            ->confirm(
-                'Confirm',
-                'store', //pass a functio to call
-            )
-            ->cancel('Cancel')
-            ->send();
-    }
-
-    public function saveAsFinalAction()
-    {
-        $validated = $this->validate();
-        $this->status = 'OPEN';
-        $this->dialog()
-            ->question('New Acknowledgement Receipt', 'Are you sure to save this acknowledgement receipt as final ?')
-            ->confirm(
-                'Confirm',
-                'store', //pass a functio to call
-            )
-            ->cancel('Cancel')
-            ->send();
-    }
-    public function store(AdvancesForLiquidationService $advancesForLiquidationService)
-    {
-        try {
-            // We structure it to match the $data array expected by the Service
-            $data = [
-                'branch_id' => Auth::user()->branch_id,
-                'status' => $this->status,
-                'prepared_by' => Auth::user()->emp_id,
-                'received_by' => $this->disburserId,
-                'date_received' => now(),
-                'approved_by' => $this->approvedById,
-                'amount_received' => $this->receivedAmount,
-                'event_id' => $this->eventId,
-                'note' => $this->note,
-                'status' => $this->status,
-            ];
-
-            // 4. Call the Service
-            $afl = $advancesForLiquidationService->create($data);
-
-            // 5. Success Feedback
-            $this->toast()
-                ->success('Success', "Acknowledgement Receipt {$afl->reference} created successfully!")
-                ->send();
-            $this->reset();
-            return redirect()->route('afl.summary');
-        } catch (\Exception $e) {
-            // Log the error if needed
-            \Log::error('Acknowledgement Receipt Creation Failed: ' . $e->getMessage());
-            $this->toast()
-                ->error('Error', 'Something went wrong while saving: ' . $e->getMessage())
-                ->send();
-        }
-    }
-    public function resetForm()
-    {
-        $this->eventId = null;
-        $this->note = null;
-        $this->disburserId = null;
-        $this->receivedAmount = null;
-        $this->preparedById = null;
-        $this->approvedById = null;
-    }
-
-    public function with(): array
+     public function with(): array
     {
         return [
-            'headers' => [['index' => 'created_at', 'label' => 'date'], ['index' => 'reference', 'label' => 'Reference'], ['index' => 'description', 'label' => 'description'], ['index' => 'amount', 'label' => 'amount'], ['index' => 'balance', 'label' => 'balance']],
-            'rows' => AdvancesForLiquidationSnapshot::query()->where('advance_liquidation_id', $this->aflId)->orderBy(...array_values($this->sort))->paginate($this->quantity)->withQueryString(),
+            'headers' => [
+                ['index' => 'created_at', 'label' => 'date'], 
+                ['index' => 'reference', 'label' => 'Reference'], 
+                ['index' => 'description', 'label' => 'description'], 
+                ['index' => 'amount', 'label' => 'amount'], 
+                ['index' => 'balance', 'label' => 'balance']],
+            'rows' =>  EmployeeAdvanceSnapshot::query()
+            ->where('advance_id', $this->id)
+            ->orderBy(...array_values($this->sort))->paginate($this->quantity)->withQueryString(),
         ];
     }
+
+
 };
 ?>
 
 <div class="p-6 font-sans">
     <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-        ['label' => 'Transaction', 'link' => route('afl.summary'), 'icon' => 'archive-box'],
-        ['label' => 'Advance for liquidation Summary', 'link' => route('afl.summary'), 'icon' => 'list-bullet'],
-        ['label' => 'View advances for liquidation', 'icon' => 'pencil-square'],
-    ]" class="mb-3" />
+                              ['label' => 'Transaction', 'link' => route('employees-advances.summary'), 'icon' => 'archive-box' ],
+                              ['label' => 'Employees Advance Summary', 'link' => route('employees-advances.summary'), 'icon' => 'list-bullet'],
+                              ['label' => 'Employees advance create', 'icon' => 'pencil-square'],
+                  ]"  class="mb-3"/>
     <x-ts-card class=" p-6">
         <div class="flex justify-between items-start">
 
             <!-- Left Side: Ref No & Balance -->
             <div>
                 <div class="flex items-center space-x-3 mb-2">
-                    <h2 class="text-xl font-bold">AFL reference#</h2>
+                    <h2 class="text-xl font-bold">Cash Advance reference#</h2>
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {{ strtoupper($reference) }}
                     </span>
@@ -165,24 +108,23 @@ new class extends Component {
                             <span>Date created: <strong>{{ $data->created_at->format('M. d, Y') }}</strong></span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <x-ts-icon name="calendar" class="h-4 w-4" />
-                            <span>Event: <strong>{{ $data->event?->event_name }}
-                                    {{ $data->event?->reference }}</strong></span>
+                            <x-ts-icon name="user" class="h-4 w-4" />
+                            <span>Received By: <strong>{{ $data->receivedBy->full_name }}</strong></span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <x-ts-icon name="user" class="h-4 w-4" />
-                            <span>Accountable: <strong>{{ $data->receivedBy->full_name }}</strong></span>
+                            <x-ts-icon name="document-text" class="h-4 w-4" />
+                            <span>Note: <strong>{{ $data->remarks}}</strong></span>
                         </div>
                     </div>
                 </div>
-                <p class="text-sm mt-4">Current Balance</p>
+                <p class="text-sm mt-4">Balance</p>
                 <h1 class="text-4xl font-black  mt-1">
                     ₱{{ number_format($balance, 2) }}
                 </h1>
             </div>
             <div class=" border-gray-100 flex justify-end items-center space-x-3">
                 @if ($isDraft)
-                    <x-ts-button light icon="pencil-square" :href="route('afl.edit', ['id' => $aflId])">Edit</x-ts-button>
+                    <x-ts-button light icon="pencil-square" :href="route('employees-advances.edit', ['id' => $id])">Edit</x-ts-button>
                 @else
                     <x-ts-button light icon="pencil-square" disabled>Edit</x-ts-button>
                 @endif
@@ -192,11 +134,14 @@ new class extends Component {
 
         <!-- Visual Progress Bar indicator sa Balance -->
         <div class="mt-6">
-            <div class="flex justify-between text-xs text-gray-500">
-                <span>Depletion Level</span>
-                <span>Ceiling: ₱{{ number_format($receivedAmount, 2) }}</span>
+            <div class="flex justify-end text-xs text-gray-500">
+                <span>Payable Amount: ₱{{ number_format($receivedAmount, 2) }}</span>
             </div>
-            <x-ts-progress percent="{{ number_format($expenditurePercentage, 2) }}" md floating />
+            <x-ts-progress percent="{{ number_format($expenditurePercentage, 2) }}" md floating >
+                    <x-slot:footer>
+                        Amount Returned
+                    </x-slot:footer>
+            </x-ts-progress>
         </div>
     </x-ts-card>
 
@@ -220,7 +165,7 @@ new class extends Component {
                             @endif
                         </x-slot:right>
                     </x-ts-button>
-                @elseif($row->description == 'PETTY CASH VOUCHER')
+                @elseif($row->description == 'DISBURSEMENT')
                     <x-ts-button class="font-mono" flat>{{ $row->pettyCashVoucher->reference }}
                         <x-slot:right>
                             @if ($row->pettyCashVoucher->status == 'OPEN')
@@ -283,22 +228,20 @@ new class extends Component {
                         ];
                     @endphp
                     <x-ts-table :headers="$headers" :rows="$rows" />
-                @elseif ($row->description == 'PETTY CASH VOUCHER')
+                @elseif ($row->description == 'DISBURSEMENT')
                     @php
                         $headers = [
                             ['index' => 'payee', 'label' => 'Payee'],
-                            ['index' => 'event', 'label' => 'event'],
                             ['index' => 'preparedBy', 'label' => 'prepared by'],
-                            ['index' => 'purchase order', 'label' => 'purchase order'],
                             ['index' => 'transaction', 'label' => 'transaction'],
+                            ['index' => 'note', 'label' => 'note'],
                         ];
                         $rows = [
                             [
                                 'payee' => $row->pettyCashVoucher->paidToEmployee?->full_name,
-                                'event' => $row->pettyCashVoucher->event?->event_name,
                                 'preparedBy' => $row->pettyCashVoucher->preparedBy?->full_name,
-                                'purchase order' => $row->pettyCashVoucher->purchaseOrder?->requisition_number,
                                 'transaction' => $row->pettyCashVoucher->transaction_title,
+                                'note' => $row->pettyCashVoucher->purpose
                             ],
                         ];
 

@@ -39,7 +39,10 @@ new class extends Component
     public $dynamicBalance = 0;
     public $staticBalance = 0;
     public $fundSource;
-    public $aflId;
+    public $aflId,
+    $isCashAdvance,
+    $cashAdvanceId,
+    $hasEvent = false;
 
     protected function rules()
     {
@@ -80,7 +83,13 @@ new class extends Component
             $this->dynamicBalance = AdvancesForLiquidationService::currentBalance($this->aflId);
             $this->staticBalance = $this->dynamicBalance;
             $this->fundSource = 'ADVANCES';
+            $this->eventId = AdvancesForLiquidation::find($this->aflId)->event_id;
+            $this->purchaseOrderId = null;
+            if($this->eventId){
+                $this->hasEvent = true;
+            }
         }else{
+            $this->hasEvent = false;
             $this->dynamicBalance = RevolvingFundService::currentBalance(Auth::user()->branch_id);
             $this->staticBalance = $this->dynamicBalance;
             $this->fundSource = 'REVOLVING';
@@ -139,6 +148,8 @@ new class extends Component
         $this->dynamicBalance = $this->dynamicBalance - $this->pcvData->total_amount;
         $this->aflId = $this->pcvData->advance_liquidation_id;
         $this->fundSource = $this->aflId ? 'ADVANCES' : 'REVOLVING';
+        $this->cashAdvanceId = $this->pcvData->employee_advance_id;
+        $this->isCashAdvance = $this->pcvData->employee_advance_id ? true : false;
     }
 
     public function saveAsFinalAction(){
@@ -167,6 +178,15 @@ new class extends Component
         ->cancel('Cancel')
         ->send();
     }
+
+    public function validateCashAdvance(){
+        if($this->isCashAdvance){
+            $this->validate([
+                'cashAdvanceId' => 'required|exists:employee_advances,id'
+            ]);
+        }
+    }
+
     public function update(PettyCashVoucherService $pcvService)
     {
         try {
@@ -206,6 +226,8 @@ new class extends Component
                 'fund_source' => $this->fundSource,
                 'afl_id' => $this->aflId,
                 'items' => $this->particularsRow,
+                'isCashAdvance' => $this->isCashAdvance,
+                'employee_advance_id' => $this->cashAdvanceId,
             ];
 
             // 4. Call the Service
@@ -283,6 +305,13 @@ new class extends Component
                     'credit'            => 0,
                 ];
             }
+            if($this->isCashAdvance){
+                $this->aflId = null;
+                $this->purchaseOrderId = null;
+                $this->hasEvent = false;
+            }else{
+                $this->cashAdvanceId;
+            }
         }
     }
 
@@ -342,28 +371,60 @@ new class extends Component
         <x-ts-card>
             <div>
                 <div class="grid gap-3 grid-cols-2 mt-3">
-                    <x-ts-select.styled
+                     @if(!$isCashAdvance)
+                     <div wire:key="afl-container">
+                        <x-ts-select.styled
                         :request="route('api.get.active-afl', ['branch_id' => auth()->user()->branch_id ])"
                         select="label:reference|value:id|description:description_one"
                         wire:model.live="aflId"
                         label="Advances for liquidation"
+                        readonly
                         :placeholders="[
                         'default' => 'Select',
                         'empty'   => 'No type found',
                         ]"
                         />
-
+                    </div>
+                        @if(!$hasEvent)
+                             <x-ts-select.styled
+                                label="Purchase Order"
+                                select="label:requisition_number|value:id|description:remarks"
+                                :placeholders="[
+                                    'default' => 'Select',
+                                    'search'  => 'Search Purchase Order',
+                                    'empty'   => 'No received purchase order found',
+                                ]"
+                                wire:model.live="purchaseOrderId"
+                                :request="route('api.get.non-event-purchase-order', ['branch_id' => auth()->user()->branch_id])"
+                            />
+                        @else
+                            <div wire:key="event-purchase-order-container-{{ $eventId }}">
+                                <x-ts-select.styled
+                                    label="Event Purchase Order"
+                                    select="label:requisition_number|value:id|description:remarks"
+                                    :placeholders="[
+                                        'default' => 'Select',
+                                        'search'  => 'Search Event Purchase Order',
+                                        'empty'   => 'No received event purchase order found',
+                                    ]"
+                                    wire:model.live="purchaseOrderId"
+                                    :request="route('api.get.event-purchase-order', ['event_id' => $eventId])"
+                                />
+                            </div>
+                        @endif
+                    @else
                         <x-ts-select.styled
-                        label="Purchase Order"
-                        select="label:requisition_number|value:id|description:remarks"
-                        :placeholders="[
+                            :request="route('api.get.for-disbusement-cash-advances', ['branch_id' => auth()->user()->branch_id ])"
+                            select="label:reference|value:id|description:remarks"
+                            wire:model.live="cashAdvanceId"
+                            label="Cash Advance reference"
+                            readonly
+                            :placeholders="[
                             'default' => 'Select',
-                            'search'  => 'Search Purchase Order',
-                            'empty'   => 'No received purchase order found',
-                        ]"
-                        wire:model.live="purchaseOrderId"
-                        :request="route('api.active.purchase-order', ['branch_id' => auth()->user()->branch_id])"
-                    />
+                            'empty'   => 'No cash advances found',
+                            ]"
+                        />
+                    @endif
                 </div>
 
                     <div class="mt-3">

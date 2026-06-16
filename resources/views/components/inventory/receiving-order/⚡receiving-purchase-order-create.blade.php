@@ -6,27 +6,34 @@ use App\Models\DataManagement\Item;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Inventory\PurchaseOrderService;
+use Illuminate\Support\Arr;
+use Illuminate\Http\UploadedFile;
+use Livewire\WithFileUploads;
+use App\Models\Inventory\Receiving;
+use App\Models\Inventory\PurchaseOrderItems;
+use App\Models\Inventory\PurchaseOrder;
 
 
 new class extends Component
 {
+    use WithFileUploads;
     use WithPagination;
     use Interactions;
 
     public ?int $quantity = 10;
     public ?string $search = null;
+    public $isExists = false;
+
+    // For multiple files the property must be an array 
+    public $photos = [];
+     // 1. We create a property that will temporarily store the uploaded files
+    public $backup = [];
+
+    public $receivingInfo,$requestInfo,$requisitionDetails=[],$purchaseOrderId;
 
     //inputs
     public $selectedRows = [];
-    public $supplier_id;
-    public $type_id;
-    public $event_id;
-    public $productionOrder_id;
-    public $term_id;
-    public $merchandisePONumber;
     public $notes;
-    public $approvedBy;
-    public $reviewedBy;
     public $grand_total = 0.00;
     public $status;
 
@@ -60,7 +67,51 @@ new class extends Component
             'approvedBy.exists' => 'Select a valid reviewer on the list.',
         ];
 
-    public function mount(){
+     public function updatingPhotos(): void
+    {
+        // 2. We store the uploaded files in the temporary property
+        $this->backup = $this->photos;
+    }
+ 
+    public function updatedPhotos(): void
+    {
+        if (!$this->photos) {
+            return;
+        }
+ 
+        // 3. We merge the newly uploaded files with the saved ones
+        $file = Arr::flatten(array_merge($this->backup, [$this->photos]));
+ 
+        // 4. We finishing by removing the duplicates
+        $this->photos = collect($file)->unique(fn (UploadedFile $item) => $item->getClientOriginalName())->toArray();
+    }
+
+    public function updatedPurchaseOrderId($id)
+    {
+            $this->receivingInfo = Receiving::where('REQUISITION_ID', $id)->where('RECEIVING_STATUS', 'DRAFT')->first();
+            if ($this->receivingInfo) {
+            $this->toast()->warning('Warning', 'This Purchase Order has an existing draft receiving. Please update the existing receiving.')->send();
+            $this->purchaseOrderId = null;
+
+                return;
+            }
+        
+        $this->requestInfo = PurchaseOrder::where('id', $id)
+            ->first();
+        $this->requisitionDetails = PurchaseOrderItems::where('requisition_info_id', $id)
+            ->get() // Execute the query to get a collection first
+            ->map(function ($item) {
+                // Calculate the difference
+                $remainingQty = $item->qty - ($item->cardexIn?->where('status', 'FINAL')->sum('qty_in') ?? 0);
+
+                // Determine the highlight color
+                $color = match (true) {
+                    $remainingQty == 0 => 'green',
+                    default => null,
+                };
+                return $item->setAttribute('highlight', $color);
+            });
+
     }
 
     /**
@@ -156,18 +207,53 @@ new class extends Component
     {
         return [
             'selectedItemHeader' => [
-                ['index' => 'item_code', 'label' => 'Code'],
-                ['index' => 'item_description', 'label' => 'Description'],
+                ['index' => 'description', 'label' => 'Description'],
                 ['index' => 'unit', 'label' => 'Unit' ],
-                ['index' => 'unit', 'label' => 'request qty' ],
-                ['index' => 'cost', 'label' => 'to receive qty'],
-                ['index' => 'quantity', 'label' => 'received' ],
-                ['index' => 'sub_total', 'label' => 'old cost'],
-                ['index' => 'sub_total', 'label' => 'new cost'],
-                ['index' => 'sub_total', 'label' => 'sub total'],
+                ['index' => 'qty', 'label' => 'request qty' ],
+                ['index' => 'toReceive', 'label' => 'to receive'],
+                ['index' => 'received', 'label' => 'received' ],
+                ['index' => 'oldCost', 'label' => 'old cost'],
+                ['index' => 'newCost', 'label' => 'new cost'],
+                ['index' => 'subTotal', 'label' => 'sub total'],
             ]
         ];
     }
+
+
+    public function deleteUpload(array $content): void
+{
+    /*
+     the $content contains:
+     [
+         'temporary_name',
+         'real_name',
+         'extension',
+         'size',
+         'path',
+         'url',
+     ]
+     */
+ 
+    if (! $this->photos) {
+        return;
+    }
+ 
+    $files = Arr::wrap($this->photos);
+ 
+    /** @var UploadedFile $file */
+    $file = collect($files)->filter(fn (UploadedFile $item) => $item->getFilename() === $content['temporary_name'])->first();
+ 
+    // 1. Here we delete the file. Even if we have a error here, we simply
+    // ignore it because as long as the file is not persisted, it is
+    // temporary and will be deleted at some point if there is a failure here.
+    rescue(fn () => $file->delete(), report: false);
+ 
+    $collect = collect($files)->filter(fn (UploadedFile $item) => $item->getFilename() !== $content['temporary_name']);
+ 
+    // 2. We guarantee restore of remaining files regardless of upload
+    // type, whether you are dealing with multiple or single uploads
+    $this->photo = is_array($this->photos) ? $collect->toArray() : $collect->first();
+}
 
     public function saveAsDraftAction(): void
     {
@@ -256,7 +342,7 @@ new class extends Component
                     <x-ts-select.styled
                         :request="route('api.get.to-receive-purchase-order', ['branch_id' => auth()->user()->branch_id])"
                         label="Purchase Order"
-                        wire:model='purchase_order_id'
+                        wire:model.live='purchaseOrderId'
                         select="label:requisition_number|value:id|description:remarks"
                         :placeholders="[
                             'default' => 'Select purchase order',
@@ -268,19 +354,12 @@ new class extends Component
                     <x-ts-input label="Waybill No̱." />
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Supplier" readonly />
+                    <x-ts-input label="Receiving No̱."/>
                     <x-ts-input label="Delivery Receipt No̱." />
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="Delivered By"/>
                     <x-ts-input label="Invoice No̱." />
-                </div>
-                <div class="p-10 justify-center">
-                    <x-ts-stats :number="$grand_total" title="Total Cost" animated>
-                            <x-slot:icon>
-                                <x-icon-peso class="w-6 h-6" />
-                            </x-slot:icon>
-                    </x-ts-stats>
                 </div>
             </div>
         </x-ts-card>
@@ -288,25 +367,47 @@ new class extends Component
         {{-- TABLE --}}
         <div class="w-full">
             <x-ts-card>
-                <x-ts-table :headers="$selectedItemHeader" :rows="$selectedRows" striped expandable>
-                    @interact('column_quantity', $row)
-                       <x-ts-input type="number"
-                        sm
-                        wire:model.live.debounce.500ms="selectedRows.{{ $loop->index }}.quantity" />
+                <x-ts-table :headers="$selectedItemHeader" :rows="$requisitionDetails" striped expandable loading highlight>
+                    @interact('column_description', $row)
+                       {{ $row->item->item_description }}
                     @endinteract
-
+                    @interact('column_unit', $row)
+                       {{ $row->item->unit?->unit_symbol ?? 'N/A' }}
+                    @endinteract
+                    @interact('column_toReceive', $row)
+                         {{ $row->qty - $row->cardexIn?->where('status', 'FINAL')->sum('qty_in') }} 
+                    @endinteract
+                    @interact('column_received', $row)
+                        @php
+                            $isComplete =  ($row->qty - $row->cardexIn?->where('status', 'FINAL')->sum('qty_in')) == 0;
+                        @endphp
+                       <x-ts-input type="number" sm wire:model="requisitionDetails.{{ $loop->index }}.received" :disabled="$isComplete" />
+                    @endinteract
+                    @interact('column_oldCost', $row)
+                        ₱ {{{ $row->item->cost?->amount }}}
+                    @endinteract
+                    @interact('column_newCost', $row)
+                        @php
+                            $isComplete =  ($row->qty - $row->cardexIn?->where('status', 'FINAL')->sum('qty_in')) == 0;
+                        @endphp
+                       <x-ts-currency  symbol sm wire:model.live.debounce.500ms="requisitionDetails.{{ $loop->index }}.newCost" :disabled="$isComplete" />
+                    @endinteract
                     @interact('sub_table', $row)
                         <x-ts-table :headers="[
+                            ['index' => 'item_code', 'label' => 'Code'],
+                            ['index' => 'item_description', 'label' => 'Description'],
                             ['index' => 'brand', 'label' => 'Brand'],
                             ['index' => 'category', 'label' => 'Category'],
                             ['index' => 'classification', 'label' => 'Classification'],
                             ['index' => 'subClass', 'label' => 'Sub-Classification'],
                         ]"
                         :rows="[[
-                            'brand'          => $row['brand'], {{-- Access as array --}}
-                            'category'       => $row['category'],
-                            'classification' => $row['classification'],
-                            'subClass'       => $row['subClass'],
+                            'item_code'       => $row->item->item_code,
+                            'item_description'=> $row->item->item_description,
+                            'brand'          => $row->item->brand?->brand_name ?? 'N/A', {{-- Access as array --}}
+                            'category'       => $row->item->category?->category_name ?? 'N/A',
+                            'classification' => $row->item->classification?->classification_name ?? 'N/A',
+                            'subClass'       => $row->item->subClassification?->classification_name ?? 'N/A',
                         ]]" />
                     @endinteract
 
@@ -314,6 +415,15 @@ new class extends Component
                 @error('selectedRows')
                     <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
                 @enderror
+                <x-slot:footer>
+                    <div class="flex justify-end">
+                        <x-ts-stats number="{{$grand_total}}" title="Total Cost">
+                            <x-slot:icon>
+                                <x-icon-peso class="w-6 h-6" />
+                            </x-slot:icon>
+                    </x-ts-stats>
+                    </div>
+                </x-slot:footer>
             </x-ts-card>
         </div>
 
@@ -326,33 +436,7 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
                         <div class="col-span-2">
-                            <x-ts-select.styled
-                            :request="route('api.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
-                            select="label:fullName|value:id|description:position"
-                            wire:model="reviewedBy"
-                            label="Reviewed By"
-                            :placeholders="[
-                            'default' => 'Select',
-                            'empty'   => 'No reviewers found',
-                            ]" ... required/>
-                        </div>
-
-                        <div class="col-span-2">
-                            <x-ts-select.styled
-                                :request="route('api.active.approvers', ['branch_id' => auth()->user()->branch_id])"
-                                wire:model="approvedBy"
-                                select="label:fullName|value:id|description:position"
-                                label="Approved By"
-                                :placeholders="[
-                                    'default' => 'Select    ',
-                                    'empty'   => 'No aapprovers found',
-                                ]" required />
-                        </div>
-
-                        <div class="col-span-1 items-center inline-flex mt-2">
-                            <div class="flex justify-end">
-                                
-                            </div>
+                            <x-ts-upload delete multiple label="Attachments" wire:model="photos"/>
                         </div>
                     </div>
                 </div>

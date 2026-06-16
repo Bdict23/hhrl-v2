@@ -49,6 +49,12 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/advances-for-liquidation/view/{id}', 'transactions.advances-for-liquidation.advances-for-liquidation-view')->name('afl.view');
     Volt::route('/advances-for-liquidation/edit/{id}', 'transactions.advances-for-liquidation.advances-for-liquidation-edit')->name('afl.edit');
 
+    //EMPLOYEES ADVANCES
+    Volt::route('/employees-advances-summary', 'transactions.employees-advances.employees-advances-summary')->name('employees-advances.summary');
+    Volt::route('/employees-advances-create', 'transactions.employees-advances.employees-advances-create')->name('employees-advances.create');
+    Volt::route('/employees-advances-show/{id}', 'transactions.employees-advances.employees-advances-view')->name('employees-advances.view');
+    Volt::route('/employees-advances-edit/{id}', 'transactions.employees-advances.employees-advances-edit')->name('employees-advances.edit');
+
 
     //Acknowledgement Receipt
     Volt::route('/acknowledgement-receipt/summary', 'transactions.acknowledgement-receipt.acknowledgement-receipt-summary')->name('acknowledgement-receipt.summary');
@@ -66,25 +72,23 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/petty-cash-voucher/edit/{id}', 'transactions.petty-cash-voucher.petty-cash-voucher-edit')->name('petty-cash-voucher.edit');
 
 
-    #Region CASH RETURN
+    //CASH RETURN
     Volt::route('/cash-return/summary-tabs', 'transactions.cash-return.cash-return-summary-tab')->name('cash-return.summary-tab');
-    #Region - CRS PCV
+    //CRS PCV
     Volt::route('/cash-return/pcv-crs-create', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-create')->name('cash-return.pcv-crs.create');
     Volt::route('/cash-return/pcv-view/{id}', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-view')->name('cash-return.pcv-crs.view');
     Volt::route('/cash-return/pcv-edit/{id}', 'transactions.cash-return.cash-return-pcv.cash-return-pcv-edit')->name('cash-return.pcv-crs.edit');
-    #EndRegion
+
 
     //EVENT
     Volt::route('/cash-return/event-crs-create', 'transactions.cash-return.cash-return-event.cash-return-event-create')->name('cash-return.event-crs.create');
     Volt::route('/cash-return/event-crs-view/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
     Volt::route('/cash-return/event-crs-edit/{id}',  'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
-    #Region CRS AFL
+    //CRS AFL
     Volt::route('/cash-return/advances-for-liquidation-crs-create', 'transactions.cash-return.cash-return-afl.cash-return-afl-create')->name('cash-return.afl-crs.create');
     Volt::route('/cash-return/advances-for-liquidation-crs-view/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-view')->name('cash-return.afl-crs.view');
     Volt::route('/cash-return/advances-for-liquidation-crs-edit/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-edit')->name('cash-return.afl-crs.edit');
-    #Endregion
 
-    #EndRegion
 
     // REIMBURSEMENT
     Volt::route('/reimbursement/summary', 'transactions.reimbursement.reimbursement-summary')->name('reimbursement.summary');
@@ -103,6 +107,10 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/fixed-asset/validation-summary', 'inventory.fixed-asset.fixed-asset-validation-summary')->name('fixed-asset.validation-summary');
     volt::route('/fixed-asset/validation-review-view/{id}', 'inventory.fixed-asset.fixed-asset-validation-review-view')->name('fixed-asset.validation.review-view');
     volt::route('/fixed-asset/validation-approval-view/{id}', 'inventory.fixed-asset.fixed-asset-validation-approval-view')->name('fixed-asset.validation.approval-view');
+
+    //CASH ADVANCES
+    volt::route('/cash-advances/approval-summary', 'transactions.employees-advances.employees-advances-validation-approval-summary')->name('cash-advances.validation.approval-summary');
+    volt::route('/cash-advances/approval-view/{id}', 'transactions.employees-advances.employees-advances-validation-approval-view')->name('cash-advances.validation.approval-view');
 });
 
 require __DIR__ . '/auth.php';

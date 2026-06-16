@@ -20,10 +20,8 @@
                    avatar: @js(asset(auth()->user()->photo_url) ?? asset('/images/1772440510.png')),
                 }"
           x-bind:class="{ 'dark bg-gray-800': darkTheme, 'bg-gray-100': !darkTheme }">
-    {{-- <div x-show="loading" class="fixed top-0 left-0 right-0 z-[999] h-1 pointer-events-none" style="display: none;"> --}}
-
-    </div>
     <x-ts-layout>
+        
         <x-slot:top>
             <x-ts-dialog />
             <x-ts-toast />
@@ -209,6 +207,12 @@
                             </x-slot:icon>
                         </x-ts-side-bar.item>
 
+                        <x-ts-side-bar.item text="Employee Cash Advance" :route="route('employees-advances.summary')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+
                         <x-ts-side-bar.item text="Petty Cash Voucher" :route="route('petty-cash-voucher.summary')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
@@ -255,6 +259,12 @@
 
                     <!-- Validations Section -->
                     <x-ts-side-bar.item text="Validations" icon="check-badge">
+
+                            <x-ts-side-bar.item text="Employee Cash advance" :route="route('cash-advances.validation.approval-summary')">
+                                <x-slot:icon>
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
 
                             <x-ts-side-bar.item text="Purchase Order" :route="route('purchase-order.validation-tabs')">
                                 <x-slot:icon>

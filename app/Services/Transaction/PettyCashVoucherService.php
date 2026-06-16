@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Transaction\RevolvingFund;
 use App\Models\Transaction\AdvancesForLiquidation;
 use App\Models\Transaction\PcvLiquidationSnapshot;
+use App\Models\Transaction\EmployeeAdvance;
+
+
 
 
 
@@ -32,6 +35,9 @@ class PettyCashVoucherService
     protected $revolvingFund;
     protected $advancesForLiquidation;
     protected $pcvLiquidationSnapshot;
+    private $activeRevolving;
+    protected $employeeAdvance;
+
 
 
 
@@ -46,7 +52,8 @@ class PettyCashVoucherService
         TransactionTemplate $transactionTemplate,
         RevolvingFund $revolvingFund,
         AdvancesForLiquidation $advancesForLiquidation,
-        PcvLiquidationSnapshot $pcvLiquidationSnapshot
+        PcvLiquidationSnapshot $pcvLiquidationSnapshot,
+        EmployeeAdvance $employeeAdvance
     ) {
         $this->pettyCashVoucher = $pettyCashVoucher;
         $this->pettyCashVoucherDetail = $pettyCashVoucherDetail;
@@ -57,6 +64,7 @@ class PettyCashVoucherService
         $this->revolvingFund = $revolvingFund;
         $this->advancesForLiquidation = $advancesForLiquidation;
         $this->pcvLiquidationSnapshot = $pcvLiquidationSnapshot;
+        $this->employeeAdvance = $employeeAdvance;;
     }
 
     public function create(array $data): PettyCashVoucher
@@ -99,8 +107,7 @@ class PettyCashVoucherService
                 'template_id' => $data['template_id'],
                 'transaction_title' => $transactionTitle,
                 'advance_liquidation_id' => $data['afl_id'],
-
-
+                'employee_advance_id' => $data['employee_advance_id'],
 
             ]);
             $pcvItems = [];
@@ -118,10 +125,10 @@ class PettyCashVoucherService
             // check if the fund source passed is revolving fund else AFL fund
             $balance = $data['fund_balance'] - $data['total_amount'];
             if ($data['fund_source'] == 'REVOLVING') {
-                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
-                if ($activeRevolvingFund) {
+                $this->activeRevolving = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
+                if ($this->activeRevolving) {
                     //save expense on revolving fund ledger
-                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                    $this->activeRevolving->revolvingFundSnapshot()->create([
                         'type' => 'OUT',
                         'pcv_id' => $pcv->id,
                         'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
@@ -143,7 +150,33 @@ class PettyCashVoucherService
                 ]);
             }
 
+            // check if the transaction is cash advance to record on cash advance ledger
+            if ($data['isCashAdvance']) {
+                // 1. Fetch to a local variable. Use find() or fail gracefully if needed.
+                $employeeAdvance = $this->employeeAdvance->find($data['employee_advance_id']);
 
+                if ($employeeAdvance) {
+                    $isOpen = ($data['status'] === 'OPEN');
+
+                    // 2. Create the snapshot
+                    $employeeAdvance->employeeAdvanceSnapshot()->create([
+                        'type'              => 'IN',
+                        'status'            => $isOpen ? 'FINAL' : 'DRAFT',
+                        'description'       => 'DISBURSEMENT',
+                        'amount'            => $data['total_amount'],
+                        'balance'           => $data['total_amount'],
+                        'pcv_id'            => $pcv->id,
+                        'revolving_fund_id' => $this->activeRevolving->id,
+                    ]);
+
+                    // 3. Update the advance status if open
+                    if ($isOpen) {
+                        $employeeAdvance->update(['status' => 'OPEN']);
+                        //close the pcv status
+                        $pcv->update(['status' => 'CLOSED']);
+                    }
+                }
+            }
             return $pcv;
         });
     }
@@ -192,10 +225,10 @@ class PettyCashVoucherService
             // check if the fund source passed is revolving fund else AFL fund
             $balance = $data['fund_balance'] - $data['total_amount'];
             if ($data['fund_source'] == 'REVOLVING') {
-                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $data['branch_id'])->where('status', 'OPEN')->first();
-                if ($activeRevolvingFund) {
+                $this->activeRevolving = $this->revolvingFund->where('branch_id', $data['branch_id'])->where('status', 'OPEN')->first();
+                if ($this->activeRevolving) {
                     //save expense on revolving fund ledger
-                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                    $this->activeRevolving->revolvingFundSnapshot()->create([
                         'type' => 'OUT',
                         'pcv_id' => $pcv->id,
                         'status' => $data['status'] == 'OPEN' ? 'FINAL' : 'DRAFT',
@@ -216,6 +249,35 @@ class PettyCashVoucherService
                     'description' => 'PETTY CASH VOUCHER',
                 ]);
             }
+
+            if ($data['isCashAdvance']) {
+                // 1. Fetch to a local variable. Use find() or fail gracefully if needed.
+                $employeeAdvance = $this->employeeAdvance->find($data['employee_advance_id']);
+                // delete the currnet snapshot from employee advance
+                $employeeAdvance->employeeAdvanceSnapshot()->delete();
+                if ($employeeAdvance) {
+                    $isOpen = ($data['status'] === 'OPEN');
+
+                    // 2. Create the snapshot
+                    $employeeAdvance->employeeAdvanceSnapshot()->create([
+                        'type'              => 'IN',
+                        'status'            => $isOpen ? 'FINAL' : 'DRAFT',
+                        'description'       => 'DISBURSEMENT',
+                        'amount'            => $data['total_amount'],
+                        'balance'           => $data['total_amount'],
+                        'pcv_id'            => $pcv->id,
+                        'revolving_fund_id' => $this->activeRevolving->id,
+                    ]);
+
+                    // 3. Update the advance status if open
+                    if ($isOpen) {
+                        $employeeAdvance->update(['status' => 'OPEN']);
+                        // close the pcv status
+                        $pcv->update(['status' => 'CLOSED']);
+                    }
+                }
+            }
+
             return $pcv;
         });
     }
@@ -254,5 +316,11 @@ class PettyCashVoucherService
         $detailData = PcvLiquidationSnapshot::where('pcv_id', $id)->get();
         $expense = $detailData->sum('amount');
         return $expense;
+    }
+    public static function hasPendingCashAdvance(int $id): ?int
+    {
+        return PettyCashVoucher::where('employee_advance_id', $id)
+            ->where('status', 'DRAFT')
+            ->value('id');
     }
 }

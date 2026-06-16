@@ -32,7 +32,9 @@ new class extends Component
     $createdBy,
     $aflId,
     $fundSource = 'REVOLVING',
-    $eventId;
+    $eventId,
+    $isCashAdvance,
+    $cashAdvanceId;
 
 
     // view
@@ -86,7 +88,28 @@ new class extends Component
         }
     }
 
+    // check if there are pending cash advances from pcv as draft
+    public function updatedCashAdvanceId(){
+        if($this->cashAdvanceId){
+            $hasPendingPCV = PettyCashVoucherService::hasPendingCashAdvance($this->cashAdvanceId);
+            if($hasPendingPCV){
+                $this->cashAdvanceId = null;
+                $this->dialog()
+                ->warning('Pending PCV Detected', 'There are pending Petty Cash Vouchers (PCV) associated with this cash advance. Would you like to view and update them?')
+                ->confirm(method:'redirectPcv', params:$hasPendingPCV)
+                ->cancel('Dismiss')
+                ->send();
+                return;
+            }
+        }
+    }
+    public function redirectPcv($pcvId){
+        //redirect
+        $this->redirect(route('petty-cash-voucher.edit', $pcvId));
+    }
+
     public function saveAsFinalAction(){
+        $this->validateCashAdvance();
         $validated = $this->validate();
         $this->status = 'OPEN';
         $this->dialog()
@@ -107,6 +130,7 @@ new class extends Component
 
 
     public function saveAsDraftAction(){
+        $this->validateCashAdvance();
         $validated = $this->validate();
         $this->status = 'DRAFT';
          $this->dialog()
@@ -155,6 +179,8 @@ new class extends Component
                 'fund_source' => $this->fundSource,
                 'afl_id' => $this->aflId,
                 'items' => $this->particularsRow,
+                'isCashAdvance' => $this->isCashAdvance,
+                'employee_advance_id' => $this->cashAdvanceId,
             ];
 
             // 4. Call the Service
@@ -195,6 +221,14 @@ new class extends Component
 
     }
 
+    public function validateCashAdvance(){
+        if($this->isCashAdvance){
+            $this->validate([
+                'cashAdvanceId' => 'required|exists:employee_advances,id'
+            ]);
+        }
+    }
+
 
     public function with(): array
     {
@@ -224,7 +258,9 @@ new class extends Component
 
         if ($this->transactionId) {
             $this->particularsRow = [];
-            $item = TemplateDetail::with('accountTitle')->where('template_id', $this->transactionId)->get();
+            $data = TransactionTemplate::find($this->transactionId);
+            $this->isCashAdvance = $data->module_type == 'CASH_ADVANCE' ? true : false;
+            $item = $data->transactionDetails;
             foreach ($item as $row) {
             $this->particularsRow[] = [
                     'transaction_title_id'  => $row->accountTitle->id,
@@ -234,6 +270,13 @@ new class extends Component
                     'debit'                 => 0,
                     'credit'                => 0,
                 ];
+            }
+            if($this->isCashAdvance){
+                $this->aflId = null;
+                $this->purchaseOrderId = null;
+                $this->hasEvent = false;
+            }else{
+                $this->cashAdvanceId;
             }
         }
     }
@@ -298,16 +341,19 @@ new class extends Component
         <x-ts-card>
             <div>
                 <div class="grid gap-3 grid-cols-2 mt-3">
-                    <x-ts-select.styled
-                        :request="route('api.get.active-afl', ['branch_id' => auth()->user()->branch_id ])"
-                        select="label:reference|value:id|description:description_one"
-                        wire:model.live="aflId"
-                        label="Advances for liquidation"
-                        :placeholders="[
-                        'default' => 'Select',
-                        'empty'   => 'No type found',
-                        ]"
-                        />
+                    @if(!$isCashAdvance)
+                        <div wire:key="afl-container">
+                            <x-ts-select.styled
+                            :request="route('api.pcv.get.active-afl', ['branch_id' => auth()->user()->branch_id ])"
+                            select="label:reference|value:id|description:description_one"
+                            wire:model.live="aflId"
+                            label="Advances for liquidation"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No type found',
+                            ]"
+                            />
+                        </div>
 
                         @if(!$hasEvent)
                              <x-ts-select.styled
@@ -336,6 +382,18 @@ new class extends Component
                                 />
                             </div>
                         @endif
+                    @else
+                        <x-ts-select.styled
+                            :request="route('api.get.for-disbusement-cash-advances', ['branch_id' => auth()->user()->branch_id ])"
+                            select="label:reference|value:id|description:remarks"
+                            wire:model.live="cashAdvanceId"
+                            label="Cash Advance reference *"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No cash advances found',
+                            ]"
+                        />
+                    @endif
                     
                 </div>
 
@@ -425,4 +483,7 @@ new class extends Component
             </x-slot:footer>
         </x-ts-card>
     </div>
+
+    <x-ts-loading delay="short" loading="redirectPcv" />
+    <x-ts-loading delay="short" loading="store" />
 </div>

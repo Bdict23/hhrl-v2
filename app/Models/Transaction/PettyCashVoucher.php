@@ -34,6 +34,7 @@ class PettyCashVoucher extends Model
         'transaction_title',
         'type_id',
         'advance_liquidation_id',
+        'employee_advance_id',
     ];
 
     public function paidToEmployee()
@@ -85,5 +86,9 @@ class PettyCashVoucher extends Model
     public function event()
     {
         return $this->belongsTo(Event::class, 'event_id');
+    }
+    public function employeeAdvance()
+    {
+        return $this->belongsTo(EmployeeAdvance::class, 'employee_advance_id');
     }
 }

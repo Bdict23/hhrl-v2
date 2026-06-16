@@ -96,8 +96,8 @@ new class extends Component
                         <x-ts-badge :text="$row->status" color="amber" />
                     @elseif($row->status == 'CLOSED')
                         <x-ts-badge :text="$row->status" color="green" />
-                    @elseif($row->requisition_status == 'CANCELLED')
-                        <x-ts-badge :text="$row->requisition_status" color="rose" />
+                    @elseif($row->status == 'CANCELLED')
+                        <x-ts-badge :text="$row->status" color="rose" />
                     @endif
                 </div>
             @endinteract
@@ -109,14 +109,14 @@ new class extends Component
                 @endif
             @endinteract
             @interact('column_created_at', $row)
-                {{ \Illuminate\Support\Carbon::parse($row->trans_date)->format('M. d, Y') }}
+                {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
             @endinteract
             @interact('column_total_amount', $row)
                 ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
             @endinteract
             @interact('column_created_by', $row)
                 <div class="flex items-center gap-2">
-                    <x-ts-badge :text="$row->preparedBy?->name ?? 'Unknown'" outline />
+                    <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                 </div>
             @endinteract
              @interact('column_requisition_id', $row)

@@ -411,6 +411,7 @@ new class extends Component {
                             'acknowledgement' => $value->acknowledgement->reference ?? null,
                             'pettyCashVoucher' => $value->pettyCashVoucher->reference ?? null,
                             'forwardedRevolvingFund' => $value->forwardedRevolvingFund->reference ?? null,
+                            'cashReturn' => $value->cashReturn->reference ?? null,
                         ];
                     }
                 @endphp
@@ -428,6 +429,8 @@ new class extends Component {
                             {{ $row['forwardedRevolvingFund'] }}
                         @elseif($row['description'] == 'PETTY CASH VOUCHER')
                             {{ $row['pettyCashVoucher'] }}
+                        @elseif($row['description'] == 'CASH RETURN')
+                            {{ $row['cashReturn'] }}
                         @endif
                         @endinteract()
                         @interact('column_amount', $row)
