@@ -10,6 +10,8 @@ use App\Models\Transaction\RevolvingFund;
 use App\Services\Transaction\AdvancesForLiquidationService;
 use App\Services\Transaction\RevolvingFundService;
 use App\Models\Transaction\PettyCashVoucher;
+use App\Models\Transaction\EmployeeAdvance;
+
 
 
 
@@ -25,6 +27,8 @@ class CashReturnService
     protected $advancesForLiquidation;
     protected $revolvingFund;
     protected $pettyCashVoucher;
+    protected $employeeAdvance;
+
 
 
 
@@ -33,13 +37,16 @@ class CashReturnService
         Branch $branch,
         AdvancesForLiquidation $advancesForLiquidation,
         RevolvingFund $revolvingFund,
-        PettyCashVoucher $pettyCashVoucher
+        PettyCashVoucher $pettyCashVoucher,
+        EmployeeAdvance $employeeAdvance
+
     ) {
         $this->cashReturn = $cashReturn;
         $this->branch = $branch;
         $this->advancesForLiquidation = $advancesForLiquidation;
         $this->revolvingFund = $revolvingFund;
         $this->pettyCashVoucher = $pettyCashVoucher;
+        $this->employeeAdvance = $employeeAdvance;
     }
 
     public function createPcvCrs(array $data): CashReturn
@@ -80,7 +87,6 @@ class CashReturnService
                     'description' => 'CASH RETURN',
                     'cash_return_id' => $pcr->id,
                 ]);
-               
             } else {
                 $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
                 if ($activeRevolvingFund) {
@@ -173,7 +179,7 @@ class CashReturnService
                 ->whereYear('created_at', $currentYear)
                 ->count() + 1;
 
-            $reference = 'CRA-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            $reference = 'CRL-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
             $pcr = $this->cashReturn->create([
                 'branch_id'                 => $branchId,
                 'reference'                 => $reference,
@@ -238,6 +244,52 @@ class CashReturnService
             // }
 
             return $crs;
+        });
+    }
+
+    public function createEmployeeAdvanceCrs(array $data): CashReturn
+    {
+        return DB::transaction(function () use ($data) {
+            $branchId = $data['branch_id'];
+            $branch = $this->branch->findOrFail($branchId);
+            $branchCode = $branch->branch_code;
+            $currentYear = now()->year;
+            $yearlyCount = $this->cashReturn
+                ->where('branch_id', $branchId)
+                ->whereYear('created_at', $currentYear)
+                ->count() + 1;
+
+            $reference = 'CRA-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            $cra = $this->cashReturn->create([
+                'branch_id' => $branchId,
+                'reference' => $reference,
+                'status' => $data['status'],
+                'employee_advance_id' => $data['employee_advance_id'],
+                'prepared_by' => $data['prepared_by'],
+                'amount_returned' => $data['amount_returned'],
+                'notes' => $data['notes'],
+            ]);
+
+            $employeeAdvance = $this->employeeAdvance->find($data['employee_advance_id']);
+            if ($employeeAdvance) {
+                $isOpen = ($data['status'] === 'OPEN');
+
+                // 2. Create the snapshot
+                $employeeAdvance->employeeAdvanceSnapshot()->create([
+                    'type'              => 'IN',
+                    'status'            => $isOpen ? 'FINAL' : 'DRAFT',
+                    'description'       => 'CASH RETURN',
+                    'amount'            => $data['amount_returned'],
+                    'balance'           => $data['balance'],
+                    'cash_return_id'    => $cra->id,
+                ]);
+
+                // 3. Update the advance status if open
+                if ($isOpen) {
+                    $employeeAdvance->update(['status' => 'OPEN', 'opened_at' => now()]);
+                }
+            }
+            return $cra;
         });
     }
 }

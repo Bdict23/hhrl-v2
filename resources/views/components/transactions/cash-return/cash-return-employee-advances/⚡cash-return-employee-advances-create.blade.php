@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Transaction\CashReturn;
 use App\Models\Transaction\AdvancesForLiquidation;
 use App\Services\Transaction\CashReturnService;
-use App\Services\Transaction\AdvancesForLiquidationService;
+use App\Services\Transaction\EmployeesAdvanceService;
+use App\Models\Transaction\EmployeeAdvance;
+
 
 new class extends Component {
     use Interactions;
@@ -15,27 +17,44 @@ new class extends Component {
         'notes' => 'nullable|max:225',
     ];
 
-    public $aflId, $aflDate, $event, $disburser, $preparedBy, $approvedBy, $aflAmount, $totalExpense, $amountReturned, $notes, $amountToReturn;
-    public $status = 'DRAFT',
-        $hasPendingTransaction = false;
+    public  $approvedBy, $amountReturned, $notes, $amountToReturn;
+    public $status = 'DRAFT';
+    
+    public $cashAdvanceId,$receivedDate,$note,$receivedBy,$preparedBy,$advanceAmount,$balance,$hasPendingCashReturn = false;
 
-    public function updatedAflId($value)
+    public function updatedCashAdvanceId($value)
     {
-        if ($value) {
-            $afl = AdvancesForLiquidation::find($value);
-            if ($afl) {
-                $this->aflDate = $afl->created_at;
-                $this->event = $afl->event?->event_name;
-                $this->disburser = $afl->receivedBy?->full_name;
-                $this->preparedBy = $afl->preparedBy?->full_name;
-                $this->approvedBy = $afl->approvedBy?->full_name;
-                $this->aflAmount = $afl->amount_received;
-                $this->totalExpense = AdvancesForLiquidationService::totalExpense($value);
-                $this->amountToReturn = AdvancesForLiquidationService::currentBalance($value);
-                $this->amountReturned = $this->amountToReturn;
-                $this->hasPendingTransaction = AdvancesForLiquidationService::hasPendingTransaction($value); // check if naa pay open nga transaction sa cash return or pcv
-            }
+        $this->hasPendingCashReturn = EmployeesAdvanceService::hasPendingCashReturn($value); // check if naa pay open nga transaction sa cash return or pcv
+        if($this->hasPendingCashReturn){
+            $this->dialog()
+                ->warning('Pending Cash return Detected', 'There are pending Cash return associated with this employee cash advance. Would you like to view and edit them?')
+                ->confirm('Yes','redirectCrs')
+                ->cancel('Dismiss')
+                ->send();
+                return;
         }
+        if ($value) {
+            $eca = EmployeeAdvance::find($value);
+            if ($eca) {
+                $this->receivedDate = $eca->opened_at; //eca
+                $this->note = $eca->remarks;
+                $this->receivedBy = $eca->receivedBy?->full_name;
+                $this->preparedBy = $eca->preparedBy?->full_name;
+                $this->approvedBy = $eca->approvedBy?->full_name;
+                $this->advanceAmount = $eca->amount;
+                $this->balance = EmployeesAdvanceService::currentBalance($value);
+                $this->amountToReturn = $this->balance;
+                $this->amountReturned = $this->amountToReturn;
+            }
+        }else{
+            $this->resetForm();
+        }
+    }
+
+    public function redirectCrs()
+    {
+        $this->redirect(route('cash-return.employee-advances.edit', $this->hasPendingCashReturn));
+
     }
     public function isValidReturn()
     {
@@ -52,7 +71,7 @@ new class extends Component {
         }
         $this->status = 'DRAFT';
         $this->dialog()
-            ->question('New Cash return - AFL', 'Are you sure to save this cash return as draft?')
+            ->question('New Cash return for employee advance', 'Are you sure to save this cash return as draft?')
             ->confirm(
                 'Confirm',
                 'store', //pass a functio to call
@@ -70,7 +89,7 @@ new class extends Component {
         }
         $this->status = 'FINAL';
         $this->dialog()
-            ->question('New Cash return - AFL', 'Are you sure to save this cash return as draft?')
+            ->question('New Cash return for employee advance', 'Are you sure to save this cash return as draft?')
             ->confirm(
                 'Confirm',
                 'store', //pass a functio to call
@@ -87,10 +106,10 @@ new class extends Component {
                 'prepared_by' => Auth::user()->emp_id,
                 'amount_returned' => str_replace(',', '', $this->amountReturned),
                 'notes' => $this->notes,
-                'advances_liquidation_id' => $this->aflId,
-                'has_pending_transaction' => $this->hasPendingTransaction,
+                'employee_advance_id' => $this->cashAdvanceId,
+                'balance' => $this->balance - str_replace(',', '', $this->amountReturned)
             ];
-            $crs = $service->createAflCrs($data);
+            $crs = $service->createEmployeeAdvanceCrs($data);
             $this->toast()
                 ->success('Success', "Cash Return {$crs->reference} created successfully!")
                 ->send();
@@ -102,6 +121,19 @@ new class extends Component {
                 ->send();
         }
     }
+    public function resetForm()
+    {
+        $this->receivedDate = null;
+        $this->note = null;
+        $this->receivedBy = null;
+        $this->preparedBy = null;
+        $this->approvedBy = null;
+        $this->advanceAmount = null;
+        $this->balance = null;
+        $this->amountReturned = null;
+        $this->amountToReturn = null;
+        $this->notes = null;
+    }
 }; ?>
 
 <div>
@@ -109,7 +141,7 @@ new class extends Component {
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
             ['label' => 'Transaction', 'link' => route('cash-return.summary-tab'), 'icon' => 'archive-box'],
             ['label' => 'Cash Return Summary', 'link' => route('cash-return.summary-tab'), 'icon' => 'list-bullet'],
-            ['label' => 'Advances for liquidation cash return create', 'icon' => 'pencil-square'],
+            ['label' => 'create cash return for cash advances', 'icon' => 'pencil-square'],
         ]" class="mb-3" />
     </div>
 
@@ -119,20 +151,20 @@ new class extends Component {
         <x-ts-card>
             <div class="grid grid-cols-2 w-full p-3 gap-3">
                 <div class="grid gap-3">
-                    <x-ts-select.styled label="Advances for liquidation" :request="route('api.get.active-afl', ['branch_id' => auth()->user()->branch_id])"
-                        select="label:reference|value:id|description:notes" wire:model.live="aflId" />
+                    <x-ts-select.styled label="Employee cash advance" :request="route('api.get.active-advances-for-employees', ['branch_id' => auth()->user()->branch_id])"
+                        select="label:reference|value:id|description:remarks" wire:model.live="cashAdvanceId" />
 
-                    <x-ts-date format="DD [of] MMMM [of] YYYY" wire:model='aflDate' label="AFL Date" disabled />
-                    <x-ts-input label="Associated Event" wire:model='event' readonly />
-                    <x-ts-input label="Disburser" wire:model="disburser" readonly />
+                    <x-ts-date format="DD [of] MMMM [of] YYYY" wire:model='receivedDate' label="Received Date" disabled />
+                    <x-ts-textarea label="Note" wire:model='note' readonly />
+                    <x-ts-input label="Received By" wire:model="receivedBy" readonly />
                     <div class="grid grid-cols-2 gap-2">
                         <x-ts-input label="Prepared By" wire:model="preparedBy" readonly />
                         <x-ts-input label="Approved By" wire:model="approvedBy" readonly />
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <x-ts-currency mutate decimal wire:model="aflAmount" label="AFL Amount" readonly symbol
+                        <x-ts-currency mutate decimal wire:model="advanceAmount" label="Advance Amount" readonly symbol
                             currency />
-                        <x-ts-currency wire:model="totalExpense" label="Total Expense" readonly symbol currency />
+                        <x-ts-currency wire:model="balance" label="Balance" readonly symbol currency />
                     </div>
                 </div>
                 <div>
@@ -144,7 +176,6 @@ new class extends Component {
             </div>
             <x-slot:footer>
                 <div class="flex justify-end gap-2">
-                    <x-ts-button icon="arrow-left" outline :href="route('cash-return.summary-tab')">Back</x-ts-button>
                     <div class="whitespace-nowrap content-center">
                         <x-ts-dropdown>
                             <x-slot:action>

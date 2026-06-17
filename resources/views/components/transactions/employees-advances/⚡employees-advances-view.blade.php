@@ -179,7 +179,7 @@ new class extends Component
                             @endif
                         </x-slot:right>
                     </x-ts-button>
-                @elseif($row->description == 'CASH RETURN' || $row->description == 'RETURN EXCESS')
+                @elseif($row->description == 'CASH RETURN')
                     <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
                         <x-slot:right>
                             @if ($row->cashReturn->status == 'OPEN')

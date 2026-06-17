@@ -88,11 +88,21 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/cash-return/advances-for-liquidation-crs-create', 'transactions.cash-return.cash-return-afl.cash-return-afl-create')->name('cash-return.afl-crs.create');
     Volt::route('/cash-return/advances-for-liquidation-crs-view/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-view')->name('cash-return.afl-crs.view');
     Volt::route('/cash-return/advances-for-liquidation-crs-edit/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-edit')->name('cash-return.afl-crs.edit');
+    //CRS FOR EMPLOYEE CASH ADVANCES
+    Volt::route('/cash-return/employee-advance-create', 'transactions.cash-return.cash-return-employee-advances.cash-return-employee-advances-create')->name('cash-return.employee-advances.create');
+    Volt::route('/cash-return/employee-advance-edit/{id}', 'transactions.cash-return.cash-return-employee-advances.cash-return-employee-advances-edit')->name('cash-return.employee-advances.edit');
+    Volt::route('/cash-return/employee-advance-view/{id}', 'transactions.cash-return.cash-return-employee-advances.cash-return-employee-advances-view')->name('cash-return.employee-advances.view');
+
 
 
     // REIMBURSEMENT
     Volt::route('/reimbursement/summary', 'transactions.reimbursement.reimbursement-summary')->name('reimbursement.summary');
     Volt::route('/reimbursement/create', 'transactions.reimbursement.reimbursement-create')->name('reimbursement.create');
+    Volt::route('/reimbursement/view/{id}', 'transactions.reimbursement.reimbursement-view')->name('reimbursement.view');
+    Volt::route('/reimbursement/edit/{id}', 'transactions.reimbursement.reimbursement-edit')->name('reimbursement.edit');
+    Volt::route('/reimbursement/validation-summary', 'transactions.reimbursement.reimbursement-validation-approval-summary')->name('reimbursement.validation-summary');
+    Volt::route('/reimbursement/validation-review-show/{id}', 'transactions.reimbursement.reimbursement-validation-approval-view')->name('reimbursement.validation.approval-view');
+
 
 
     // REVOLVING FUND

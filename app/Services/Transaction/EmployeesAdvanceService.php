@@ -6,6 +6,10 @@ use App\Models\Business\Branch;
 use Illuminate\Support\Facades\DB;
 use App\Models\Transaction\EmployeeAdvance;
 use App\Models\Transaction\EmployeeAdvanceSnapshot;
+use App\Models\Transaction\PettyCashVoucher;
+use App\Models\Transaction\CashReturn;
+
+
 
 
 
@@ -131,5 +135,14 @@ class EmployeesAdvanceService
             ->get()->isEmpty() ? false : true;
 
         return $openPcv || $openCrs;
+    }
+
+
+    //used by cash return on crs for employee cash advance
+    public static function hasPendingCashReturn(int $id): ?int
+    {
+        return CashReturn::where('employee_advance_id', $id)
+            ->where('status', 'DRAFT')
+            ->value('id');
     }
 }

@@ -14,19 +14,19 @@ use Illuminate\Support\Facades\DB;
 
 
 
-class ReimbursementService{
+class ReimbursementService
+{
 
     protected $branch;
     protected $pettyCashVoucher;
     protected $reimbursement;
 
 
-        public function __construct(
-            PettyCashVoucher $pettyCashVoucher,
-            Branch $branch,
-            Reimbursement $reimbursement
-            )
-    {
+    public function __construct(
+        PettyCashVoucher $pettyCashVoucher,
+        Branch $branch,
+        Reimbursement $reimbursement
+    ) {
         $this->pettyCashVoucher = $pettyCashVoucher;
         $this->branch = $branch;
         $this->reimbursement = $reimbursement;
@@ -35,7 +35,7 @@ class ReimbursementService{
     public function create(array $data): Reimbursement
     {
 
-    return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data) {
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
             $branchCode = $branch->branch_code;
@@ -56,10 +56,7 @@ class ReimbursementService{
                 'status' => $data['status'],
             ]);
 
-        return $rmb;
-    });
-
+            return $rmb;
+        });
     }
-
-
 }

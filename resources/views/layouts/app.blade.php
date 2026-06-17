@@ -260,6 +260,12 @@
                     <!-- Validations Section -->
                     <x-ts-side-bar.item text="Validations" icon="check-badge">
 
+                            <x-ts-side-bar.item text="Reimbursement" :route="route('reimbursement.validation-summary')">
+                                <x-slot:icon>
+                                    <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+
                             <x-ts-side-bar.item text="Employee Cash advance" :route="route('cash-advances.validation.approval-summary')">
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />

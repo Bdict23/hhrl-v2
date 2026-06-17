@@ -24,4 +24,8 @@ class EmployeeAdvanceSnapshot extends Model
     {
         return $this->belongsTo(PettyCashVoucher::class, 'pcv_id');
     }
+    public function cashReturn()
+    {
+        return $this->belongsTo(CashReturn::class, 'cash_return_id');
+    }
 }

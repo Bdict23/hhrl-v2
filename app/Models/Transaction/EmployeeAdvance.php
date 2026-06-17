@@ -39,4 +39,8 @@ class EmployeeAdvance extends Model
     {
         return $this->hasMany(EmployeeAdvanceSnapshot::class, 'advance_id');
     }
+    public function cashReturn()
+    {
+        return $this->hasMany(CashReturn::class, 'employee_advance_id');
+    }
 }

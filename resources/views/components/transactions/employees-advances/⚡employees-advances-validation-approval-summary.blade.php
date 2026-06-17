@@ -101,11 +101,9 @@ new class extends Component {
                 <a href="{{ route('cash-advances.validation.approval-view', ['id' => $row->id]) }}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
-                <a>
                     <x-ts-dropdown.items text="Approve" color="rose" separator icon="check" />
                     <x-ts-dropdown.items text="Revise" color="rose" separator icon="arrow-path" />
                     <x-ts-dropdown.items text="Reject" color="rose" separator icon="x-mark" />
-                </a>
             </x-ts-dropdown>
         @endinteract
     </x-ts-table>

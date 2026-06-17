@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\DataManagement\BankApiController;
 use App\Http\Controllers\Api\Transaction\AflApiController;
 use App\Models\Transaction\AdvancesForLiquidation;
 use App\Http\Controllers\Api\Business\EmployeeApiController;
+use App\Http\Controllers\Api\Transaction\EmployeeCashAdvanceApiController;
 
 
 
@@ -51,7 +52,8 @@ Route::middleware('auth:sanctum')->get('/get-for-reimburse-approvers', [PettyCas
 
 // CASH RETURN
 Route::middleware('auth:sanctum')->get('/get-for-cash-return-pcv', [PettyCashVoucherApiController::class, 'getForCashReturnPcv'])->name('api.get.cash-return-pcv');
-// Route::middleware('auth:sanctum')->get('/get-active-advances', [AflApiController::class, 'getActiveAdvancesForLiquidation'])->name('api.get.active-advances-for-liquidation');
+//CRS for cash advance
+Route::middleware('auth:sanctum')->get('/get-active-employee-advances', [EmployeeCashAdvanceApiController::class, 'getBarnchActiveCashAdvances'])->name('api.get.active-advances-for-employees');
 
 
 // petty cash voucher

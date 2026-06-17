@@ -13,6 +13,7 @@ use App\Models\Transaction\RevolvingFund;
 use App\Models\Transaction\AdvancesForLiquidation;
 use App\Models\Transaction\PcvLiquidationSnapshot;
 use App\Models\Transaction\EmployeeAdvance;
+use App\Models\Transaction\CashReturn;
 
 
 
@@ -64,7 +65,7 @@ class PettyCashVoucherService
         $this->revolvingFund = $revolvingFund;
         $this->advancesForLiquidation = $advancesForLiquidation;
         $this->pcvLiquidationSnapshot = $pcvLiquidationSnapshot;
-        $this->employeeAdvance = $employeeAdvance;;
+        $this->employeeAdvance = $employeeAdvance;
     }
 
     public function create(array $data): PettyCashVoucher
@@ -171,7 +172,7 @@ class PettyCashVoucherService
 
                     // 3. Update the advance status if open
                     if ($isOpen) {
-                        $employeeAdvance->update(['status' => 'OPEN']);
+                        $employeeAdvance->update(['status' => 'OPEN', 'opened_at' => now()]);
                         //close the pcv status
                         $pcv->update(['status' => 'CLOSED']);
                     }
@@ -271,7 +272,7 @@ class PettyCashVoucherService
 
                     // 3. Update the advance status if open
                     if ($isOpen) {
-                        $employeeAdvance->update(['status' => 'OPEN']);
+                        $employeeAdvance->update(['status' => 'OPEN', 'opened_at' => now()]);
                         // close the pcv status
                         $pcv->update(['status' => 'CLOSED']);
                     }
@@ -317,6 +318,8 @@ class PettyCashVoucherService
         $expense = $detailData->sum('amount');
         return $expense;
     }
+
+    //used by petty cash on employee cash advances
     public static function hasPendingCashAdvance(int $id): ?int
     {
         return PettyCashVoucher::where('employee_advance_id', $id)

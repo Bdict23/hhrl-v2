@@ -172,8 +172,8 @@ new class extends Component
 <div>
     <div class="flex justify-between mb-3">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                          ['label' => 'Inventory','link' => route('purchase-order.validation.tabs'), 'icon' => 'archive-box' ],
-                          ['label' => 'Purchase Summary', 'link' => route('purchase-order.validation.tabs'), 'icon' => 'list-bullet'],
+                          ['label' => 'Inventory','link' => route('purchase-order.validation-tabs'), 'icon' => 'archive-box' ],
+                          ['label' => 'Purchase Summary', 'link' => route('purchase-order.validation-tabs'), 'icon' => 'list-bullet'],
                           ['label' => 'Purchase order review', 'icon' => 'eye', 'color' => 'primary-500'],
               ]"  />
         <label class="text-2xl italic">( {{ $reference }} )</label>
