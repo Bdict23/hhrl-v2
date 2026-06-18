@@ -74,7 +74,6 @@ class CashReturnService
             ]);
             if ($data['advances_liquidation_id'] != null) {
                 $aflCurrentBalance = AdvancesForLiquidationService::currentBalance($data['advances_liquidation_id']);
-                $hasPendingTransaction = AdvancesForLiquidationService::hasPendingTransaction($data['advances_liquidation_id']);
 
                 $afl = $this->advancesForLiquidation->findOrFail($data['advances_liquidation_id']);
                 $afl->advanceLiquidationSnapshot()->create([
@@ -96,7 +95,7 @@ class CashReturnService
                         'status' => $data['status'],
                         'amount' => $data['amount_returned'],
                         'balance' => $data['amount_returned'] + $currentRevolvingFundBalance,
-                        'description' => 'CASH RETURN',
+                        'description' => 'CASH RETURN - PCV',
                         'cash_return_id' => $pcr->id,
                     ]);
                 }
@@ -250,6 +249,7 @@ class CashReturnService
     public function createEmployeeAdvanceCrs(array $data): CashReturn
     {
         return DB::transaction(function () use ($data) {
+            $balance = round(EmployeesAdvanceService::currentBalance($data['employee_advance_id']), 2);
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
             $branchCode = $branch->branch_code;
@@ -272,21 +272,92 @@ class CashReturnService
 
             $employeeAdvance = $this->employeeAdvance->find($data['employee_advance_id']);
             if ($employeeAdvance) {
-                $isOpen = ($data['status'] === 'OPEN');
+                $isOpen = ($data['status'] === 'FINAL');
 
                 // 2. Create the snapshot
                 $employeeAdvance->employeeAdvanceSnapshot()->create([
-                    'type'              => 'IN',
+                    'type'              => 'OUT',
                     'status'            => $isOpen ? 'FINAL' : 'DRAFT',
                     'description'       => 'CASH RETURN',
                     'amount'            => $data['amount_returned'],
-                    'balance'           => $data['balance'],
+                    'balance'           => $balance - $data['amount_returned'],
                     'cash_return_id'    => $cra->id,
                 ]);
 
                 // 3. Update the advance status if open
-                if ($isOpen) {
-                    $employeeAdvance->update(['status' => 'OPEN', 'opened_at' => now()]);
+                if ($isOpen && $balance - $data['amount_returned'] == 0) {
+                    $employeeAdvance->update(['status' => 'CLOSED', 'closed_at' => now()]);
+                }
+
+                // 4. insert revolving ledger
+                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
+                if ($activeRevolvingFund) {
+                    $currentRevolvingFundBalance = RevolvingFundService::currentBalance($branchId);
+                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                        'type' => 'IN',
+                        'status' => $data['status'],
+                        'amount' => $data['amount_returned'],
+                        'balance' => $data['amount_returned'] + $currentRevolvingFundBalance,
+                        'description' => 'CASH RETURN - CA',
+                        'cash_return_id' => $cra->id,
+                    ]);
+                }
+            }
+            return $cra;
+        });
+    }
+
+    public function updateEmployeeAdvanceCrs(array $data): CashReturn
+    {
+        return DB::transaction(function () use ($data) {
+            $balance = round(EmployeesAdvanceService::currentBalance($data['employee_advance_id']), 2);
+            $branchId = $data['branch_id'];
+            $cra = $this->cashReturn->findOrFail($data['cash_return_id']);
+            $cra->update([
+                'status' => $data['status'],
+                'prepared_by' => $data['prepared_by'],
+                'amount_returned' => $data['amount_returned'],
+                'notes' => $data['notes'],
+            ]);
+
+            $employeeAdvance = $this->employeeAdvance->find($data['employee_advance_id']);
+            if ($employeeAdvance) {
+                $isOpen = ($data['status'] === 'FINAL');
+                // delete the old snapshot record
+                $employeeAdvance->employeeAdvanceSnapshot()->where('cash_return_id', $cra->id)->delete();
+
+                // 2. Create the snapshot
+                $employeeAdvance->employeeAdvanceSnapshot()->create([
+                    'type'              => 'OUT',
+                    'status'            => $isOpen ? 'FINAL' : 'DRAFT',
+                    'description'       => 'CASH RETURN',
+                    'amount'            => $data['amount_returned'],
+                    'balance'           => $balance - $data['amount_returned'],
+                    'cash_return_id'    => $cra->id,
+                ]);
+
+                // 3. Update the advance status if open
+                if ($isOpen && $balance - $data['amount_returned'] == 0) {
+                    $employeeAdvance->update(['status' => 'CLOSED', 'closed_at' => now()]);
+                }
+
+                // 4. insert revolving ledger
+                $activeRevolvingFund = $this->revolvingFund->where('branch_id', $branchId)->where('status', 'OPEN')->first();
+                if ($activeRevolvingFund) {
+                    $currentRevolvingFundBalance = RevolvingFundService::currentBalance($branchId);
+
+                    //delete the old snapshot
+                    $activeRevolvingFund->revolvingFundSnapshot()->where('cash_return_id', $cra->id)->delete();
+
+                    // create new snapshot
+                    $activeRevolvingFund->revolvingFundSnapshot()->create([
+                        'type' => 'IN',
+                        'status' => $data['status'],
+                        'amount' => $data['amount_returned'],
+                        'balance' => $data['amount_returned'] + $currentRevolvingFundBalance,
+                        'description' => 'CASH RETURN - CA',
+                        'cash_return_id' => $cra->id,
+                    ]);
                 }
             }
             return $cra;

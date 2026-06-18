@@ -248,6 +248,20 @@ new class extends Component {
                             @endif
                         </x-slot:right>
                     </x-ts-button>
+                @elseif($row->description == 'REIMBURSEMENT')
+                    <x-ts-button class="font-mono" flat>{{ $row->reimbursement->reference }}
+                        <x-slot:right>
+                            @if ($row->reimbursement->status == 'OPEN')
+                                <x-ts-badge color="yellow" text="{{ $row->reimbursement->status }}" round light xs />
+                            @elseif($row->reimbursement->status == 'CLOSED')
+                                <x-ts-badge color="green" text="CLOSED" round light xs />
+                            @elseif($row->reimbursement->status == 'DRAFT')
+                                <x-ts-badge color="gray" text="{{ $row->reimbursement->status }}" round light xs />
+                            @else
+                                <x-ts-badge color="red" text="{{ $row->reimbursement->status }}" round light xs />
+                            @endif
+                        </x-slot:right>
+                    </x-ts-button>
                 @endif
             @endinteract
             @interact('column_amount', $row)

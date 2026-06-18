@@ -5,6 +5,8 @@ use App\Models\Business\Customer;
 use TallStackUi\Traits\Interactions;
 use App\Services\Transaction\EmployeesAdvanceService;
 use App\Models\BanquetEvent\Event;
+use Illuminate\Support\Facades\Auth;
+
 
 
 
@@ -142,7 +144,7 @@ new class extends Component
 
                         <div>
                             <x-ts-select.styled searchable
-                                            :request="route('api.get.afl-approvers', ['branch_id' => auth()->user()->branch_id])"
+                                            :request="route('api.get.cash-advance-approvers', ['branch_id' => Auth::user()->branch_id])"
                                             label="APPROVED BY *"
                                             select="label:full_name|value:id|description:position_name"
                                             placeholder="Select approver"

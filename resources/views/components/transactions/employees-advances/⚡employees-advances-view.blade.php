@@ -260,7 +260,7 @@ new class extends Component
                                 'preparedBy' => $row->cashReturn->preparedBy?->full_name,
                                 'pcv' => $row->cashReturn->pettyCashVoucher?->reference,
                                 'pcv_amount' =>
-                                    '₱ ' . number_format($row->cashReturn->pettyCashVoucher->total_amount, 2),
+                                    '₱ ' . number_format($row->cashReturn->amount_returned, 2),
                                 'note' => $row->cashReturn->notes,
                             ],
                         ];

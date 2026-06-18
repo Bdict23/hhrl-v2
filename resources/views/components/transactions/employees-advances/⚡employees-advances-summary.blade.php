@@ -4,7 +4,8 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Transaction\EmployeeAdvance;
-use App\Services\Transaction\AdvancesForLiquidationService;
+use App\Services\Transaction\EmployeesAdvanceService;
+
 
 new class extends Component {
     use WithPagination;
@@ -97,10 +98,10 @@ new class extends Component {
             ₱ {{ number_format($row->amount ?? 0, 2) }}
         @endinteract
         @interact('column_balance', $row)
-            {{-- @php
-                $balance = AdvancesForLiquidationService::currentBalance($row->id);
+            @php
+                $balance = EmployeesAdvanceService::currentBalance($row->id);
             @endphp
-            ₱ {{ number_format($balance ?? 0, 2) }} --}}
+            ₱ {{ number_format($balance ?? 0, 2) }}
         @endinteract
         @interact('column_received_by', $row)
             <div class="flex items-center gap-2">

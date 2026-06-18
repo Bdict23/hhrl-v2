@@ -42,7 +42,7 @@ new class extends Component {
                 $this->preparedBy = $eca->preparedBy?->full_name;
                 $this->approvedBy = $eca->approvedBy?->full_name;
                 $this->advanceAmount = $eca->amount;
-                $this->balance = EmployeesAdvanceService::currentBalance($value);
+                $this->balance = round(EmployeesAdvanceService::currentBalance($value), 2);
                 $this->amountToReturn = $this->balance;
                 $this->amountReturned = $this->amountToReturn;
             }
@@ -84,7 +84,7 @@ new class extends Component {
     {
         $validated = $this->validate();
         if (!$this->isValidReturn()) {
-            $this->toast()->error('Error', 'Retun amount should not be exceed to AFL amount')->send();
+            $this->toast()->error('Error', 'Invalid return amount')->send();
             return;
         }
         $this->status = 'FINAL';
@@ -107,7 +107,6 @@ new class extends Component {
                 'amount_returned' => str_replace(',', '', $this->amountReturned),
                 'notes' => $this->notes,
                 'employee_advance_id' => $this->cashAdvanceId,
-                'balance' => $this->balance - str_replace(',', '', $this->amountReturned)
             ];
             $crs = $service->createEmployeeAdvanceCrs($data);
             $this->toast()

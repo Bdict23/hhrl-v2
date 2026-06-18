@@ -246,6 +246,34 @@ new class extends Component {
                                 @endif
                             </x-slot:right>
                         </x-ts-button>
+                     @elseif($row->description == 'CASH RETURN - CA')
+                        <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
+                            <x-slot:right>
+                                @if ($row->cashReturn->status == 'OPEN')
+                                    <x-ts-badge color="yellow" text="{{ $row->cashReturn->status }}" round light xs />
+                                @elseif($row->cashReturn->status == 'FINAL')
+                                    <x-ts-badge color="green" text="CLOSED" round light xs />
+                                @elseif($row->cashReturn->status == 'DRAFT')
+                                    <x-ts-badge color="gray" text="{{ $row->cashReturn->status }}" round light xs />
+                                @else
+                                    <x-ts-badge color="red" text="{{ $row->cashReturn->status }}" round light xs />
+                                @endif
+                            </x-slot:right>
+                        </x-ts-button>
+                    @elseif($row->description == 'REIMBURSEMENT')
+                        <x-ts-button class="font-mono" flat>{{ $row->reimbursement->reference }}
+                            <x-slot:right>
+                                @if ($row->reimbursement->status == 'OPEN')
+                                    <x-ts-badge color="yellow" text="{{ $row->reimbursement->status }}" round light xs />
+                                @elseif($row->reimbursement->status == 'CLOSED')
+                                    <x-ts-badge color="green" text="CLOSED" round light xs />
+                                @elseif($row->reimbursement->status == 'DRAFT')
+                                    <x-ts-badge color="gray" text="{{ $row->reimbursement->status }}" round light xs />
+                                @else
+                                    <x-ts-badge color="red" text="{{ $row->reimbursement->status }}" round light xs />
+                                @endif
+                            </x-slot:right>
+                        </x-ts-button>
                     @endif
                     @endinteract
                     @interact('column_created_at', $row)
@@ -319,7 +347,7 @@ new class extends Component {
                             $headers = [
                                 ['index' => 'preparedBy', 'label' => 'prepared by'],
                                 ['index' => 'pcv', 'label' => 'linked pcv'],
-                                ['index' => 'pcv_amount', 'label' => 'pcv amount'],
+                                ['index' => 'pcv_amount', 'label' => 'cA amount'],
                                 ['index' => 'note', 'label' => 'note'],
                             ];
                             $rows = [
@@ -328,6 +356,25 @@ new class extends Component {
                                     'pcv' => $row->cashReturn->pettyCashVoucher?->reference,
                                     'pcv_amount' =>
                                         '₱ ' . number_format($row->cashReturn->pettyCashVoucher->total_amount, 2),
+                                    'note' => $row->cashReturn->notes,
+                                ],
+                            ];
+                        @endphp
+                        <x-ts-table :headers="$headers" :rows="$rows" />
+                    @elseif($row->description == 'CASH RETURN - CA')
+                        @php
+                            $headers = [
+                                ['index' => 'preparedBy', 'label' => 'prepared by'],
+                                ['index' => 'ca', 'label' => 'linked cash advance'],
+                                ['index' => 'ca_amount', 'label' => 'pcv amount'],
+                                ['index' => 'note', 'label' => 'note'],
+                            ];
+                            $rows = [
+                                [
+                                    'preparedBy' => $row->cashReturn->preparedBy?->full_name,
+                                    'ca' => $row->cashReturn->employeeCashAdvance?->reference,
+                                    'ca_amount' =>
+                                        '₱ ' . number_format($row->cashReturn->employeeCashAdvance->amount, 2),
                                     'note' => $row->cashReturn->notes,
                                 ],
                             ];

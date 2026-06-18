@@ -28,7 +28,7 @@ new class extends Component
             $approvedBy;
 
     // mounted
-    public $reimbursementId,$data,$pcvReference;
+    public $reimbursementId,$data,$pcvReference,$disbursedAmount,$liquidatedAmount,$aflId;
 
 
     protected $rules = [
@@ -44,9 +44,13 @@ new class extends Component
     public function fetchData()
     {
         $this->data = Reimbursement::find($this->reimbursementId);
+        $this->note = $this->data->note;
+        $this->approvedBy = $this->data->approvedBy?->full_name;
         $this->pcvId = $this->data->pcv_id;
         $this->pcvReference = $this->data->pettyCashVoucher->reference;
         $this->pcvData = PettyCashVoucher::find($this->pcvId);
+        $this->aflId = $this->pcvData->advanceLiquidation?->id;
+        $this->disbursedAmount = number_format($this->pcvData->total_amount,2);
         $this->liquidationRow = PcvLiquidationSnapshot::where('pcv_id', $this->pcvId)->get();
         $this->liqudatedAmt = number_format(PettyCashVoucherService::liquidatedAmount($this->pcvId), 2);
         $liquidated = (float) str_replace(",", "", $this->liqudatedAmt);
@@ -60,9 +64,9 @@ new class extends Component
 
     public function rejectAction()
     {
-        $this->status = 'REJECTED';
+        $this->status = 'REJECT';
         $this->dialog()
-            ->question('Reject Reimbursement', 'Are you sure to reject this reimbursement?')
+            ->question('Reject Reimbursement?', 'Are you sure to reject this reimbursement?')
             ->confirm(
                 'Confirm',
                 'store', //pass a functio to call
@@ -72,9 +76,9 @@ new class extends Component
     }
     public function reviseAction()
     {
-        $this->status = 'FOR APPROVAL';
+        $this->status = 'REVISE';
         $this->dialog()
-            ->question('Revise Reimbursement', 'Are you sure to revise this reimbursement?')
+            ->question('Revise Reimbursement?', 'Are you sure to revise this reimbursement?')
             ->confirm(
                 'Confirm',
                 'action', //pass a functio to call
@@ -84,9 +88,9 @@ new class extends Component
     }
     public function approveAction()
     {
-        $this->status = 'CLOSED';
+        $this->status = 'APPROVE';
          $this->dialog()
-            ->question('Revise Reimbursement', 'Are you sure to approve this reimbursement?')
+            ->question('Approve Reimbursement?', 'Are you sure to approve this reimbursement?')
             ->confirm(
                 'Confirm',
                 'action', //pass a functio to call
@@ -122,22 +126,30 @@ new class extends Component
             ->send();
     }
 
-    public function store(ReimbursementService $reimbursementService)
+    public function action(ReimbursementService $reimbursementService)
     {
         try {
             $data = [
-                'branch_id' => Auth::user()->branch_id,
                 'pcv_id' => $this->pcvId,
                 'amount' => str_replace(",", "", $this->reimburseAmount),
-                'note' => $this->note,
-                'status' => $this->status,
-                'prepared_by' => Auth::user()->emp_id,
-                'approved_by' => $this->approvedBy,
+                'afl_id' => $this->aflId,
+                'branch_id' => Auth::user()->branch_id,
+                'reimbursement_id' => $this->reimbursementId,
+                
             ];
-            $reimbursement = $reimbursementService->create($data);
-            $this->toast()->success('Success', "Reimbursement created successfully!")->send();
+            if($this->status == 'REJECT'){
+                $reimbursement = $reimbursementService->reject($data);
+            }else if($this->status == 'REVISE'){
+                $reimbursement = $reimbursementService->revise($data);
+            }else if($this->status == 'APPROVE'){
+                $reimbursement = $reimbursementService->approve($data);
+            }
             $this->reset();
-            return redirect()->route('reimbursement.summary');
+            $this->dialog()
+            ->success('Success!', 'Reimbursement status updated successfully!')
+            ->flash() 
+            ->send();
+            return redirect()->route('reimbursement.validation-summary');
         } catch (\Exception $e) {
             $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
         }
@@ -177,8 +189,8 @@ new class extends Component
         <div class="col-span-1">
             <x-ts-card>
                 <div class="grid gap-3">
-                    <x-ts-currency label="Disbursed Amount" disabled value="{{ $pcvData?->total_amount }}" mutate symbol />
-                    <x-ts-currency label="Liquidated Amount" disabled value="{{ ($liqudatedAmt) }}" mutate symbol decimal />
+                    <x-ts-currency label="Disbursed Amount" disabled wire:model="disbursedAmount" mutate symbol />
+                    <x-ts-currency label="Liquidated Amount" disabled wire:model="liqudatedAmt" mutate symbol />
                 </div>
             </x-ts-card>
         </div>
@@ -207,9 +219,8 @@ new class extends Component
             </div>
             <div class="grid">
                 <x-ts-input label="Prepared By" value="{{ auth()->user()->employee->fullName }}" disabled />
-                <x-ts-select.styled :request="route('api.get.reimburse-approvers',['branch_id' => auth()->user()->branch_id])"
-                    select="label:fullName|value:id"
-                    wire:model.live="approvedBy"
+                <x-ts-input
+                    wire:model="approvedBy"
                     label="Approved By" readonly/>
             </div>
         </div>

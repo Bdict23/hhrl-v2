@@ -19,6 +19,7 @@ class AdvancesForLiquidationSnapshot extends Model
         'balance',
         'created_at',
         'updated_at',
+        'reimbursement_id',
     ];
 
     public function advanceLiquidation()
@@ -32,5 +33,9 @@ class AdvancesForLiquidationSnapshot extends Model
     public function cashReturn()
     {
         return $this->belongsTo(CashReturn::class, 'cash_return_id');
+    }
+    public function reimbursement()
+    {
+        return $this->belongsTo(Reimbursement::class, 'reimbursement_id');
     }
 }

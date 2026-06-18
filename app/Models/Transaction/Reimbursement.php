@@ -19,15 +19,18 @@ class Reimbursement extends Model
         'approved_date',
         'rejected_date',
         'note',
-        ];
+    ];
 
-        public function preparedBy(){
-            return $this->belongsTo(Employee::class, 'prepared_by');
-
-        }
-        public function pettyCashVoucher()
-        {
-            return $this->belongsTo(PettyCashVoucher::class, 'pcv_id');
-        }
-
+    public function preparedBy()
+    {
+        return $this->belongsTo(Employee::class, 'prepared_by');
+    }
+    public function pettyCashVoucher()
+    {
+        return $this->belongsTo(PettyCashVoucher::class, 'pcv_id');
+    }
+    public function approvedBy()
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
+    }
 }

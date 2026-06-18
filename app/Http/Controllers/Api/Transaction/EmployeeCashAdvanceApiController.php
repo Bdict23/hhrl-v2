@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Transaction;
 
 use Illuminate\Routing\Controller;
 use App\Models\Transaction\EmployeeAdvance;
+use App\Models\Business\Employee;
 
 
 use Illuminate\Http\Request;
@@ -22,5 +23,19 @@ class EmployeeCashAdvanceApiController extends Controller
             ->get();
 
         return response()->json($data);
+    }
+
+    public function getBranchCashAdvanceApprovers(Request $request)
+    {
+        $this->branchId = $request->query('branch_id');
+        $approver = Employee::query()
+            ->whereHas('signatory', function ($query) {
+                $query->where('module_id', 88)
+                    ->where('signatory_type', 'APPROVER')
+                    ->where('branch_id', $this->branchId);
+            })
+            ->get();
+
+        return response()->json($approver);
     }
 }

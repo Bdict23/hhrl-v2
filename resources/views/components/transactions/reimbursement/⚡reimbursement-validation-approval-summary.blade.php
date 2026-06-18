@@ -5,6 +5,8 @@ use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Transaction\Reimbursement;
 use Illuminate\Support\Facades\Auth;
+use App\Services\Transaction\ReimbursementService;
+
 
 
 new class extends Component
@@ -17,6 +19,7 @@ new class extends Component
             'column' => 'created_at',
             'direction' => 'desc',
         ];
+    public $action;
 
         public function with(): array
     {
@@ -41,6 +44,65 @@ new class extends Component
                 ->paginate($this->quantity)
                 ->withQueryString(),
         ];
+    }
+
+    public function approve($id)
+    {
+        $reimbursement = Reimbursement::find($id);
+        if($reimbursement)
+        {
+            $reimbursementService = app(ReimbursementService::class);
+            $data = [
+            'pcv_id' => $reimbursement->pcv_id,
+            'amount' => str_replace(",", "", $reimbursement->amount),
+            'afl_id' => $reimbursement->pettyCashVoucher->advance_liquidation_id,
+            'branch_id' => Auth::user()->branch_id,
+            'reimbursement_id' => $reimbursement->id,
+        ];
+        $this->toast()->success('success', "Reimbursement status {$reimbursement->reference} updated successfully!")->send();
+        $reimbursementService->approve($data);
+        }else{
+            $this->toast()->success('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
+    }
+    public function revise($id)
+    {
+        $reimbursement = Reimbursement::find($id);
+        if($reimbursement)
+        {
+            $reimbursementService = app(ReimbursementService::class);
+            $data = [
+            'pcv_id' => $reimbursement->pcv_id,
+            'amount' => str_replace(",", "", $reimbursement->amount),
+            'afl_id' => $reimbursement->pettyCashVoucher->advance_liquidation_id,
+            'branch_id' => Auth::user()->branch_id,
+            'reimbursement_id' => $reimbursement->id,
+        ];
+        $reimbursementService->revise($data);
+        $this->toast()->success('success', "Reimbursement status {$reimbursement->reference} updated successfully!")->send();
+
+        }else{
+            $this->toast()->success('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
+    }
+    public function reject($id)
+    {
+        $reimbursement = Reimbursement::find($id);
+        if($reimbursement)
+        {
+            $reimbursementService = app(ReimbursementService::class);
+            $data = [
+            'pcv_id' => $reimbursement->pcv_id,
+            'amount' => str_replace(",", "", $reimbursement->amount),
+            'afl_id' => $reimbursement->pettyCashVoucher->advance_liquidation_id,
+            'branch_id' => Auth::user()->branch_id,
+            'reimbursement_id' => $reimbursement->id,
+        ];
+        $this->toast()->success('success', "Reimbursement status {$reimbursement->reference} updated successfully!")->send();
+        $reimbursementService->reject($data);
+        }else{
+            $this->toast()->success('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
     }
 
 };
@@ -91,9 +153,9 @@ new class extends Component
                 <a href="{{route('reimbursement.validation.approval-view', ['id' => $row->id])}}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
-                    <x-ts-dropdown.items text="Approve" color="rose" separator icon="check" />
-                    <x-ts-dropdown.items text="Revise" color="rose" separator icon="arrow-path" />
-                    <x-ts-dropdown.items text="Reject" color="rose" separator icon="x-mark" />
+                    <x-ts-dropdown.items text="Approve" color="rose" separator icon="check" wire:click="approve({{$row->id}})"/>
+                    <x-ts-dropdown.items text="Revise" color="rose" separator icon="arrow-path" wire:click="revise({{$row->id}})"/>
+                    <x-ts-dropdown.items text="Reject" color="rose" separator icon="x-mark" wire:click="reject({{$row->id}})"/>
             </x-ts-dropdown>
         @endinteract
         </x-ts-table>

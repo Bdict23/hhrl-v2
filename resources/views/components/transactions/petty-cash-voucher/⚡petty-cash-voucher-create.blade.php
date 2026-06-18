@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\Transaction\RevolvingFundService;
 use App\Services\Transaction\AdvancesForLiquidationService;
 use App\Models\Transaction\AdvancesForLiquidation;
+use App\Models\Transaction\EmployeeAdvance;
 
 use App\Models\Inventory\PurchaseOrder;
 
@@ -101,6 +102,24 @@ new class extends Component
                 ->send();
                 return;
             }
+        
+        $cashAdvance = EmployeeAdvance::find($this->cashAdvanceId);
+        $this->payeeId = $cashAdvance->received_by;
+        $this->isCustomer = false;
+
+        foreach ($this->particularsRow as $index => $value) {
+            if($this->particularsRow[$index]['type'] == 'DEBIT'){
+                $this->particularsRow[$index]['debit'] = $cashAdvance->amount;
+                $this->particularsRow[$index]['credit'] = 0;
+                $this->debit_total = collect($this->particularsRow)->sum('debit');
+            }else{
+                $this->particularsRow[$index]['debit'] = 0;
+                $this->particularsRow[$index]['credit'] = $cashAdvance->amount;
+                $this->credit_total = collect($this->particularsRow)->sum('credit');
+            }
+        }
+        $this->dynamicBalance = $this->staticBalance - $this->credit_total;
+        
         }
     }
     public function redirectPcv($pcvId){
@@ -313,7 +332,7 @@ new class extends Component
                 @endinteract
                 @interact('column_credit', $row)
                     @if($row['type'] == 'CREDIT')
-                        <x-ts-input sm type="number" wire:model.live.debounce.750ms="particularsRow.{{ $loop->index }}.credit" />
+                        <x-ts-input sm type="number" wire:model.live.debounce.750ms="particularsRow.{{ $loop->index }}.credit"/>
                     @endif
                 @endinteract
                 @interact('column_action', $row)
@@ -434,7 +453,9 @@ new class extends Component
                         :placeholders="[
                         'default' => 'Select',
                         'empty'   => 'No payee found',
-                        ]" required/>
+                        ]" required
+                        :disabled="$isCashAdvance"
+                        />
                     @else
                         <x-ts-select.styled
                             wire:model.live="payeeId"
@@ -444,11 +465,13 @@ new class extends Component
                             :placeholders="[
                             'default' => 'Select',
                             'empty'   => 'No payee found',
-                            ]" required/>
+                            ]" required
+                            :disabled="$isCashAdvance"
+                            />
                     @endif
                     </div>
                     <div class="flex items-end pb-2">
-                        <x-ts-checkbox label="Customer" wire:model.live="isCustomer" />
+                        <x-ts-checkbox label="Customer" wire:model.live="isCustomer" :disabled="$isCashAdvance"/>
                     </div>
                 </div>
                 <div class="grid gap-3 grid-cols-2 mt-3">

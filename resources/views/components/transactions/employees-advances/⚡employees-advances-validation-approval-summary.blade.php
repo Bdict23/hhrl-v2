@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\Transaction\EmployeeAdvance;
 use App\Services\Transaction\AdvancesForLiquidationService;
 use Illuminate\Support\Facades\Auth;
+use App\Services\Transaction\EmployeesAdvanceService;
+use TallStackUi\Traits\Interactions;
 
 
 new class extends Component {
     use WithPagination;
+    use Interactions;
+
     public ?int $quantity = 10;
     public ?string $search = null;
     public array $sort = [
@@ -33,13 +37,59 @@ new class extends Component {
                 ->when($this->search, function (Builder $query) {
                     return $query->where('reference', 'like', "%{$this->search}%");
                 })
-                ->where('approved_by', Auth::user()->id)
+                ->where('approved_by', Auth::user()->emp_id)
                 ->where('status', '=', 'FOR APPROVAL')
                 ->where('branch_id', Auth::user()->branch_id)
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString(),
         ];
+    }
+
+     public function approve($id)
+    {
+        $cashAdvance = EmployeeAdvance::find($id);
+        if($cashAdvance)
+        {
+            $data = [
+            'id' => $id,
+        ];
+            $cashAdvanceService = app(EmployeesAdvanceService::class);
+            $cashAdvanceService->approve($data);
+            $this->toast()->success('success', "Employee cash advance status {$cashAdvance->reference} updated successfully!")->send();
+        }else{
+            $this->toast()->success('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
+    }
+    public function revise($id)
+    {
+        $cashAdvance = EmployeeAdvance::find($id);
+        if($cashAdvance)
+        {
+            $data = [
+            'id' => $id,
+        ];
+            $cashAdvanceService = app(EmployeesAdvanceService::class);
+            $cashAdvanceService->revise($data);
+            $this->toast()->success('success', "Employee cash advance status {$cashAdvance->reference} updated successfully!")->send();
+        }else{
+            $this->toast()->success('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
+    }
+    public function reject($id)
+    {
+        $cashAdvance = EmployeeAdvance::find($id);
+        if($cashAdvance)
+        {
+            $data = [
+            'id' => $id,
+        ];
+            $cashAdvanceService = app(EmployeesAdvanceService::class);
+            $cashAdvanceService->reject($data);
+            $this->toast()->success('success', "Employee cash advance status {$cashAdvance->reference} updated successfully!")->send();
+        }else{
+            $this->toast()->error('error', "Something went wrong, can't approve this reimbursement!")->send();
+        }
     }
 };
 ?>
@@ -101,9 +151,9 @@ new class extends Component {
                 <a href="{{ route('cash-advances.validation.approval-view', ['id' => $row->id]) }}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
-                    <x-ts-dropdown.items text="Approve" color="rose" separator icon="check" />
-                    <x-ts-dropdown.items text="Revise" color="rose" separator icon="arrow-path" />
-                    <x-ts-dropdown.items text="Reject" color="rose" separator icon="x-mark" />
+                    <x-ts-dropdown.items text="Approve" color="rose" separator icon="check" wire:click="approve({{$row->id}})"/>
+                    <x-ts-dropdown.items text="Revise" color="rose" separator icon="arrow-path" wire:click="revise({{$row->id}})"/>
+                    <x-ts-dropdown.items text="Reject" color="rose" separator icon="x-mark" wire:click="reject({{$row->id}})"/>
             </x-ts-dropdown>
         @endinteract
     </x-ts-table>

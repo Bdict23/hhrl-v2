@@ -39,8 +39,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/fixed-asset-registration', 'inventory.fixed-asset.fixed-asset-registration')->name('fixed-asset.registration');
     Volt::route('/fixed-asset-batch-view/{id}', 'inventory.fixed-asset.fixed-asset-batch-view')->name('fixed-asset.batch-view');
 
-    // --------
-
 
     // TRANSACTION
     // ADVANCES FOR LIQUIDATION
@@ -61,9 +59,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('acknowledgement-receipt/create', 'transactions.acknowledgement-receipt.acknowledgement-receipt-create')->name('acknowledgement-receipt.create');
     Volt::route('acknowledgement-receipt/view/{id}', 'transactions.acknowledgement-receipt.acknowledgement-receipt-view')->name('acknowledgement-receipt.view');
     Volt::route('acknowledgement-receipt/edit/{id}', 'transactions.acknowledgement-receipt.acknowledgement-receipt-edit')->name('acknowledgement-receipt.edit');
-
-
-
 
     //Petty Cash Voucher
     Volt::route('/petty-cash-voucher/summary', 'transactions.petty-cash-voucher.petty-cash-voucher-summary')->name('petty-cash-voucher.summary');

@@ -70,7 +70,6 @@ new class extends Component
     }
 
      public function rejectAction(){
-        $validated = $this->validate();
          $this->status = 'REJECTED';
          $this->dialog()
         ->question('Reject employee cash advance', 'Are you sure to reject this cash advance?')
@@ -162,7 +161,7 @@ new class extends Component
 
                         <div>
                             <x-ts-select.styled searchable
-                                            :request="route('api.get.afl-approvers', ['branch_id' => auth()->user()->branch_id])"
+                                            :request="route('api.get.active-employees-advances', ['branch_id' => auth()->user()->branch_id])"
                                             label="APPROVED BY *"
                                             select="label:full_name|value:id|description:position_name"
                                             placeholder="Select approver"
