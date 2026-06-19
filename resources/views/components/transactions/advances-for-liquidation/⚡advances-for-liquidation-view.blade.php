@@ -234,6 +234,20 @@ new class extends Component {
                             @endif
                         </x-slot:right>
                     </x-ts-button>
+                @elseif($row->description == 'CASH RETURN - PCV' || $row->description == 'CASH RETURN - EXCESS')
+                    <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
+                        <x-slot:right>
+                            @if ($row->cashReturn->status == 'OPEN')
+                                <x-ts-badge color="yellow" text="{{ $row->cashReturn->status }}" round light xs />
+                            @elseif($row->cashReturn->status == 'FINAL')
+                                <x-ts-badge color="green" text="CLOSED" round light xs />
+                            @elseif($row->cashReturn->status == 'DRAFT')
+                                <x-ts-badge color="gray" text="{{ $row->cashReturn->status }}" round light xs />
+                            @else
+                                <x-ts-badge color="red" text="{{ $row->cashReturn->status }}" round light xs />
+                            @endif
+                        </x-slot:right>
+                    </x-ts-button>
                 @elseif($row->description == 'CASH RETURN' || $row->description == 'RETURN EXCESS')
                     <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
                         <x-slot:right>
@@ -336,6 +350,20 @@ new class extends Component {
                             ],
                         ];
                     @endphp
+                    <x-ts-table :headers="$headers" :rows="$rows" />
+                    @elseif($row->description == 'CASH RETURN - EXCESS')
+                        @php
+                            $headers = [
+                                ['index' => 'preparedBy', 'label' => 'prepared by'],
+                                ['index' => 'note', 'label' => 'note'],
+                            ];
+                            $rows = [
+                                [
+                                    'preparedBy' => $row->cashReturn->preparedBy?->full_name,
+                                    'note' => $row->cashReturn->notes,
+                                ],
+                            ];
+                        @endphp
                     <x-ts-table :headers="$headers" :rows="$rows" />
                 @endif
             @endinteract

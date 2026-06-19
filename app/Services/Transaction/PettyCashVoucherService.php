@@ -302,11 +302,20 @@ class PettyCashVoucherService
             $this->pcvLiquidationSnapshot->insert($itemsToInsert);
 
             $pcvHeader = $this->pettyCashVoucher->findOrFail($data['pcv_id']);
+            $liquidationId = $pcvHeader->advance_liquidation_id;
             $liquidatedAmt = collect($itemsToInsert)->sum('amount');
             if ($pcvHeader->total_amount == $liquidatedAmt) {
                 $pcvHeader->update([
                     'status' => 'CLOSED',
                 ]);
+            }
+            if ($liquidationId) {
+                $hasPendingTransaction = AdvancesForLiquidationService::hasPendingTransaction($liquidationId);
+                $aflCurrentBalance = round(AdvancesForLiquidationService::currentBalance($liquidationId), 2);
+                if (!$hasPendingTransaction && $aflCurrentBalance == 0) {
+                    //update liquidation status to closed
+                    $this->advancesForLiquidation->findOrFail($liquidationId)->update(['status' => 'CLOSED']);
+                }
             }
             return $pcvHeader;
         });

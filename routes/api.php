@@ -91,4 +91,4 @@ Route::middleware('auth:sanctum')->get('/get-active-afl', [AflApiController::cla
 
 // ADVANCES FOR EMPLOYEES
 Route::middleware('auth:sanctum')->get('/get-active-employees', [EmployeeApiController::class, 'getActiveBranchEmployees'])->name('api.get.active-employees-advances');
-Route::middleware('auth:sanctum')->get('/get-afl-approvers', [EmployeeCashAdvanceApiController::class, 'getBranchCashAdvanceApprovers'])->name('api.get.cash-advance-approvers');
+Route::middleware('auth:sanctum')->get('/get-cash-advance-approvers', [EmployeeCashAdvanceApiController::class, 'getBranchCashAdvanceApprovers'])->name('api.get.cash-advance-approvers');

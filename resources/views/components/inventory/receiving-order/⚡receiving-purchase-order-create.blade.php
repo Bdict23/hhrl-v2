@@ -170,20 +170,6 @@ new class extends Component
 
     }
 
-    // Remove from selected item
-    public function removeItem($index)
-    {
-        unset($this->selectedRows[$index]);
-        // Reset array keys to prevent index gaps
-        $this->selectedRows = array_values($this->selectedRows);
-
-        // Sync back to your original selection ID array if necessary
-            $this->selectedItem = collect($this->selectedRows)->pluck('id')->toArray();
-            $this->toast()->success('Success', 'Removed Successfully')->send();
-
-            $this->calculateGrandTotal();
-
-    }
 
     // This runs automatically whenever any value in $selectedRows changes
     public function updatedSelectedRows($value, $key)
@@ -321,6 +307,13 @@ new class extends Component
         }
     }
 
+
+
+        public function updatedRequisitionDetails($value, $key)
+    {
+        
+    }
+
 };
 ?>
 
@@ -381,7 +374,7 @@ new class extends Component
                         @php
                             $isComplete =  ($row->qty - $row->cardexIn?->where('status', 'FINAL')->sum('qty_in')) == 0;
                         @endphp
-                       <x-ts-input type="number" sm wire:model="requisitionDetails.{{ $loop->index }}.received" :disabled="$isComplete" />
+                       <x-ts-input type="number" sm wire:model.live="requisitionDetails.{{ $loop->index }}.received" :disabled="$isComplete" />
                     @endinteract
                     @interact('column_oldCost', $row)
                         ₱ {{{ $row->item->cost?->amount }}}

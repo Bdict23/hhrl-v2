@@ -246,6 +246,20 @@ new class extends Component {
                                 @endif
                             </x-slot:right>
                         </x-ts-button>
+                    @elseif($row->description == 'CASH RETURN - PCV')
+                        <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
+                            <x-slot:right>
+                                @if ($row->cashReturn->status == 'OPEN')
+                                    <x-ts-badge color="yellow" text="{{ $row->cashReturn->status }}" round light xs />
+                                @elseif($row->cashReturn->status == 'FINAL')
+                                    <x-ts-badge color="green" text="CLOSED" round light xs />
+                                @elseif($row->cashReturn->status == 'DRAFT')
+                                    <x-ts-badge color="gray" text="{{ $row->cashReturn->status }}" round light xs />
+                                @else
+                                    <x-ts-badge color="red" text="{{ $row->cashReturn->status }}" round light xs />
+                                @endif
+                            </x-slot:right>
+                        </x-ts-button>
                      @elseif($row->description == 'CASH RETURN - CA')
                         <x-ts-button class="font-mono" flat>{{ $row->cashReturn->reference }}
                             <x-slot:right>
@@ -343,6 +357,25 @@ new class extends Component {
                         @endphp
                         <x-ts-table :headers="$headers" :rows="$rows" />
                     @elseif($row->description == 'CASH RETURN')
+                        @php
+                            $headers = [
+                                ['index' => 'preparedBy', 'label' => 'prepared by'],
+                                ['index' => 'pcv', 'label' => 'linked pcv'],
+                                ['index' => 'pcv_amount', 'label' => 'cA amount'],
+                                ['index' => 'note', 'label' => 'note'],
+                            ];
+                            $rows = [
+                                [
+                                    'preparedBy' => $row->cashReturn->preparedBy?->full_name,
+                                    'pcv' => $row->cashReturn->pettyCashVoucher?->reference,
+                                    'pcv_amount' =>
+                                        '₱ ' . number_format($row->cashReturn->pettyCashVoucher->total_amount, 2),
+                                    'note' => $row->cashReturn->notes,
+                                ],
+                            ];
+                        @endphp
+                        <x-ts-table :headers="$headers" :rows="$rows" />
+                    @elseif($row->description == 'CASH RETURN - PCV')
                         @php
                             $headers = [
                                 ['index' => 'preparedBy', 'label' => 'prepared by'],

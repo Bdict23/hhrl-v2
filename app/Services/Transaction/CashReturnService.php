@@ -83,7 +83,7 @@ class CashReturnService
                     'status' => $data['status'],
                     'amount' => $data['amount_returned'],
                     'balance' => $data['amount_returned'] + $aflCurrentBalance,
-                    'description' => 'CASH RETURN',
+                    'description' => 'CASH RETURN - PCV',
                     'cash_return_id' => $pcr->id,
                 ]);
             } else {
@@ -140,7 +140,7 @@ class CashReturnService
                     'status' => $data['status'],
                     'amount' => $data['amount_returned'],
                     'balance' => $data['amount_returned'] + $aflCurrentBalance,
-                    'description' => 'CASH RETURN',
+                    'description' => 'CASH RETURN - PCV',
                     'cash_return_id' => $pcr->id,
                 ]);
             } else {
@@ -152,7 +152,7 @@ class CashReturnService
                         'status' => $data['status'],
                         'amount' => $data['amount_returned'],
                         'balance' => $data['amount_returned'] + $currentRevolvingFundBalance,
-                        'description' => 'CASH RETURN',
+                        'description' => 'CASH RETURN - PCV',
                         'cash_return_id' => $pcr->id,
                     ]);
                 }
@@ -189,7 +189,7 @@ class CashReturnService
                 'notes'                     => $data['notes'],
             ]);
 
-            $aflCurrentBalance = AdvancesForLiquidationService::currentBalance($data['advances_liquidation_id']);
+            $aflCurrentBalance = round(AdvancesForLiquidationService::currentBalance($data['advances_liquidation_id']), 2);
             $afl = $this->advancesForLiquidation->findOrFail($data['advances_liquidation_id']);
             $afl->advanceLiquidationSnapshot()->create([
                 'advance_liquidation_id' => $data['advances_liquidation_id'],
@@ -198,13 +198,13 @@ class CashReturnService
                 'status' => $data['status'],
                 'amount' => $data['amount_returned'],
                 'balance' =>  $aflCurrentBalance - $data['amount_returned'],
-                'description' => 'RETURN EXCESS',
+                'description' => 'CASH RETURN - EXCESS',
                 'cash_return_id' => $pcr->id,
             ]);
             // update afl to close if full amount is returned and has no pending transaction
-            // if ($data['status'] == 'FINAL' && $data['has_pending_transaction'] == false && $aflCurrentBalance ==  $data['amount_returned']) {
-            //     $afl->update(['status' => 'CLOSED']);
-            // }
+            if ($data['status'] == 'FINAL' && $data['has_pending_transaction'] == false && $aflCurrentBalance ==  $data['amount_returned']) {
+                $afl->update(['status' => 'CLOSED']);
+            }
 
             return $pcr;
         });
@@ -224,7 +224,7 @@ class CashReturnService
             // delete the old snapshot record
             $crs->advancesLiquidationSnapshot()->delete();
             $branchId = $data['branch_id'];
-            $aflCurrentBalance = AdvancesForLiquidationService::currentBalance($data['advances_liquidation_id']);
+            $aflCurrentBalance = round(AdvancesForLiquidationService::currentBalance($data['advances_liquidation_id']), 2);
             $afl = $this->advancesForLiquidation->findOrFail($data['advances_liquidation_id']);
             $afl->advanceLiquidationSnapshot()->create([
                 'advance_liquidation_id' => $data['advances_liquidation_id'],
@@ -233,14 +233,14 @@ class CashReturnService
                 'status' => $data['status'],
                 'amount' => $data['amount_returned'],
                 'balance' =>  $aflCurrentBalance - $data['amount_returned'],
-                'description' => 'RETURN EXCESS',
+                'description' => 'CASH RETURN - EXCESS',
                 'cash_return_id' => $crs->id,
             ]);
 
             // update afl to close if full amount is returned and has no pending transaction
-            // if ($data['status'] == 'FINAL' && $data['has_pending_transaction'] == false && $aflCurrentBalance ==  $data['amount_returned']) {
-            //     $afl->update(['status' => 'CLOSED']);
-            // }
+            if ($data['status'] == 'FINAL' && $data['has_pending_transaction'] == false && $aflCurrentBalance ==  $data['amount_returned']) {
+                $afl->update(['status' => 'CLOSED']);
+            }
 
             return $crs;
         });
@@ -306,6 +306,7 @@ class CashReturnService
             return $cra;
         });
     }
+
 
     public function updateEmployeeAdvanceCrs(array $data): CashReturn
     {

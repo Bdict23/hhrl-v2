@@ -123,7 +123,8 @@ class AdvancesForLiquidationService
             ->get()->isEmpty() ? false : true;
 
         $openCrs = AdvancesForLiquidationSnapshot::where('advance_liquidation_id', $id)->whereHas('cashReturn', function ($query) {
-            $query->where('status', 'DRAFT');
+            $query->where('status', 'DRAFT')
+                ->where('reference', 'like', '%CRP-%');
         })
             ->get()->isEmpty() ? false : true;
 

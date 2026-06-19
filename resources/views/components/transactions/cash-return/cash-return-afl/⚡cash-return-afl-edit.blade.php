@@ -41,8 +41,11 @@ new class extends Component {
         $this->preparedBy = $this->aflData->preparedBy?->full_name;
         $this->approvedBy = $this->aflData->approvedBy?->full_name;
         $this->aflAmount = $this->aflData->amount_received;
-        $this->amountToReturn = AdvancesForLiquidationService::currentBalance($this->aflId);
+        $this->amountToReturn = round(AdvancesForLiquidationService::currentBalance($this->aflId),2);
+        $this->hasPendingTransaction = AdvancesForLiquidationService::hasPendingTransaction($this->aflId); // check if naa pay open nga transaction sa cash return or pcv
+        
     }
+
 
     public function updatedAflId($value)
     {
@@ -55,8 +58,8 @@ new class extends Component {
                 $this->preparedBy = $afl->preparedBy?->full_name;
                 $this->approvedBy = $afl->approvedBy?->full_name;
                 $this->aflAmount = $afl->amount_received;
-                $this->totalExpense = AdvancesForLiquidationService::totalExpense($value);
-                $this->amountToReturn = AdvancesForLiquidationService::currentBalance($value);
+                $this->totalExpense = round(AdvancesForLiquidationService::totalExpense($value),2);
+                $this->amountToReturn = round(AdvancesForLiquidationService::currentBalance($value),2);
                 $this->amountReturned = $this->amountToReturn;
                 $this->hasPendingTransaction = AdvancesForLiquidationService::hasPendingTransaction($value); // check if naa pay open nga transaction sa cash return or pcv
             }
@@ -73,7 +76,7 @@ new class extends Component {
     {
         $validated = $this->validate();
         if (!$this->isValidReturn()) {
-            $this->toast()->error('Error', 'Retun amount should not be exceed!')->send();
+            $this->toast()->error('Error', 'Invalid returned amount!')->send();
             return;
         }
         $this->status = 'DRAFT';
@@ -91,7 +94,7 @@ new class extends Component {
     {
         $validated = $this->validate();
         if (!$this->isValidReturn()) {
-            $this->toast()->error('Error', 'Retun amount should not be exceed to AFL amount')->send();
+            $this->toast()->error('Error', 'Invalid returned amount!')->send();
             return;
         }
         $this->status = 'FINAL';
