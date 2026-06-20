@@ -25,7 +25,8 @@ new class extends Component
             $note, 
             $reimburseAmount, 
             $status, 
-            $approvedBy;
+            $approvedBy,
+            $step;
 
     // mounted
     public $reimbursementId,$data,$pcvReference,$disbursedAmount,$liquidatedAmount,$aflId;
@@ -59,6 +60,16 @@ new class extends Component
             $this->employee = $this->pcvData->paidToEmployee->fullName;
         } else {
             $this->customer = $this->pcvData->paidToCustomer->fullName;
+        }
+        $currentStep = $this->data->status;
+        if($currentStep == 'DRAFT'){
+            $this->step = '1';
+        }elseif($currentStep == 'FOR APPROVAL'){
+            $this->step = '2';
+        }elseif($currentStep == 'CLOSED'){
+            $this->step = '3';
+        }else{
+            $this->step = '1';
         }
     }
 
@@ -217,11 +228,29 @@ new class extends Component
                 <x-ts-currency label="ReImbursed amount" symbol wire:model='reimburseAmount' mutate readonly/>
                 <x-ts-textarea label="Note" wire:model='note' readonly/>
             </div>
-            <div class="grid">
+            <div class="grid grid-cols-2 gap-3">
                 <x-ts-input label="Prepared By" value="{{ auth()->user()->employee->fullName }}" disabled />
                 <x-ts-input
                     wire:model="approvedBy"
                     label="Approved By" readonly/>
+                    <div class="col-span-2 mt-2">
+                        <x-ts-step wire:model="step" circles>
+                            <x-ts-step.items step="1"
+                                        title="Create reimbursement"
+                                        description="Step 1">
+                            </x-ts-tep.items>
+                            <x-ts-step.items step="2"
+                                        title="For Approval"
+                                        description="Step 2">
+                            </x-ts-step.items>
+                            <x-ts-step.items step="3"
+                                        completed
+                                        title="Completed"
+                                        description="Step 6">
+                                        <b>Reimbursed Completed!</b>
+                            </x-ts-step.items>
+                        </x-ts-step>
+                    </div>
             </div>
         </div>
         <x-slot:footer>

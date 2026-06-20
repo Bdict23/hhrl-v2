@@ -57,8 +57,8 @@ new class extends Component
                 <div class="lg:flex lg:justify-between mb-3 grid">
                     <div class="w-auto mb-3">
                        <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                        ['label' => 'Transaction', 'link' =>  route('afl.summary'), 'icon' => 'cog'],
-                        ['label' => 'Advance for liquidation Summary', 'icon' => 'list-bullet' ],
+                        ['label' => 'Transaction', 'link' =>  route('reimbursement.summary'), 'icon' => 'cog'],
+                        ['label' => 'Reimbursement Summary', 'icon' => 'list-bullet' ],
 
                         ]"  class="mb-3"/>
                     </div>
@@ -88,8 +88,8 @@ new class extends Component
                         <x-ts-badge :text="$row->status" color="amber" />
                     @elseif($row->status == 'CLOSED')
                         <x-ts-badge :text="$row->status" color="green" />
-                    @elseif($row->requisition_status == 'CANCELLED'| $row->requisition_status == 'REJECTED')
-                        <x-ts-badge :text="$row->requisition_status" color="rose" />
+                    @elseif($row->status == 'CANCELLED'| $row->requisition_status == 'REJECTED')
+                        <x-ts-badge :text="$row->status" color="rose" />
                     @endif
                 </div>
             @endinteract
@@ -110,11 +110,11 @@ new class extends Component
             @interact('column_action', $row)
             <x-ts-dropdown icon="ellipsis-vertical" static lg>
                 @if($row->status == 'DRAFT')
-                    <a href="{{route('afl.edit',  ['id' => $row->id])}}">
+                    <a href="{{route('reimbursement.edit',  ['id' => $row->id])}}">
                         <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                     </a>
                 @endif
-                <a href="{{route('afl.view', ['id' => $row->id])}}">
+                <a href="{{route('reimbursement.view', ['id' => $row->id])}}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
                 <a>

@@ -73,6 +73,24 @@ class ReimbursementService
             return $rmb;
         });
     }
+
+    public function update(array $data): Reimbursement
+    {
+
+        return DB::transaction(function () use ($data) {
+            $reimbursement = $this->reimbursement->findOrFail($data['reimbursement_id']);
+            $reimbursement->update([
+                'prepared_by' => $data['prepared_by'],
+                'approved_by' => $data['approved_by'],
+                'note' => $data['note'],
+                'status' => $data['status'],
+            ]);
+
+            return $reimbursement;
+        });
+    }
+
+
     public function reject(array $data): Reimbursement
     {
         return DB::transaction(function () use ($data) {

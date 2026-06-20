@@ -99,7 +99,12 @@ new class extends Component {
     public function with(): array
     {
         return [
-            'headers' => [['index' => 'created_at', 'label' => 'Date'], ['index' => 'reference', 'label' => 'reference', 'sortable' => false], ['index' => 'description', 'label' => 'description', 'sortable' => false], ['index' => 'type', 'label' => 'type', 'sortable' => false], ['index' => 'amount', 'label' => 'amount', 'sortable' => false], ['index' => 'balance', 'label' => 'running balance', 'sortable' => false]],
+            'headers' => [
+                ['index' => 'created_at', 'label' => 'Date'], 
+                ['index' => 'reference', 'label' => 'reference', 'sortable' => false], 
+                ['index' => 'description', 'label' => 'description', 'sortable' => false], 
+                ['index' => 'amount', 'label' => 'amount', 'sortable' => false], 
+                ['index' => 'balance', 'label' => 'running balance', 'sortable' => false]],
 
             'batchHistoryHeader' => [['index' => 'status', 'label' => 'status', 'sortable' => false], ['index' => 'reference', 'label' => 'reference', 'sortable' => false], ['index' => 'prepared_by', 'label' => 'prepared by', 'sortable' => false], ['index' => 'replenished_amount', 'label' => 'replenished amount', 'sortable' => false], ['index' => 'starting_balance', 'label' => 'starting balance', 'sortable' => false], ['index' => 'ending_balance', 'label' => 'Ending balance', 'sortable' => false], ['index' => 'opened_at', 'label' => 'Opened date'], ['index' => 'closed_at', 'label' => 'closed date']],
 
