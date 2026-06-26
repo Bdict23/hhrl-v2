@@ -26,6 +26,7 @@ new class extends Component
             $reimburseAmount, 
             $status, 
             $approvedBy,
+            $preparedBy,
             $step;
 
     // mounted
@@ -56,6 +57,7 @@ new class extends Component
         $this->liqudatedAmt = number_format(PettyCashVoucherService::liquidatedAmount($this->pcvId), 2);
         $liquidated = (float) str_replace(",", "", $this->liqudatedAmt);
         $this->reimburseAmount = number_format(($liquidated - $this->pcvData->total_amount), 2);
+        $this->preparedBy = $this->data->preparedBy->full_name;
         if ($this->pcvData->paid_to_employee_id) {
             $this->employee = $this->pcvData->paidToEmployee->fullName;
         } else {
@@ -80,7 +82,7 @@ new class extends Component
             ->question('Reject Reimbursement?', 'Are you sure to reject this reimbursement?')
             ->confirm(
                 'Confirm',
-                'store', //pass a functio to call
+                'action', //pass a functio to call
             )
             ->cancel('Cancel')
             ->send();
@@ -110,33 +112,7 @@ new class extends Component
             ->send();
 
     }
-    public function saveAsFinalAction()
-    {
-        $validated = $this->validate();
-        $this->status = 'FOR APPROVAL';
-        $this->dialog()
-            ->question('Save Reimbursement', 'Are you sure to save this reimbursement as final?')
-            ->confirm(
-                'Confirm',
-                'store', //pass a functio to call
-            )
-            ->cancel('Cancel')
-            ->send();
-    }
-    public function saveAsDraftAction()
-    {
-        $validated = $this->validate();
-        $this->status = 'DRAFT';
-        $this->dialog()
-            ->question('Save Reimbursement', 'Are you sure to save this reimbursement as draft?')
-            ->confirm(
-                'Confirm',
-                'store', //pass a functio to call
-            )
-            ->cancel('Cancel')
-            ->send();
-    }
-
+   
     public function action(ReimbursementService $reimbursementService)
     {
         try {
@@ -229,7 +205,7 @@ new class extends Component
                 <x-ts-textarea label="Note" wire:model='note' readonly/>
             </div>
             <div class="grid grid-cols-2 gap-3">
-                <x-ts-input label="Prepared By" value="{{ auth()->user()->employee->fullName }}" disabled />
+                <x-ts-input label="Prepared By" wire:model="preparedBy" disabled />
                 <x-ts-input
                     wire:model="approvedBy"
                     label="Approved By" readonly/>
@@ -261,7 +237,7 @@ new class extends Component
             </div>
         </x-slot:footer>
     </x-ts-card>
-    <x-ts-loading loading="store" />
+    <x-ts-loading loading="action" />
     <x-ts-back-to-top lg />
 
 </div>

@@ -97,8 +97,7 @@ class ReimbursementService
             $rmb = $this->reimbursement->findOrFail($data['reimbursement_id']);
             $rmb->update([
                 'status' => 'REJECTED',
-                'rejected_date' => $data['rejected_date'],
-                'note' => $data['note'],
+                'rejected_date' => now(),
             ]);
             return $rmb;
         });

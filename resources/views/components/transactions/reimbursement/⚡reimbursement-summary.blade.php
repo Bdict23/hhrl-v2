@@ -88,7 +88,7 @@ new class extends Component
                         <x-ts-badge :text="$row->status" color="amber" />
                     @elseif($row->status == 'CLOSED')
                         <x-ts-badge :text="$row->status" color="green" />
-                    @elseif($row->status == 'CANCELLED'| $row->requisition_status == 'REJECTED')
+                    @elseif($row->status == 'CANCELLED'| $row->status == 'REJECTED')
                         <x-ts-badge :text="$row->status" color="rose" />
                     @endif
                 </div>

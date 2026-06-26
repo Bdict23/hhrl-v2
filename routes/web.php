@@ -31,7 +31,9 @@ Route::middleware(['auth'])->group(function () {
 
     //Receiving Order
     Volt::route('/receiving-order/summary', 'inventory.receiving-order.receiving-purchase-order-summary')->name('receiving-summary');
-    Volt::route('/receiving-order/create', 'inventory.receiving-order.receiving-purchase-order-create')->name('purcahse-order.receving.create');
+    Volt::route('/receiving-order/create', 'inventory.receiving-order.receiving-purchase-order-create')->name('receiving.create');
+    Volt::route('/receiving-order/edit/{id}', 'inventory.receiving-order.receiving-purchase-order-edit')->name('receiving.edit');
+    Volt::route('/receiving-order/view/{id}', 'inventory.receiving-order.receiving-purchase-order-view')->name('receiving.view');
 
 
     // Fixed Asset

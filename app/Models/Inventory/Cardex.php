@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models\Inventory;
+
 use App\Models\DataManagement\Item;
 use App\Models\DataManagement\Price;
 

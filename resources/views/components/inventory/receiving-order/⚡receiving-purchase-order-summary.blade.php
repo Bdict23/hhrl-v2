@@ -26,11 +26,14 @@ new class extends Component
         return [
             'headers' => [
                 ['index' => 'RECEIVING_STATUS', 'label' => 'Status'],
+                ['index' => 'reference', 'label' => 'reference', 'sortable' => false],
                 ['index' => 'REQUISITION_ID', 'label' => 'P.O Number', 'sortable' => false],
-                ['index' => 'created_at', 'label' => 'Receive Date'],
                 ['index' => 'receive_amount', 'label' => 'Receive Amount' , 'sortable' => false],
                 ['index' => 'remarks', 'label' => 'Remarks' , 'sortable' => false],
                 ['index' => 'PREPARED_BY', 'label' => 'Prepared By',  'sortable' => false],
+                ['index' => 'created_at', 'label' => 'Receive Date'],
+                ['index' => 'action', 'label' => 'action'],
+
             ],
             'rows' => Receiving::query()
                 ->with('preparedBy','purchaseOrder') // Eager load the relationship
@@ -79,7 +82,26 @@ new class extends Component
                 {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
             @endinteract
             @interact('column_REQUISITION_ID', $row)
-                {{ $row->purchaseOrder->requisition_number }}
+                <div class="font-mono flex text-xs mr-6" flat>{{ $row->purchaseOrder?->requisition_number }}
+                        @if ($row->purchaseOrder?->requisition_status == 'PARTIALLY FULFILLED')
+                            {{-- <x-ts-badge color="yellow" text="{{ $row->purchaseOrder?->requisition_status }}" round light xs /> --}}
+                            <p class=" bg-amber-300 rounded-2xl h-6 w-0.5 ml-2">
+                                <i class="text-amber-600 text-xs font-bold ml-2">PARTIAL</i>
+                            </p>
+                        @elseif($row->purchaseOrder?->requisition_status == 'COMPLETED')
+                            {{-- <x-ts-badge color="green" text="COMPLETED" round light xs /> --}}
+                            <p class=" bg-green-300 rounded-2xl h-6 w-0.5 ml-2">
+                                <i class="text-green-600 text-xs font-bold ml-2">COMPLETED</i>
+                            </p>
+                        @else
+                            <p class=" bg-gray-300 rounded-2xl h-6 w-0.5 ml-2">
+                                <i class="text-gray-600 text-xs font-bold ml-2">{{$row->purchaseOrder?->requisition_status}}</i>
+                            </p>
+                        @endif
+                    </div>
+            @endinteract
+             @interact('column_reference', $row)
+                {{ $row->reference }}
             @endinteract
              @interact('column_RECEIVING_STATUS', $row)
                 <div class="flex items-center gap-2">
@@ -95,13 +117,28 @@ new class extends Component
             @endinteract
             @interact('column_PREPARED_BY', $row)
                 <div class="flex items-center gap-2">
-                    <x-ts-badge :text="$row->preparedBy?->name ?? 'Unknown'" outline />
+                    <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                 </div>
             @endinteract
+            @interact('column_action', $row)
+            <x-ts-dropdown icon="ellipsis-vertical" static lg>
+                @if ($row->RECEIVING_STATUS == 'DRAFT')
+                    <a href="{{ route('receiving.edit', ['id' => $row->id]) }}">
+                        <x-ts-dropdown.items text="Edit" icon="pencil-square" />
+                    </a>
+                @endif
+                <a href="{{ route('receiving.view', ['id' => $row->id]) }}">
+                    <x-ts-dropdown.items text="View" separator icon="eye" />
+                </a>
+                <a>
+                    <x-ts-dropdown.items text="Cancel" color="rose" separator icon="x-mark" />
+                </a>
+            </x-ts-dropdown>
+        @endinteract
         </x-ts-table>
     </div>
     <x-ts-dial lg>
-            <x-ts-dial.items icon="plus" label="New Receiving" href="{{ route('purcahse-order.receving.create')}}" navigate />
+            <x-ts-dial.items icon="plus" label="New Receiving" href="{{ route('receiving.create')}}" navigate />
             <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
         </x-ts-dial>
     <x-ts-back-to-top lg/>

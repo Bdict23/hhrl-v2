@@ -27,6 +27,7 @@ new class extends Component
             $reimburseAmount, 
             $status, 
             $approvedBy,
+            $preparedBy,
             $pcvReference,
             $disbursedAmt,
             $step;
@@ -62,6 +63,7 @@ new class extends Component
         $this->disbursedAmt = $this->pcvData->total_amount;
         $this->note = $this->reimburseData->note;
         $this->approvedBy = $this->reimburseData->approvedBy->full_name;
+        $this->preparedBy = $this->reimburseData->preparedBy->full_name;
         $currentStep = $this->reimburseData->status;
         if($currentStep == 'DRAFT'){
             $this->step = '1';
@@ -160,7 +162,7 @@ new class extends Component
                 <x-ts-textarea label="Note" wire:model='note' readonly />
             </div>
             <div class="grid grid-cols-2  gap-3">
-                <x-ts-input label="Prepared By" value="{{ auth()->user()->employee->fullName }}" disabled />
+                <x-ts-input label="Prepared By" wire:model="preparedBy" disabled />
                 <x-ts-input
                     wire:model="approvedBy"
                     label="Approved By" readonly/>

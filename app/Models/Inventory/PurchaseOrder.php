@@ -57,4 +57,8 @@ class PurchaseOrder extends Model
     {
         return $this->hasMany(AssetBatchHeader::class, 'requisition_id');
     }
+    public function backorder()
+    {
+        return $this->hasMany(Backorder::class, 'requisition_id');
+    }
 }

@@ -4,6 +4,8 @@ namespace App\Models\Inventory;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\Item;
+use App\Models\DataManagement\Price;
+
 
 
 class PurchaseOrderItems extends Model
@@ -24,5 +26,9 @@ class PurchaseOrderItems extends Model
     public function cardexIn()
     {
         return $this->hasMany(Cardex::class, 'requisition_id', 'requisition_info_id')->where('item_id', $this->item_id);
+    }
+    public function cost()
+    {
+        return $this->belongsTo(Price::class, 'price_level_id');
     }
 }

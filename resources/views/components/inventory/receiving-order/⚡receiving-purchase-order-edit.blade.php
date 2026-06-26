@@ -13,7 +13,12 @@ use Livewire\WithFileUploads;
 use App\Models\Inventory\Receiving;
 use App\Models\Inventory\PurchaseOrderItems;
 use App\Models\Inventory\PurchaseOrder;
+use App\Models\Inventory\Cardex;
 
+
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Finder\SplFileInfo;
 
 new class extends Component
 {
@@ -39,16 +44,28 @@ new class extends Component
     $waybillNumber,
     $deliveryReceiptNumber,
     $invoiceNumber,
-    $supplierId;
+    $notes,
+    $supplierId,
+    $adtl_attachment = [];
 
     //inputs
-    public $selectedRows = [];
-    public $notes;
-    public $grand_total = 0.00;
-    public $status;
+    public $selectedRows = [],
+    $grand_total = 0.00,
+    $status,
+    $receivingId,
+    $receivingData;
 
     //selected
     public $selectedItem = [];
+
+
+    protected $rules = [
+        'waybillNumber' => 'required_without_all:deliveryReceiptNumber,invoiceNumber|nullable|max:55',
+        'deliveryReceiptNumber' => 'required_without_all:waybillNumber,invoiceNumber|nullable|max:55',
+        'invoiceNumber' => 'required_without_all:waybillNumber,deliveryReceiptNumber|nullable|max:55',
+        'deliveredBy' => 'nullable|string|max:55',
+        'notes' => 'nullable|string|max:250',
+    ];
 
      protected $messages = [
         'waybillNumber.required_without_all' => 'Either delivery receipt number, invoice number, or this field must be provided.',
@@ -56,61 +73,24 @@ new class extends Component
         'invoiceNumber.required_without_all' => 'Either waybill number, delivery number, or this field must be provided.',
     ];
 
-    public function validationRule()
+    public function mount($id)
     {
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-        $this->validate([
-            'waybillNumber' => 'required_without_all:deliveryReceiptNumber,invoiceNumber|nullable|max:55',
-            'deliveryReceiptNumber' => 'required_without_all:waybillNumber,invoiceNumber|nullable|max:55',
-            'invoiceNumber' => 'required_without_all:waybillNumber,deliveryReceiptNumber|nullable|max:55',
-            'deliveredBy' => 'nullable|string|max:55',
-            'notes' => 'nullable|string|max:250',
-        ]);
-
+        $this->receivingId = $id;
+        $this->fetchData();
     }
-    public function updated($key){
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-    }
- 
-    public function updatingPhotos(): void
+    public function fetchData()
     {
-        // 2. We store the uploaded files in the temporary property
-        $this->backup = $this->photos;
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-    }
-
-    public function updatedPhotos(): void
-    {
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-        if (!$this->photos) {
-            return;
-        }
- 
-        // 3. We merge the newly uploaded files with the saved ones
-        $file = Arr::flatten(array_merge($this->backup, [$this->photos]));
- 
-        // 4. We finishing by removing the duplicates
-        $this->photos = collect($file)->unique(fn (UploadedFile $item) => $item->getClientOriginalName())->toArray();
-    }
-
-    public function updatedPurchaseOrderId($id)
-    {
-        if($id){
-
-            $this->receivingInfo = Receiving::where('REQUISITION_ID', $id)->where('RECEIVING_STATUS', 'DRAFT')->first();
-            if ($this->receivingInfo) {
-            $this->toast()->warning('Warning', 'This Purchase Order has an existing draft receiving. Please update the existing receiving.')->send();
-            $this->purchaseOrderId = null;
-                return;
-            }
-        
-            $this->requestInfo = PurchaseOrder::where('id', $id)->first();
-            $this->supplierId = $this->requestInfo->supplier_id;
-            $this->requisitionDetails = PurchaseOrderItems::where('requisition_info_id', $id)
+        $this->receivingData = Receiving::findOrFail($this->receivingId);
+        $this->purchaseOrderId = $this->receivingData->REQUISITION_ID;
+        $this->requestInfo = PurchaseOrder::where('id', $this->purchaseOrderId)->first();
+        $this->supplierId = $this->requestInfo->supplier_id;
+        $this->receivingNumber = $this->receivingData->RECEIVING_NUMBER;
+        $this->deliveredBy = $this->receivingData->DELIVERED_BY;
+        $this->waybillNumber = $this->receivingData->WAYBILL_NUMBER;
+        $this->deliveryReceiptNumber = $this->receivingData->DELIVERY_NUMBER;
+        $this->invoiceNumber = $this->receivingData->INVOICE_NUMBER;
+        $this->notes = $this->receivingData->remarks;
+        $this->requisitionDetails = PurchaseOrderItems::where('requisition_info_id', $this->purchaseOrderId)
             ->get() // Execute the query to get a collection first
             ->map(function ($item) {
                 // Calculate the difference
@@ -122,11 +102,22 @@ new class extends Component
                         $remainingQty < 0 => 'red',
                         default => null,
                     };
-                    // return $item->setAttribute('highlight', $color);
-
                     // Get the old cost
                     $oldCost = (float) ($item->cost?->amount ?? 0);
                     
+                    //get temp in from cardex
+                    $tmpIn = $item->cardexIn?->where('receiving_id',$this->receivingId)->sum('qty_in') ?? 0;
+
+                    //get the last entry cost for this receivingd
+                    $enteredCost = $item->cardexIn
+                    ->where('status', 'TEMP')
+                    ->where('item_id', $item->item_id)
+                    ->where('receiving_id', $this->receivingId)
+                    ->first()?->cost?->amount 
+                    ?? $item->cardexIn->where('status', 'FINAL')->where('item_id', $item->item_id)->sortByDesc('created_at')->first()?->cost?->amount 
+                    ?? $oldCost;
+                    
+
                     // Convert to array with defaults
                     return [
                         'item_id'               => $item->item_id,
@@ -135,17 +126,17 @@ new class extends Component
                         'unit'                  => $item->item->unit?->unit_symbol ?? 'N/A',
                         'toReceive'             => $remainingQty,
                         'oldCost'               => $oldCost,
-                        'newCost'               => $oldCost, // Default to old cost
-                        'received'              => 0, 
+                        'newCost'               => $enteredCost, // previouse entered cost if none old cost to default
+                        'received'              => $tmpIn, 
                         'subTotal'              => 0, // Will be calculated
                         'highlight'             => $color,
                         'item'                  => $item->item,
                         'price_id'              => $item->price_level_id,
                         'cardexIn'              => $item->cardexIn?->where('status', 'FINAL')->sum('qty_in') ?? 0,
+                        'cardexInTmp'           => $tmpIn,
                         'notIncluded'           => $remainingQty == 0 || $remainingQty < 0,
 
                         // for sub table
-                        'id'                    => $item->item->id,
                         'item_code'             => $item->item->item_code,
                         'item_description'      => $item->item->item_description,
                         'brand'                 => $item->item->brand?->brand_name ?? 'N/A',
@@ -154,12 +145,42 @@ new class extends Component
                         'subClass'              => $item->item->subClassification?->classification_name ?? 'N/A',
                     ];
                 })->toArray();
-            }
-            else{
-                $this->reset();
-            }
+    
+
+        $this->photos = $this->receivingData->attachments->map(function ($attachment) {
+            // Standardizes the file path reference
+            $filePath = $attachment->file_path; 
+
+            return [
+                'id'        => $attachment->id, // handy if you need to delete it later
+                'name'      => basename($filePath),
+                'extension' => pathinfo($filePath, PATHINFO_EXTENSION),
+                'size'      => Storage::disk('public')->exists($filePath) ? Storage::disk('public')->size($filePath) : 0,
+                'path'      => $filePath,
+                'url'       => Storage::disk('public')->url($filePath),
+            ];
+        })->toArray();
+
     }
 
+    public function updatingPhotos(): void
+    {
+        // 2. We store the uploaded files in the temporary property
+        $this->backup = $this->photos;
+    }
+ 
+    public function updatedPhotos(): void
+    {
+        if (!$this->photos) {
+            return;
+        }
+ 
+        // 3. We merge the newly uploaded files with the saved ones
+        $file = Arr::flatten(array_merge($this->backup, [$this->photos]));
+ 
+        // 4. We finishing by removing the duplicates
+        $this->photos = collect($file)->unique(fn (UploadedFile $item) => $item->getClientOriginalName())->toArray();
+    }
 
     public function with(): array
     {
@@ -177,26 +198,12 @@ new class extends Component
         ];
     }
 
-
-    public function deleteUpload(array $content): void
-    {
-    /*
-     the $content contains:
-     [
-         'temporary_name',
-         'real_name',
-         'extension',
-         'size',
-         'path',
-         'url',
-     ]
-     */
-        $itemsTmp = $this->requisitionDetails;
-        if (! $this->photos) {
+    public function deleteAdtlUpload(array $content): void{
+        if (! $this->adtl_attachment) {
             return;
         }
-    
-        $files = Arr::wrap($this->photos);
+ 
+        $files = Arr::wrap($this->adtl_attachment);
     
         /** @var UploadedFile $file */
         $file = collect($files)->filter(fn (UploadedFile $item) => $item->getFilename() === $content['temporary_name'])->first();
@@ -210,44 +217,92 @@ new class extends Component
     
         // 2. We guarantee restore of remaining files regardless of upload
         // type, whether you are dealing with multiple or single uploads
-        $this->photos = is_array($this->photos) ? $collect->toArray() : $collect->first();
-
-        $this->requisitionDetails = $itemsTmp;
+        $this->adtl_attachment = is_array($this->adtl_attachment) ? $collect->toArray() : $collect->first();
     }
 
-    public function saveAsDraftAction(): void
+    public function deleteExistingUpload(array $content): void
     {
+        if (! $this->photos) {
+            return;
+        }
 
+        // --- CASE 1: It's an already SAVED file from the database ---
+        // If the file array has an 'id' (which we passed from the database model)
+        if (isset($content['id']) || !empty($content['path'])) {
+
+            // 1. Delete from database
+            if(isset($content['path'])){
+                PurchaseOrderService::removeReceivingAttachment($this->receivingId, $content['path']);
+            }
+            
+            // 2. Delete the actual file from your public storage disk
+            if (Storage::disk('public')->exists($content['path'])) {
+                Storage::disk('public')->delete($content['path']);
+            }
+
+            // 3. Delete the record from your database table
+            if (isset($content['id'])) {
+                ReceivingAttachment::destroy($content['id']);
+            }
+
+            // 4. Remove it from your local Livewire state array
+            $this->photos = collect($this->photos)
+                ->filter(fn ($item) => is_array($item) && $item['path'] !== $content['path'])
+                ->toArray();
+
+            $this->toast()->success('Deleted', 'Attachment removed successfully.')->send();
+            return;
+        }
+
+        // --- CASE 2: It's a brand new TEMPORARY upload ---
+        $files = Arr::wrap($this->photos);
+
+        /** @var \Illuminate\Http\UploadedFile $file */
+        $file = collect($files)
+            ->filter(fn ($item) => method_exists($item, 'getFilename') && $item->getFilename() === $content['temporary_name'])
+            ->first();
+
+        if ($file) {
+            rescue(fn () => $file->delete(), report: false);
+        }
+
+        $collect = collect($files)
+            ->filter(fn ($item) => !method_exists($item, 'getFilename') || $item->getFilename() !== $content['temporary_name']);
+
+        $this->photos = $collect->toArray();
+    }
+
+    public function updateAsDraftAction(): void
+    {
         // 1. Validate the UI State
-        $validated = $this->validationRule();
-
+        $validated = $this->validate();
         $this->status = "DRAFT";
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Save receiving?', 'Are you sure to save this receiving as draft ?')
+        ->question('Update receiving?', 'Are you sure to save this receiving as draft ?')
         ->confirm(
             'Confirm',
-            'store', //pass a functio to call
+            'updateReceiving', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function saveAsFinalAction(): void
+    public function updateAsFinalAction(): void
     {
         // 1. Validate the UI State
-        $validated = $this->validationRule();
+        $validated = $this->validate();
         $this->status = "FINAL";
         // 2. show confirmation dialog
          $this->dialog()
-        ->question('Save receiving?', 'Are you sure to save this receiving as final?')
+        ->question('Update receiving?', 'Are you sure to save this receiving as final?')
         ->confirm(
             'Confirm',
-            'store', //pass a functio to call
+            'updateReceiving', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function store(PurchaseOrderService $service)
+    public function updateReceiving(PurchaseOrderService $service)
     {
         try {
             // 3. Prepare the data for the Service
@@ -255,9 +310,8 @@ new class extends Component
             $data = [
                 'branch_id'   => Auth::user()->branch_id,
                 'company_id'    => Auth::user()->branch->company_id,
-                'requisition_id' => $this->purchaseOrderId,
                 'supplier_id' => $this->supplierId,
-                'receiving_type'   => 'PO',
+                'requisition_id' => $this->purchaseOrderId,
                 'receiving_number' => $this->receivingNumber,
                 'deliveredBy' => $this->deliveredBy,
                 'waybill_number' => $this->waybillNumber,
@@ -267,14 +321,15 @@ new class extends Component
                 'note'       => $this->notes,
                 'status'  => $this->status,
                 'items' => $this->requisitionDetails,
-                'attachments'=> $this->photos,
+                'attachments'=> $this->adtl_attachment,
+                'receiving_id' =>$this->receivingId,
             ];
 
             // 4. Call the Service
-            $po = $service->createReceiving($data);
+            $po = $service->updateReceiving($data);
 
             // 5. Success Feedback
-            $this->toast()->success('Success', "Purchase Order {$po->requisition_number} created successfully!")->send();
+            $this->toast()->success('Success', "Purchase Order {$po->requisition_number} updated successfully!")->send();
             $this->reset();
             return redirect()->route('receiving-summary');
 
@@ -293,7 +348,7 @@ new class extends Component
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                               ['label' => 'Inventory', 'link' => route('receiving-summary'), 'icon' => 'archive-box' ],
                               ['label' => 'Receiving Summary', 'link' => route('receiving-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Create Receiving', 'icon' => 'pencil-square'],
+                              ['label' => 'Edit Receiving', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
     </div>
 
@@ -303,18 +358,7 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-4 w-full">
                 <div class="grid gap-3 p-2">
-                    <x-ts-select.styled
-                        :request="route('api.get.to-receive-purchase-order', ['branch_id' => Auth::user()->branch_id])"
-                        label="Purchase Order"
-                        wire:model.live='purchaseOrderId'
-                        select="label:requisition_number|value:id|description:remarks"
-                        :placeholders="[
-                            'default' => 'Select purchase order',
-                            'search'  => 'Search purchase order',
-                            'empty'   => 'No to receive purchase order found',
-                        ]"
-                    />
-
+                    <x-ts-input label="Purchase Order" value="{{$this->requestInfo->requisition_number}}" readonly/>
                     <x-ts-input label="Waybill No̱." wire:model.blur="waybillNumber"/>
                 </div>
                 <div class="grid gap-3 p-2">
@@ -341,8 +385,8 @@ new class extends Component
                             <span 
                                 x-init="items[{{ $loop->index }}] = { 
                                     max: {{ $maxReceive }}, 
-                                    received: {{ $requisitionDetails[$loop->index]['received'] ?? 0 }}, 
-                                    newCost: {{ $requisitionDetails[$loop->index]['newCost'] ?? $row['oldCost'] }},
+                                    received: {{ $requisitionDetails[$loop->index]['received'] ?? $row['cardexInTmp'] }}, 
+                                    newCost: {{ $requisitionDetails[$loop->index]['newCost'] ?? $row['newCost'] }},
                                 }" 
                                 x-text="items[{{ $loop->index }}]?.max"
                             ></span>
@@ -385,7 +429,7 @@ new class extends Component
                         @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
-                                ['index' => 'id', 'label' => 'id'],
+                                ['index' => 'item_id', 'label' => 'id'],
                                 ['index' => 'item_code', 'label' => 'Code'],
                                 ['index' => 'item_description', 'label' => 'Description'],
                                 ['index' => 'brand', 'label' => 'Brand'],
@@ -394,7 +438,7 @@ new class extends Component
                                 ['index' => 'subClass', 'label' => 'Sub-Classification'],
                             ]"
                             :rows="[[
-                                'id'                => $row['id'],
+                                'item_id'           => $row['item_id'],
                                 'item_code'         => $row['item_code'],
                                 'item_description'  => $row['item_description'],
                                 'brand'             => $row['brand'],
@@ -418,7 +462,7 @@ new class extends Component
                     </x-ts-table>
                 </div>
 
-                @error('requisitionDetails')
+                @error('selectedRows')
                     <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
                 @enderror
             </x-ts-card>
@@ -433,7 +477,11 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
                         <div class="col-span-2">
-                            <x-ts-upload delete multiple label="Attachments" wire:model="photos"/>
+                            <x-ts-upload delete delete-method="deleteExistingUpload" multiple static :placeholder="count($photos) . ' atttached image'"  label="Attachments" wire:model="photos" >
+                                <x-slot:footer>
+                                     <x-ts-upload delete multiple  placeholder="Add attachment" wire:model="adtl_attachment" delete-method="deleteAdtlUpload"/>
+                                </x-slot:footer>
+                            </x-ts-upload>
                         </div>
                     </div>
                 </div>
@@ -442,12 +490,12 @@ new class extends Component
                 <div class="flex justify-end">
                     <x-ts-dropdown>
                         <x-slot:action>
-                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
+                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">UPDATE AS</x-ts-button>
                         </x-slot:action>
                         <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
-                            wire:click="saveAsDraftAction()" />
+                            wire:click="updateAsDraftAction()" />
                         <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
-                            wire:click="saveAsFinalAction()" />
+                            wire:click="updateAsFinalAction()" />
                     </x-ts-dropdown>
                 </div>
             </x-slot:footer>
