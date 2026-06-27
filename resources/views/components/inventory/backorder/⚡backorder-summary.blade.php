@@ -4,7 +4,9 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Inventory\PurchaseOrder;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Inventory\Receiving;
+use App\Models\Inventory\Backorder;
+use Illuminate\Support\Facades\Auth;
+
 
 
 new class extends Component
@@ -25,21 +27,24 @@ new class extends Component
 
         return [
             'headers' => [
-                ['index' => 'RECEIVING_STATUS', 'label' => 'Status'],
-                ['index' => 'reference', 'label' => 'reference', 'sortable' => false],
-                ['index' => 'REQUISITION_ID', 'label' => 'P.O Number', 'sortable' => false],
-                ['index' => 'receive_amount', 'label' => 'Receive Amount' , 'sortable' => false],
-                ['index' => 'remarks', 'label' => 'Remarks' , 'sortable' => false],
-                ['index' => 'PREPARED_BY', 'label' => 'Prepared By',  'sortable' => false],
-                ['index' => 'created_at', 'label' => 'Receive Date'],
+                ['index' => 'status', 'label' => 'Status'],
+                ['index' => 'item_description', 'label' => 'item', 'sortable' => false],
+                ['index' => 'purchase_order', 'label' => 'P.O Number', 'sortable' => false],
+                ['index' => 'qty', 'label' => 'Backorder QTY' , 'sortable' => false],
+                ['index' => 'receiving_attempt', 'label' => 'receive attempt' , 'sortable' => false],
+                ['index' => 'created_at', 'label' => 'backorder date',  'sortable' => false],
                 ['index' => 'action', 'label' => 'action'],
 
             ],
-            'rows' => Receiving::query()
-                ->with('preparedBy','purchaseOrder') // Eager load the relationship
+            'rows' => Backorder::query()
                 ->when($this->search, function (Builder $query) {
-                    return $query->whereHas('purchaseOrder', function (Builder $query) {
+                    return $query->whereHas('requisition', function (Builder $query) {
                         $query->where('requisition_number', 'like', "%{$this->search}%");
+                    });
+                })
+                ->when($this->search, function (Builder $query) {
+                    return $query->whereHas('item', function (Builder $query) {
+                        $query->where('item_description', 'like', "%{$this->search}%");
                     });
                 })
                 ->when($this->dates, function (Builder $query) {
@@ -48,8 +53,9 @@ new class extends Component
                     }
                 })
                 ->when($this->status, function (Builder $query) {
-                    return $query->where('RECEIVING_STATUS', $this->status);
+                    return $query->where('status', $this->status);
                 })
+                ->where('branch_id', Auth::user()->branch_id)
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()
@@ -62,15 +68,17 @@ new class extends Component
     <div class="lg:flex lg:justify-between grid mb-4">
             <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                           ['label' => 'Inventory','link' => route('receiving-summary'), 'icon' => 'archive-box' ],
-                          ['label' => 'Receiving Summary', 'icon' => 'list-bullet'],
+                          ['label' => 'Backorder Summary', 'icon' => 'list-bullet'],
               ]"  />
                 <div class="lg:flex gap-3 grid grid-cols-3">
                     <x-ts-select.native wire:model.live="status"
                             placeholder="All Statuses"
                             :options="[
                             ['name' => 'All', 'id' => null],
-                            ['name' => 'DRAFT', 'id' => 'DRAFT'],
-                            ['name' => 'FINAL', 'id' => 'FINAL'],
+                            ['name' => 'ACTIVE', 'id' => 'ACTIVE'],
+                            ['name' => 'FULFILLED', 'id' => 'FULFILLED'],
+                            ['name' => 'FOR PO', 'id' => 'FOR PO'],
+                            ['name' => 'CANCELLED', 'id' => 'CANCELLED'],
                     ]" select="label:name|value:id" />
                     <x-ts-date wire:model.live="dates" range placeholder="Date range" />
                 </div>
@@ -81,21 +89,22 @@ new class extends Component
             @interact('column_created_at', $row)
                 {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
             @endinteract
-            @interact('column_REQUISITION_ID', $row)
-                <div class=" flex text-sm mr-6" flat>{{ $row->purchaseOrder?->requisition_number }}
-                        @if ($row->purchaseOrder?->requisition_status == 'PARTIALLY FULFILLED')
-                            {{-- <x-ts-badge color="yellow" text="{{ $row->purchaseOrder?->requisition_status }}" round light xs /> --}}
+            @interact('column_item_description', $row)
+                {{ $row->item->item_description }}
+            @endinteract
+            @interact('column_purchase_order', $row)
+                <div class="flex text-sm mr-6" flat>{{ $row->requisition?->requisition_number }}
+                        @if ($row->requisition?->requisition_status == 'PARTIALLY FULFILLED')
                             <p class=" bg-amber-300 rounded-2xl h-6 w-0.5 ml-2">
                                 <i class="text-amber-600 text-xs font-bold ml-2">PARTIAL</i>
                             </p>
-                        @elseif($row->purchaseOrder?->requisition_status == 'COMPLETED')
-                            {{-- <x-ts-badge color="green" text="COMPLETED" round light xs /> --}}
+                        @elseif($row->requisition?->requisition_status == 'COMPLETED')
                             <p class=" bg-green-300 rounded-2xl h-6 w-0.5 ml-2">
                                 <i class="text-green-600 text-xs font-bold ml-2">COMPLETED</i>
                             </p>
                         @else
                             <p class=" bg-gray-300 rounded-2xl h-6 w-0.5 ml-2">
-                                <i class="text-gray-600 text-xs font-bold ml-2">{{$row->purchaseOrder?->requisition_status}}</i>
+                                <i class="text-gray-600 text-xs font-bold ml-2">{{$row->requisition?->requisition_status}}</i>
                             </p>
                         @endif
                     </div>
@@ -103,12 +112,16 @@ new class extends Component
              @interact('column_reference', $row)
                 {{ $row->reference }}
             @endinteract
-             @interact('column_RECEIVING_STATUS', $row)
+             @interact('column_status', $row)
                 <div class="flex items-center gap-2">
-                    @if($row->RECEIVING_STATUS == 'DRAFT')
-                        <x-ts-badge text="DRAFT" color="secondary" />
-                    @elseif($row->RECEIVING_STATUS == 'FINAL')
-                        <x-ts-badge :text="$row->RECEIVING_STATUS" color="green" />
+                    @if($row->status == 'ACTIVE')
+                        <x-ts-badge text="ACTIVE" color="amber" />
+                    @elseif($row->status == 'FULFILLED')
+                        <x-ts-badge :text="$row->status" color="green" />
+                    @elseif($row->status == 'FOR PO')
+                        <x-ts-badge :text="$row->status" color="sky" />
+                    @elseif($row->status == 'CANCELLED')
+                        <x-ts-badge :text="$row->status" color="red" />
                     @endif
                 </div>
             @endinteract
@@ -121,7 +134,7 @@ new class extends Component
                 </div>
             @endinteract
             @interact('column_action', $row)
-            <x-ts-dropdown icon="ellipsis-vertical" static lg>
+            {{-- <x-ts-dropdown icon="ellipsis-vertical" static lg>
                 @if ($row->RECEIVING_STATUS == 'DRAFT')
                     <a href="{{ route('receiving.edit', ['id' => $row->id]) }}">
                         <x-ts-dropdown.items text="Edit" icon="pencil-square" />
@@ -133,12 +146,11 @@ new class extends Component
                 <a>
                     <x-ts-dropdown.items text="Cancel" color="rose" separator icon="x-mark" />
                 </a>
-            </x-ts-dropdown>
+            </x-ts-dropdown> --}}
         @endinteract
         </x-ts-table>
     </div>
     <x-ts-dial lg>
-            <x-ts-dial.items icon="plus" label="New Receiving" href="{{ route('receiving.create')}}" navigate />
             <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
         </x-ts-dial>
     <x-ts-back-to-top lg/>

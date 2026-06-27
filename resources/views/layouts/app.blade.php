@@ -148,6 +148,11 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
+                         <x-ts-side-bar.item text="Event Liquidation" :route="route('event-liquidation-summary')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
                     </x-ts-side-bar.item>
 
                     <!-- Inventory -->
@@ -170,7 +175,7 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="PO Backorders" :route="route('receiving-summary')">
+                        <x-ts-side-bar.item text="PO Backorders" :route="route('backorder-summary')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
@@ -304,7 +309,7 @@
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
 
-                            <x-ts-side-bar.item text="Event Liquidation">
+                            <x-ts-side-bar.item text="Event Liquidation" >
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>

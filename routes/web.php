@@ -18,6 +18,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/users', Index::class)->name('users.index');
     Route::get('/user/profile', Profile::class)->name('user.profile');
 
+
+    //EVENTS
+    Volt::route('/events/summary', 'events.event-liquidation.event-liquidation-summary')->name('event-liquidation-summary');
+    Volt::route('/events/create', 'events.event-liquidation.event-liquidation-create')->name('event-liquidation-create');
+    Volt::route('/events/edit/{id}', 'events.event-liquidation.event-liquidation-edit')->name('event-liquidation-edit');
+    Volt::route('/events/view/{id}', 'events.event-liquidation.event-liquidation-view')->name('event-liquidation-view');
+
+
     // INVENTORY SELECTION
     //Purchase Order
     Volt::route('/purchase-order/summary', 'inventory.purchase-order.purchase-order-summary')->name('purchase-order-summary');
@@ -34,6 +42,10 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/receiving-order/create', 'inventory.receiving-order.receiving-purchase-order-create')->name('receiving.create');
     Volt::route('/receiving-order/edit/{id}', 'inventory.receiving-order.receiving-purchase-order-edit')->name('receiving.edit');
     Volt::route('/receiving-order/view/{id}', 'inventory.receiving-order.receiving-purchase-order-view')->name('receiving.view');
+
+    //BACKORDER
+    Volt::route('/backorder/summary', 'inventory.backorder.backorder-summary')->name('backorder-summary');
+
 
 
     // Fixed Asset
