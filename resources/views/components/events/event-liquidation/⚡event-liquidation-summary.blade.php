@@ -121,7 +121,7 @@ new class extends Component
             @endinteract
             @interact('column_action', $row)
             <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                @if ($row->RECEIVING_STATUS == 'DRAFT')
+                @if ($row->status == 'DRAFT')
                     <a href="{{ route('event-liquidation-edit', ['id' => $row->id]) }}">
                         <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                     </a>

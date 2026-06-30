@@ -61,7 +61,7 @@ new class extends Component
             $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
             $this->pcvList = PettyCashVoucherService::pcvListsCollection($id, Auth::user()->branch_id);
             $this->pcvTotalReturn = PettyCashVoucherService::totalPcvRetunAmount($id, Auth::user()->branch_id);
-            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') - $this->pcvTotalReturn;
+            $this->pcvTotal = (float) ($this->pcvList->sum('total_amount') + $this->pcvList->sum('total_reimbursement')) - $this->pcvTotalReturn;
             $this->pcvTotalMutate = $this->pcvTotal;
             $this->purchaseOrderTotal = $this->purchaseList->sum('total_amount');
             $this->receivedList = PurchaseOrderService::purchaseReceivedData($id, Auth::user()->branch_id);
@@ -117,6 +117,7 @@ new class extends Component
                 ['index' => 'paid_to_employee_id', 'label' => 'payee'],
                 ['index' => 'total_amount', 'label' => 'released amount' ],
                 ['index' => 'return_amount', 'label' => 'returned amount' ],
+                ['index' => 'reimbursed_amount', 'label' => 'reimburse amount' ],
                 ['index' => 'total', 'label' => 'total' ],
             ],
             'purchaseOrderHeader' => [
@@ -130,6 +131,7 @@ new class extends Component
                 ['index' => 'receiving_status', 'label' => 'status'],
                 ['index' => 'created_at', 'label' => 'Date' ],
                 ['index' => 'reference', 'label' => 'reference' ],
+                ['index' => 'purchase_reference', 'label' => 'Purchase Order' ],
                 ['index' => 'prepared_by', 'label' => 'prepared by'],
                 ['index' => 'total_received_amount', 'label' => 'total received amount' ],
             ],
@@ -196,8 +198,12 @@ new class extends Component
             $po = $service->createLiquidation($data);
 
             // 5. Success Feedback
-            $this->toast()->success('Success', "event liquidation {$po->reference} created successfully!")->send();
             $this->reset();
+            $this->dialog()
+            ->success('Success!', "Event liquidation {$po->reference} created successfully!")
+            ->flash() 
+            ->send();
+            return redirect()->route('event-liquidation-summary');
 
 
         } catch (\Exception $e) {
@@ -294,8 +300,11 @@ new class extends Component
                         @interact('column_return_amount', $row)
                             ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
                         @endinteract
+                        @interact('column_reimbursed_amount', $row)
+                             ₱ {{ number_format($row->reimbursements?->amount, 2) }}
+                        @endinteract
                         @interact('column_total', $row)
-                           ₱ {{ number_format($row->total_amount - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
+                           ₱ {{ number_format($row->total_amount + ($row->total_reimbursement ?? 0) - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
                         @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
@@ -419,6 +428,9 @@ new class extends Component
                         @endinteract
                         @interact('column_created_at', $row)
                              {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
+                        @endinteract
+                        @interact('column_purchase_reference', $row)
+                             {{ $row->purchaseOrder->requisition_number}}
                         @endinteract
                         @interact('column_prepared_by', $row)
                             <div class="flex items-center gap-2">
@@ -587,7 +599,7 @@ new class extends Component
                             </x-ts-step.items>
                             <x-ts-step.items step="3"
                                         completed
-                                        title="Reconcillation"
+                                        title="Settlement"
                                         description="Step 3">
                             </x-ts-step.items>
                             <x-ts-step.items step="4"
@@ -607,7 +619,7 @@ new class extends Component
                 </div>
             </div>
             <x-slot:footer>
-                {{-- <div class="flex justify-end">
+                <div class="flex justify-end">
                     <x-ts-dropdown>
                         <x-slot:action>
                             <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
@@ -617,7 +629,7 @@ new class extends Component
                         <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
                             wire:click="saveAsFinalAction()" />
                     </x-ts-dropdown>
-                </div> --}}
+                </div>
             </x-slot:footer>
         </x-ts-card>
     </div>

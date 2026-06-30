@@ -73,7 +73,7 @@ new class extends Component
             $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
             $this->pcvList = PettyCashVoucherService::pcvListsCollection($id, Auth::user()->branch_id);
             $this->pcvTotalReturn = PettyCashVoucherService::totalPcvRetunAmount($id, Auth::user()->branch_id);
-            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') - $this->pcvTotalReturn;
+            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') + $this->pcvList->sum('total_reimbursement') - $this->pcvTotalReturn;
             $this->pcvTotalMutate = $this->pcvTotal;
             $this->purchaseOrderTotal = $this->purchaseList->sum('total_amount');
             $this->receivedList = PurchaseOrderService::purchaseReceivedData($id, Auth::user()->branch_id);
@@ -81,6 +81,8 @@ new class extends Component
             $this->withdrawalList = ItemWithdrawalService::getEventwithdrawals($id, Auth::user()->branch_id);
             $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
             $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
+            $this->notes = $this->liquidationData->note;
+
   
 
             // attached all receipt from receiving
@@ -172,6 +174,7 @@ new class extends Component
                 ['index' => 'paid_to_employee_id', 'label' => 'payee'],
                 ['index' => 'total_amount', 'label' => 'released amount' ],
                 ['index' => 'return_amount', 'label' => 'returned amount' ],
+                ['index' => 'reimburse_amount', 'label' => 'reimbursed amount' ],
                 ['index' => 'total', 'label' => 'total' ],
             ],
             'purchaseOrderHeader' => [
@@ -284,6 +287,8 @@ new class extends Component
                               ['label' => 'Event Liquidation Summary', 'link' => route('event-liquidation-summary'), 'icon' => 'list-bullet'],
                               ['label' => 'View Event Liquidation', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
+                  <i>({{$liquidationData->reference}})
+                    <x-ts-badge text="{{$liquidationData->status}}" color="gray" outline /> </i>
     </div>
 
     <div class="grid gap-4 mb-10">
@@ -339,8 +344,11 @@ new class extends Component
                         @interact('column_return_amount', $row)
                             ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
                         @endinteract
+                        @interact('column_reimburse_amount', $row)
+                            ₱ {{ number_format($row->reimbursement?->amount, 2) }}
+                        @endinteract
                         @interact('column_total', $row)
-                           ₱ {{ number_format($row->total_amount - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
+                           ₱ {{ number_format($row->total_amount + $row->total_reimbursement - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
                         @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
@@ -615,7 +623,7 @@ new class extends Component
                             </x-ts-step.items>
                             <x-ts-step.items step="3"
                                         completed
-                                        title="Reconcillation"
+                                        title="Settlement"
                                         description="Step 3">
                             </x-ts-step.items>
                             <x-ts-step.items step="4"
@@ -635,16 +643,13 @@ new class extends Component
                 </div>
             </div>
             <x-slot:footer>
-                <div class="flex justify-end">
-                    <x-ts-dropdown>
-                        <x-slot:action>
-                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
-                        </x-slot:action>
-                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
-                            wire:click="saveAsDraftAction()" />
-                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
-                            wire:click="saveAsFinalAction()" />
-                    </x-ts-dropdown>
+                <div class="flex justify-end gap-2">
+                     <x-ts-button  icon="arrow-left" outline :href="route('event-liquidation-summary')">Back</x-ts-button>
+                     @if($liquidationData->status == 'DRAFT')
+                     <x-ts-button  icon="pencil-square" :href="route('event-liquidation-edit', ['id' => $liquidationData->id])">Edit</x-ts-button>
+                     @else
+                     <x-ts-button  icon="pencil-square" disabled>Edit</x-ts-button>
+                     @endif
                 </div>
             </x-slot:footer>
         </x-ts-card>

@@ -43,7 +43,7 @@ class EventLiquidationService
                 'branch_id'         => $branchId,
                 'created_by'        => $data['prepared_by'],
                 'event_id'          => $data['event_id'],
-                'status'          =>   $data['status'] == 'FINAL' ? 'FOR REVIEW' : 'DRAFT',
+                'status'            =>   $data['status'] == 'FINAL' ? 'FOR REVIEW' : 'DRAFT',
                 'note'              => $data['notes'],
                 'total_incurred'    => $data['total_incurred'],
                 'reviewed_by'       => $data['reviewed_by'],
@@ -51,6 +51,23 @@ class EventLiquidationService
             ]);
 
             return $liquidate;
+        });
+    }
+
+    public function updateLiquidation(array $data): EventLiquidation
+    {
+        return  DB::transaction(function () use ($data) {
+            $liquidation = $this->liquidation->findOrFail($data['liquidation_id']);
+            $liquidation->update([
+                'created_by'        => $data['prepared_by'],
+                'status'            => $data['status'] == 'FINAL' ? 'FOR REVIEW' : 'DRAFT',
+                'note'              => $data['notes'],
+                'total_incurred'    => $data['total_incurred'],
+                'reviewed_by'       => $data['reviewed_by'],
+                'approved_by'       => $data['approved_by'],
+            ]);
+
+            return $liquidation;
         });
     }
 }

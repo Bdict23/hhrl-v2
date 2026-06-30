@@ -71,6 +71,10 @@ class PettyCashVoucher extends Model
     {
         return $this->hasOne(Reimbursement::class, 'pcv_id');
     }
+    public function reimbursement()
+    {
+        return $this->hasOne(Reimbursement::class, 'pcv_id');
+    }
     public function cashReturns()
     {
         return $this->hasMany(CashReturn::class, 'pcv_id');
@@ -96,5 +100,14 @@ class PettyCashVoucher extends Model
     public function cashReturn()
     {
         return $this->hasOne(CashReturn::class, 'pcv_id');
+    }
+
+
+
+    protected $append = ['total_reimbursement'];
+
+    public function getTotalReimbursementAttribute(): float
+    {
+        return $this->reimbursement()->first()->amount ?? 0;
     }
 }

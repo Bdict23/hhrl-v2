@@ -82,8 +82,6 @@ new class extends Component
             $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
             $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
             $this->notes = $this->liquidationData->note;
-            $this->reviewedBy = $this->liquidationData->reviewed_by;
-            $this->approvedBy = $this->liquidationData->approved_by;
 
   
 
@@ -203,69 +201,65 @@ new class extends Component
         ];
     }
 
-    public function updateAsDraftAction(): void
+    public function reviewedAction(): void
     {
 
-        // 1. Validate the UI State
-        $this->validationRule();
 
-        $this->status = "DRAFT";
+        $this->status = "FOR APPROVAL";
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Update liquidation?', 'Are you sure to save this liquidation as draft ?')
+        ->question('Reviewed liquidation?', 'Proceeding will submit the liquidation for approval.')
         ->confirm(
             'Confirm',
-            'updateLiquidation', //pass a functio to call
+            'store', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function updateAsFinalAction(): void
+    public function revisedAction(): void
     {
         // 1. Validate the UI State
         $this->validationRule();
         $this->status = "FINAL";
         // 2. show confirmation dialog
          $this->dialog()
-        ->question('Update liquidation?', 'Are you sure to save this liquidation as final?')
+        ->question('Revise liquidation?', 'status will changed to draft.')
         ->confirm(
             'Confirm',
-            'updateLiquidation', //pass a functio to call
+            'store', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function updateLiquidation(EventLiquidationService $service)
+    public function store(EventLiquidationService $service)
     {
         try {
             // 3. Prepare the data for the Service
             // We structure it to match the $data array expected by the Service
             $data = [
+                'branch_id'   => Auth::user()->branch_id,
+                'company_id'    => Auth::user()->branch->company_id,
+                'event_id' => $this->eventId,
                 'prepared_by'  => auth()->user()->emp_id,
                 'status'  => $this->status,
                 'notes'       => $this->notes,
                 'total_incurred' => $this->pcvTotal,
                 'reviewed_by' => $this->reviewedBy,
                 'approved_by' => $this->approvedBy,
-                'liquidation_id' => $this->liquidationId,
             ];
 
             // 4. Call the Service
-            $po = $service->updateLiquidation($data);
+            $po = $service->createLiquidation($data);
 
             // 5. Success Feedback
+            $this->toast()->success('Success', "event liquidation {$po->reference} created successfully!")->send();
             $this->reset();
-            $this->dialog()
-            ->success('Success!', "Event liquidation {$po->reference} update successfully!")
-            ->flash() 
-            ->send();
-            return redirect()->route('event-liquidation-summary');
             
 
         } catch (\Exception $e) {
             // Log the error if needed
-            \Log::error("Updating liquidation Failed: " . $e->getMessage());
-            $this->toast()->error('Error', 'Something went wrong while applying changes: ' . $e->getMessage())->send();
+            \Log::error("PO Creation Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
         }
     }
 
@@ -277,6 +271,7 @@ new class extends Component
             'reviewedBy'    =>'required|exists:employees,id',
             'approvedBy'    =>'required|exists:employees,id',
             'notes'         =>'nullable|string|max:150',
+            'eventId'      => 'required|exists:banquet_events,id'
         ]);
     }
  
@@ -588,7 +583,7 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
-                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
+                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes" readonly/>
                     <div class="grid grid-cols-4">
                         <div class="grid">
                             <span class="font-bold">Petty Cash Voucher</span>
@@ -611,25 +606,8 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
                         <div class="col-span-2 grid grid-cols-2 gap-2">
-                            <x-ts-select.styled
-                            :request="route('api.liquidate-event.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
-                            select="label:fullName|value:id|description:position"
-                            wire:model="reviewedBy"
-                            label="REVIEWED BY"
-                            :placeholders="[
-                            'default' => 'Select',
-                            'empty'   => 'No reviewers found',
-                            ]" ... required/>
-
-                            <x-ts-select.styled
-                                :request="route('api.liquidate-event.active.approvers', ['branch_id' => auth()->user()->branch_id])"
-                                wire:model="approvedBy"
-                                select="label:fullName|value:id|description:position"
-                                label="APPROVED BY"
-                                :placeholders="[
-                                    'default' => 'Select    ',
-                                    'empty'   => 'No aapprovers found',
-                                ]" required />
+                            <x-ts-input label="REVIEWED BY" readonly value="{{$liquidationData->reviewedBy->full_name}}  ({{$liquidationData->reviewedBy->position->position_name}})"/>
+                            <x-ts-input label="APPROVED BY" readonly value="{{$liquidationData->approvedBy->full_name}}  ({{$liquidationData->approvedBy->position->position_name}})"/>
                         </div>
                          <div class="mt-3">
                         <x-ts-step selected="1" circles>
@@ -663,21 +641,10 @@ new class extends Component
                 </div>
             </div>
             <x-slot:footer>
-                <div class="flex justify-end gap-2">
-                     <x-ts-button  icon="arrow-left" outline :href="route('event-liquidation-summary')">Back</x-ts-button>
-                     @if($liquidationData->status == 'DRAFT')
-                      <div class="flex justify-end">
-                            <x-ts-dropdown>
-                                <x-slot:action>
-                                    <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">UPDATE AS</x-ts-button>
-                                </x-slot:action>
-                                <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
-                                    wire:click="updateAsDraftAction()" />
-                                <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
-                                    wire:click="updateAsFinalAction()" />
-                            </x-ts-dropdown>
-                        </div>
-                     @endif
+                <div class="flex justify-start gap-2">
+                     <x-ts-button  icon="arrow-path" outline wire:click="revisedAction">REVISE</x-ts-button>
+                     <x-ts-button  icon="check" outline wire:click="reviewedAction">REVIEWED</x-ts-button>
+                     
                 </div>
             </x-slot:footer>
         </x-ts-card>

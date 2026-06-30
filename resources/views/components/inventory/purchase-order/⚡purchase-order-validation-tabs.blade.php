@@ -100,8 +100,11 @@ new class extends Component
                         <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                     </div>
                 @endinteract
-                @interact('column_amount', $row)
+                @interact('column_total_amount', $row)
                      ₱ {{ number_format($row->total_amount, 2) }}
+                @endinteract
+                @interact('column_event_id', $row)
+                    {{ ($row->event?->event_name ?? '') }}
                 @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
@@ -122,11 +125,14 @@ new class extends Component
                 @endinteract
                 @interact('column_prepared_by', $row)
                     <div class="flex items-center gap-2">
-                        <x-ts-badge :text="$row->preparedBy?->name ?? 'Unknown'" outline />
+                        <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                     </div>
                 @endinteract
-                @interact('column_amount', $row)
-                    ₱ {{ number_format($row->total_amount, 2) }}
+                 @interact('column_total_amount', $row)
+                     ₱ {{ number_format($row->total_amount, 2) }}
+                @endinteract
+                @interact('column_event_id', $row)
+                    {{ ($row->event?->event_name ?? '') }}
                 @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>

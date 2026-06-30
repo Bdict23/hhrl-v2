@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\Transaction\Reimbursement;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Transaction\ReimbursementService;
+use TallStackUi\Traits\Interactions;
+
 
 
 
 new class extends Component
 {
     use WithPagination;
+     use Interactions;
 
     public ?int $quantity = 10;
     public ?string $search = null;

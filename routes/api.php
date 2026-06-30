@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Transaction\AflApiController;
 use App\Models\Transaction\AdvancesForLiquidation;
 use App\Http\Controllers\Api\Business\EmployeeApiController;
 use App\Http\Controllers\Api\Transaction\EmployeeCashAdvanceApiController;
+use App\Http\Controllers\Api\Event\EventLiquidationApiController;
 
 
 
@@ -95,3 +96,5 @@ Route::middleware('auth:sanctum')->get('/get-cash-advance-approvers', [EmployeeC
 
 //EVENT LIQUIDATION
 Route::middleware('auth:sanctum')->get('/event-liquidation/active-event', [BanquetEventApiController::class, 'activeEvent'])->name('api.event-liquidation.active.event');
+Route::middleware('auth:sanctum')->get('/event-liquidation/active-reviewers', [EventLiquidationApiController::class, 'activeReviewers'])->name('api.liquidate-event.active.reviewers');
+Route::middleware('auth:sanctum')->get('/event-liquidation/active-approvers', [EventLiquidationApiController::class, 'activeApprovers'])->name('api.liquidate-event.active.approvers');

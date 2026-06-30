@@ -20,10 +20,14 @@ Route::middleware(['auth'])->group(function () {
 
 
     //EVENTS
+    //EVENT LIQUIDATION
     Volt::route('/events/summary', 'events.event-liquidation.event-liquidation-summary')->name('event-liquidation-summary');
     Volt::route('/events/create', 'events.event-liquidation.event-liquidation-create')->name('event-liquidation-create');
     Volt::route('/events/edit/{id}', 'events.event-liquidation.event-liquidation-edit')->name('event-liquidation-edit');
     Volt::route('/events/view/{id}', 'events.event-liquidation.event-liquidation-view')->name('event-liquidation-view');
+    Volt::route('/events/validation-summary', 'events.event-liquidation.event-liquidation-validation-summary-tab')->name('event-liquidation.validation-summary');
+    Volt::route('/events/validation/review-show/{id}', 'events.event-liquidation.event-liquidation-validation-review-show')->name('event-liquidation.validation.review-show');
+    Volt::route('/events/validation/approval-show/{id}', 'events.event-liquidation.event-liquidation-validation-approval-show')->name('event-liquidation.validation.approval-show');
 
 
     // INVENTORY SELECTION

@@ -309,7 +309,7 @@
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
 
-                            <x-ts-side-bar.item text="Event Liquidation" >
+                            <x-ts-side-bar.item text="Event Liquidation" :route="route('event-liquidation.validation-summary')">
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
