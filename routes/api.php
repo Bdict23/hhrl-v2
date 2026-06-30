@@ -92,3 +92,6 @@ Route::middleware('auth:sanctum')->get('/get-active-afl', [AflApiController::cla
 // ADVANCES FOR EMPLOYEES
 Route::middleware('auth:sanctum')->get('/get-active-employees', [EmployeeApiController::class, 'getActiveBranchEmployees'])->name('api.get.active-employees-advances');
 Route::middleware('auth:sanctum')->get('/get-cash-advance-approvers', [EmployeeCashAdvanceApiController::class, 'getBranchCashAdvanceApprovers'])->name('api.get.cash-advance-approvers');
+
+//EVENT LIQUIDATION
+Route::middleware('auth:sanctum')->get('/event-liquidation/active-event', [BanquetEventApiController::class, 'activeEvent'])->name('api.event-liquidation.active.event');

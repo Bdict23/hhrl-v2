@@ -335,4 +335,23 @@ class PettyCashVoucherService
             ->where('status', 'DRAFT')
             ->value('id');
     }
+
+    public static function pcvListsCollection(int $event, int $branch)
+    {
+        $pcvCollection = PettyCashVoucher::where('event_id', $event)
+            ->where('branch_id', $branch)->get();
+        return $pcvCollection;
+    }
+    public static function totalPcvRetunAmount(int $event, int $branch)
+    {
+        $total = 0;
+        $pcvCollection = PettyCashVoucher::where('event_id', $event)->where('branch_id', $branch)->get();
+        if ($pcvCollection) {
+            foreach ($pcvCollection as $pcv) {
+                $total += $pcv->cashReturn?->amount_returned ?? 0;
+            }
+        }
+
+        return $total;
+    }
 }

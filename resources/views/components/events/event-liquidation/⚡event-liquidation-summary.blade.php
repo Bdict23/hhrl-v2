@@ -61,7 +61,7 @@ new class extends Component
 <div>
     <div class="lg:flex lg:justify-between grid mb-4">
             <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                          ['label' => 'Inventory','link' => route('receiving-summary'), 'icon' => 'archive-box' ],
+                          ['label' => 'Event','link' => route('event-liquidation-summary'), 'icon' => 'archive-box' ],
                           ['label' => 'Event liquidation Summary', 'icon' => 'list-bullet'],
               ]"  />
                 <div class="lg:flex gap-3 grid grid-cols-3">
@@ -98,9 +98,15 @@ new class extends Component
              @interact('column_status', $row)
                 <div class="flex items-center gap-2">
                     @if($row->status == 'DRAFT')
-                        <x-ts-badge :text="$row->status" color="grey" />
-                    @elseif($row->status == 'OPEN')
+                        <x-ts-badge :text="$row->status" color="gray" />
+                    @elseif($row->status == 'FOR REVIEW')
+                        <x-ts-badge :text="$row->status" color="teal" />
+                    @elseif($row->status == 'FOR SETTLEMENT')
                         <x-ts-badge :text="$row->status" color="amber" />
+                    @elseif($row->status == 'FOR APPROVAL')
+                        <x-ts-badge :text="$row->status" color="green" />
+                    @elseif($row->status == 'FOR APPROVAL')
+                        <x-ts-badge :text="$row->status" color="cyan" />
                     @elseif($row->status == 'CLOSED')
                         <x-ts-badge :text="$row->status" color="green" />
                     @elseif($row->status == 'CANCELLED')

@@ -23,7 +23,7 @@ class Cardex extends Model
         'price_level_id',
         'invoice_id',
         'stf_id',
-        'widthdrawal_id',
+        'withdrawal_id',
         'receiving_id',
         'requisition_id',
         'final_date',

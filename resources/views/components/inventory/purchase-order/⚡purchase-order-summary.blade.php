@@ -135,7 +135,7 @@ new class extends Component
             @endinteract
             @interact('column_prepared_by', $row)
                 <div class="flex items-center gap-2">
-                    <x-ts-badge :text="$row->preparedBy?->name ?? 'Unknown'" outline />
+                    <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                 </div>
             @endinteract
              @interact('column_action', $row , $type)

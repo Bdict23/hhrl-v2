@@ -6,13 +6,20 @@ use App\Models\DataManagement\Item;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Inventory\PurchaseOrderService;
+use App\Services\Inventory\ItemWithdrawalService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\UploadedFile;
 use Livewire\WithFileUploads;
-use App\Models\Inventory\Receiving;
+// use App\Models\Inventory\Receiving;
+use App\Services\Transaction\AcknowledgementReceiptService; 
+use App\Services\Transaction\PettyCashVoucherService; 
 use App\Models\Inventory\PurchaseOrderItems;
 use App\Models\Inventory\PurchaseOrder;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Finder\SplFileInfo;
+use App\Services\Event\EventLiquidationService;
 
 
 new class extends Component
@@ -21,210 +28,131 @@ new class extends Component
     use WithPagination;
     use Interactions;
 
-    public ?int $quantity = 10;
-    public ?string $search = null;
-    public $isExists = false;
+    // NEW VARIABLES
+    public 
+    $eventId,
+    $purchaseOrder,
+    $checkNumber,
+    $approvedBudget,
+    $photos = [],
+    $pcvList = [],
+    $purchaseList = [],
+    $receivedList = [],
+    $withdrawalList = [],
+    $pcvTotal = 0.00,
+    $pcvTotalMutate = 0.00,
+    $purchaseOrderTotal = 0.00,
+    $receiveOrderTotal = 0.00,
+    $pcvTotalReturn = 0.00,
+    $withdrawalTotal = 0.00,
+    $checkData,
+    $reviewedBy,
+    $status,
+    $notes,
+    $approvedBy;
 
-    // For multiple files the property must be an array 
-    public $photos = [];
-     // 1. We create a property that will temporarily store the uploaded files
-    public $backup = [];
-
-    public $receivingInfo,
-    $requestInfo,
-    $requisitionDetails=[],
-    $purchaseOrderId,
-    $receivingNumber,
-    $deliveredBy,
-    $waybillNumber,
-    $deliveryReceiptNumber,
-    $invoiceNumber,
-    $supplierId;
-
-    //inputs
-    public $selectedRows = [];
-    public $notes;
-    public $grand_total = 0.00;
-    public $status;
-
-    //selected
-    public $selectedItem = [];
-
-     protected $messages = [
-        'waybillNumber.required_without_all' => 'Either delivery receipt number, invoice number, or this field must be provided.',
-        'deliveryReceiptNumber.required_without_all' => 'Either waybill number, invoice number, or this field must be provided.',
-        'invoiceNumber.required_without_all' => 'Either waybill number, delivery number, or this field must be provided.',
-    ];
-
-    public function validationRule()
-    {
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-        $this->validate([
-            'waybillNumber' => 'required_without_all:deliveryReceiptNumber,invoiceNumber|nullable|max:55',
-            'deliveryReceiptNumber' => 'required_without_all:waybillNumber,invoiceNumber|nullable|max:55',
-            'invoiceNumber' => 'required_without_all:waybillNumber,deliveryReceiptNumber|nullable|max:55',
-            'deliveredBy' => 'nullable|string|max:55',
-            'notes' => 'nullable|string|max:250',
-        ]);
-
-    }
-    public function updated($key){
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-    }
- 
-    public function updatingPhotos(): void
-    {
-        // 2. We store the uploaded files in the temporary property
-        $this->backup = $this->photos;
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-    }
-
-    public function updatedPhotos(): void
-    {
-        $itemsTmp = $this->requisitionDetails;
-        $this->requisitionDetails = $itemsTmp;
-        if (!$this->photos) {
-            return;
-        }
- 
-        // 3. We merge the newly uploaded files with the saved ones
-        $file = Arr::flatten(array_merge($this->backup, [$this->photos]));
- 
-        // 4. We finishing by removing the duplicates
-        $this->photos = collect($file)->unique(fn (UploadedFile $item) => $item->getClientOriginalName())->toArray();
-    }
-
-    public function updatedPurchaseOrderId($id)
+    public function updatedEventId($id)
     {
         if($id){
+            $this->checkData = AcknowledgementReceiptService::eventCheckData( $id, Auth::user()->branch_id);
+            $this->checkNumber = $this->checkData?->check_number ?? '';
+            $this->approvedBudget = number_format($this->checkData->check_amount ?? 0,2);
 
-            $this->receivingInfo = Receiving::where('REQUISITION_ID', $id)->where('RECEIVING_STATUS', 'DRAFT')->first();
-            if ($this->receivingInfo) {
-            $this->toast()->warning('Warning', 'This Purchase Order has an existing draft receiving. Please update the existing receiving.')->send();
-            $this->purchaseOrderId = null;
-                return;
-            }
-        
-            $this->requestInfo = PurchaseOrder::where('id', $id)->first();
-            $this->supplierId = $this->requestInfo->supplier_id;
-            $this->requisitionDetails = PurchaseOrderItems::where('requisition_info_id', $id)
-            ->get() // Execute the query to get a collection first
-            ->map(function ($item) {
-                // Calculate the difference
-                    $remainingQty = $item->qty - ($item->cardexIn?->where('status', 'FINAL')->sum('qty_in') ?? 0);
+            $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
+            $this->pcvList = PettyCashVoucherService::pcvListsCollection($id, Auth::user()->branch_id);
+            $this->pcvTotalReturn = PettyCashVoucherService::totalPcvRetunAmount($id, Auth::user()->branch_id);
+            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') - $this->pcvTotalReturn;
+            $this->pcvTotalMutate = $this->pcvTotal;
+            $this->purchaseOrderTotal = $this->purchaseList->sum('total_amount');
+            $this->receivedList = PurchaseOrderService::purchaseReceivedData($id, Auth::user()->branch_id);
+            $this->receiveOrderTotal = $this->receivedList->sum('receive_amount');
+            $this->withdrawalList = ItemWithdrawalService::getEventwithdrawals($id, Auth::user()->branch_id);
+            $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
+            $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
+  
 
-                    // Determine the highlight color
-                    $color = match (true) {
-                        $remainingQty == 0 => 'green',
-                        $remainingQty < 0 => 'red',
-                        default => null,
-                    };
-                    // return $item->setAttribute('highlight', $color);
+            // attached all receipt from receiving
+            $this->photos = $receivingAttachment->map(function ($attachment) {
+            // Standardizes the file path reference
+            $filePath = $attachment->file_path; 
 
-                    // Get the old cost
-                    $oldCost = (float) ($item->cost?->amount ?? 0);
-                    
-                    // Convert to array with defaults
-                    return [
-                        'item_id'               => $item->item_id,
-                        'requested_qty'         => $item->qty,
-                        'description'           => $item->item->item_description,
-                        'unit'                  => $item->item->unit?->unit_symbol ?? 'N/A',
-                        'toReceive'             => $remainingQty,
-                        'oldCost'               => $oldCost,
-                        'newCost'               => $oldCost, // Default to old cost
-                        'received'              => 0, 
-                        'subTotal'              => 0, // Will be calculated
-                        'highlight'             => $color,
-                        'item'                  => $item->item,
-                        'price_id'              => $item->price_level_id,
-                        'cardexIn'              => $item->cardexIn?->where('status', 'FINAL')->sum('qty_in') ?? 0,
-                        'notIncluded'           => $remainingQty == 0 || $remainingQty < 0,
+            return [
+                'id'        => $attachment->id, // handy if you need to delete it later
+                'name'      => basename($filePath),
+                'extension' => pathinfo($filePath, PATHINFO_EXTENSION),
+                'size'      => Storage::disk('public')->exists($filePath) ? Storage::disk('public')->size($filePath) : 0,
+                'path'      => $filePath,
+                'url'       => Storage::disk('public')->url($filePath),
+            ];
+        })->toArray();
 
-                        // for sub table
-                        'id'                    => $item->item->id,
-                        'item_code'             => $item->item->item_code,
-                        'item_description'      => $item->item->item_description,
-                        'brand'                 => $item->item->brand?->brand_name ?? 'N/A',
-                        'category'              => $item->item->category?->category_name ?? 'N/A',
-                        'classification'        => $item->item->classification?->classification_name ?? 'N/A',
-                        'subClass'              => $item->item->subClassification?->classification_name ?? 'N/A',
-                    ];
-                })->toArray();
+            $this->validateCheck();
+
             }
             else{
                 $this->reset();
             }
     }
 
+    public function validateCheck()
+    {
+        $rules = [
+        'checkNumber' => 'required',
+        ];
+            $messages = [
+            'checkNumber.required' => 'No check number found, please process the acknowledgment first.'
+        ];
+
+        $this->validate($rules, $messages);
+        
+    }
 
     public function with(): array
     {
         return [
-            'selectedItemHeader' => [
-                ['index' => 'description', 'label' => 'Description'],
-                ['index' => 'unit', 'label' => 'Unit' ],
-                ['index' => 'requested_qty', 'label' => 'request qty' ],
-                ['index' => 'toReceive', 'label' => 'to receive'],
-                ['index' => 'received', 'label' => 'received' ],
-                ['index' => 'oldCost', 'label' => 'old cost'],
-                ['index' => 'newCost', 'label' => 'new cost'],
-                ['index' => 'subTotal', 'label' => 'sub total'],
-            ]
+            'pettyCashVoucherHeader' => [
+                ['index' => 'status', 'label' => 'status'],
+                ['index' => 'created_at', 'label' => 'Date' ],
+                ['index' => 'reference', 'label' => 'reference' ],
+                ['index' => 'paid_to_employee_id', 'label' => 'payee'],
+                ['index' => 'total_amount', 'label' => 'released amount' ],
+                ['index' => 'return_amount', 'label' => 'returned amount' ],
+                ['index' => 'total', 'label' => 'total' ],
+            ],
+            'purchaseOrderHeader' => [
+                ['index' => 'requisition_status', 'label' => 'status'],
+                ['index' => 'created_at', 'label' => 'Date' ],
+                ['index' => 'requisition_number', 'label' => 'reference' ],
+                ['index' => 'prepared_by', 'label' => 'prepared by'],
+                ['index' => 'total_amount', 'label' => 'P.O amount' ],
+            ],
+            'receivedOrderHeader' => [
+                ['index' => 'receiving_status', 'label' => 'status'],
+                ['index' => 'created_at', 'label' => 'Date' ],
+                ['index' => 'reference', 'label' => 'reference' ],
+                ['index' => 'prepared_by', 'label' => 'prepared by'],
+                ['index' => 'total_received_amount', 'label' => 'total received amount' ],
+            ],
+            'withdrawalHeader' => [
+                ['index' => 'receiving_status', 'label' => 'status'],
+                ['index' => 'created_at', 'label' => 'Date' ],
+                ['index' => 'reference_number', 'label' => 'reference' ],
+                ['index' => 'prepared_by', 'label' => 'prepared by'],
+                ['index' => 'total_received_amount', 'label' => 'total received amount' ],
+            ],
         ];
-    }
-
-
-    public function deleteUpload(array $content): void
-    {
-    /*
-     the $content contains:
-     [
-         'temporary_name',
-         'real_name',
-         'extension',
-         'size',
-         'path',
-         'url',
-     ]
-     */
-        $itemsTmp = $this->requisitionDetails;
-        if (! $this->photos) {
-            return;
-        }
-    
-        $files = Arr::wrap($this->photos);
-    
-        /** @var UploadedFile $file */
-        $file = collect($files)->filter(fn (UploadedFile $item) => $item->getFilename() === $content['temporary_name'])->first();
-    
-        // 1. Here we delete the file. Even if we have a error here, we simply
-        // ignore it because as long as the file is not persisted, it is
-        // temporary and will be deleted at some point if there is a failure here.
-        rescue(fn () => $file->delete(), report: false);
-    
-        $collect = collect($files)->filter(fn (UploadedFile $item) => $item->getFilename() !== $content['temporary_name']);
-    
-        // 2. We guarantee restore of remaining files regardless of upload
-        // type, whether you are dealing with multiple or single uploads
-        $this->photos = is_array($this->photos) ? $collect->toArray() : $collect->first();
-
-        $this->requisitionDetails = $itemsTmp;
     }
 
     public function saveAsDraftAction(): void
     {
 
         // 1. Validate the UI State
-        $validated = $this->validationRule();
+        $this->validationRule();
 
         $this->status = "DRAFT";
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Save receiving?', 'Are you sure to save this receiving as draft ?')
+        ->question('Save liquidation?', 'Are you sure to save this liquidation as draft ?')
         ->confirm(
             'Confirm',
             'store', //pass a functio to call
@@ -235,11 +163,11 @@ new class extends Component
     public function saveAsFinalAction(): void
     {
         // 1. Validate the UI State
-        $validated = $this->validationRule();
+        $this->validationRule();
         $this->status = "FINAL";
         // 2. show confirmation dialog
          $this->dialog()
-        ->question('Save receiving?', 'Are you sure to save this receiving as final?')
+        ->question('Save liquidation?', 'Are you sure to save this liquidation as final?')
         ->confirm(
             'Confirm',
             'store', //pass a functio to call
@@ -247,7 +175,7 @@ new class extends Component
         ->cancel('Cancel')
         ->send();
     }
-    public function store(PurchaseOrderService $service)
+    public function store(EventLiquidationService $service)
     {
         try {
             // 3. Prepare the data for the Service
@@ -255,34 +183,40 @@ new class extends Component
             $data = [
                 'branch_id'   => Auth::user()->branch_id,
                 'company_id'    => Auth::user()->branch->company_id,
-                'requisition_id' => $this->purchaseOrderId,
-                'supplier_id' => $this->supplierId,
-                'receiving_type'   => 'PO',
-                'receiving_number' => $this->receivingNumber,
-                'deliveredBy' => $this->deliveredBy,
-                'waybill_number' => $this->waybillNumber,
-                'delivery_number' => $this->deliveryReceiptNumber,
-                'invoice_number' => $this->invoiceNumber,
-                'preparedBy'  => auth()->user()->emp_id,
-                'note'       => $this->notes,
+                'event_id' => $this->eventId,
+                'prepared_by'  => auth()->user()->emp_id,
                 'status'  => $this->status,
-                'items' => $this->requisitionDetails,
-                'attachments'=> $this->photos,
+                'notes'       => $this->notes,
+                'total_incurred' => $this->pcvTotal,
+                'reviewed_by' => $this->reviewedBy,
+                'approved_by' => $this->approvedBy,
             ];
 
             // 4. Call the Service
-            $po = $service->createReceiving($data);
+            $po = $service->createLiquidation($data);
 
             // 5. Success Feedback
-            $this->toast()->success('Success', "Purchase Order {$po->requisition_number} created successfully!")->send();
+            $this->toast()->success('Success', "event liquidation {$po->reference} created successfully!")->send();
             $this->reset();
-            return redirect()->route('receiving-summary');
+
 
         } catch (\Exception $e) {
             // Log the error if needed
             \Log::error("PO Creation Failed: " . $e->getMessage());
             $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
         }
+    }
+
+    public function validationRule()
+    {
+        $this->validate([
+            'checkNumber'   => 'required',
+            'pcvTotal'      => 'numeric|min:1',
+            'reviewedBy'    =>'required|exists:employees,id',
+            'approvedBy'    =>'required|exists:employees,id',
+            'notes'         =>'nullable|string|max:150',
+            'eventId'      => 'required|exists:banquet_events,id'
+        ]);
     }
  
 };
@@ -291,9 +225,9 @@ new class extends Component
 <div>
     <div class="flex justify-between">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                              ['label' => 'Inventory', 'link' => route('receiving-summary'), 'icon' => 'archive-box' ],
-                              ['label' => 'Receiving Summary', 'link' => route('receiving-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Create Receiving', 'icon' => 'pencil-square'],
+                              ['label' => 'Event', 'link' => route('event-liquidation-summary'), 'icon' => 'archive-box' ],
+                              ['label' => 'Event Liquidation Summary', 'link' => route('event-liquidation-summary'), 'icon' => 'list-bullet'],
+                              ['label' => 'Create Event Liquidation', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
     </div>
 
@@ -304,26 +238,26 @@ new class extends Component
             <div class="grid grid-cols-4 w-full">
                 <div class="grid gap-3 p-2">
                     <x-ts-select.styled
-                        :request="route('api.get.to-receive-purchase-order', ['branch_id' => Auth::user()->branch_id])"
-                        label="Bangquet event"
-                        wire:model.live='purchaseOrderId'
-                        select="label:requisition_number|value:id|description:remarks"
+                        :request="route('api.event-liquidation.active.event', ['branch_id' => Auth::user()->branch_id])"
+                        label="BANQUET EVENT"
+                        wire:model.live='eventId'
+                        select="label:reference|value:id|description:event_name"
                         :placeholders="[
-                            'default' => 'Select purchase order',
-                            'search'  => 'Search purchase order',
-                            'empty'   => 'No to receive purchase order found',
+                            'default' => 'Select event',
+                            'search'  => 'Search event',
+                            'empty'   => 'No active event found',
                         ]"
                     />
 
-                    <x-ts-input label="Approved Budget" wire:model.blur="waybillNumber"/>
+                    <x-ts-currency mutate currency symbol label="APPROVED BUDGET" wire:model="approvedBudget" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Check No̱." wire:model.blur="receivingNumber"/>
-                    <x-ts-input label="Total incurred amount" wire:model.blur="deliveryReceiptNumber"/>
+                    <x-ts-input label="CHECK No̱." wire:model.blur="checkNumber" readonly/>
+                    <x-ts-currency mutate symbol currency label="TOTAL INCURRED AMOUNT" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="CRS No̱." wire:model.blur="deliveredBy"/>
-                    <x-ts-input label="Return amount" wire:model.blur="invoiceNumber"/>
+                    <x-ts-input label="CRS No̱." readonly/>
+                    <x-ts-input label="RETURN AMOUNT" readonly/>
                 </div>
             </div>
         </x-ts-card>
@@ -332,7 +266,37 @@ new class extends Component
         <x-ts-tab selected="PETTY CASH VOUCHERS">
             <x-ts-tab.items tab="PETTY CASH VOUCHERS">
                 <x-ts-card>
-                    <x-ts-table :headers="$selectedItemHeader" :rows="$requisitionDetails" striped expandable loading highlight>
+                    <x-ts-table :headers="$pettyCashVoucherHeader" :rows="$pcvList" striped expandable loading highlight>
+                        @interact('column_status', $row)
+                            <div class="flex items-center gap-2">
+                                @if($row->status == 'DRAFT')
+                                    <x-ts-badge text="DRAFT" color="secondary" />
+                                @elseif($row->status == 'OPEN')
+                                    <x-ts-badge :text="$row->status" color="amber" />
+                                @elseif($row->status == 'CLOSED')
+                                    <x-ts-badge :text="$row->status" color="green" />
+                                @elseif($row->status == 'CANCELLED')
+                                    <x-ts-badge :text="$row->status" color="rose" />
+                                @endif
+                            </div>
+                        @endinteract
+                        @interact('column_created_at', $row)
+                             {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
+                        @endinteract
+                        @interact('column_paid_to_employee_id', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->paidToEmployee != null ? $row->paidToEmployee?->name . ' ' . $row->paidToEmployee?->last_name . ' - (Employee)'  : $row->paidToCustomer?->customer_fname . ' ' . $row->paidToCustomer?->customer_lname . ' - (Customer)' ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
+                        @interact('column_total_amount', $row)
+                            ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('column_return_amount', $row)
+                            ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
+                        @endinteract
+                        @interact('column_total', $row)
+                           ₱ {{ number_format($row->total_amount - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
+                        @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
                                 ['index' => 'id', 'label' => 'id'],
@@ -353,24 +317,53 @@ new class extends Component
                                 'subClass'          => $row['subClass'],
                             ]]" />
                         @endinteract
-                        <x-slot:footer>
+                        
+                    </x-ts-table>
+                    <x-slot:footer>
                             <div class="flex justify-end mt-3">
                                 <x-ts-stats
-                                    x-bind:number="Number(Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toFixed(2))"
                                     title="Total amount">
                                     <x-slot:icon>
                                         <x-icon-peso class="w-6 h-6" />
                                     </x-slot:icon>
-                                    <div class="font-semibold text-3xl"><span x-text="Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})">0.00</span></div>
+                                    <div class="font-semibold text-3xl"><span>{{ number_format($pcvTotal, 2) }}</span></div>
                                 </x-ts-stats>
                             </div>
                         </x-slot:footer>
-                    </x-ts-table>
                 </x-ts-card>
             </x-ts-tab.items>
             <x-ts-tab.items tab="PURCHASE ORDERS">
                 <x-ts-card>
-                    <x-ts-table :headers="$selectedItemHeader" :rows="$requisitionDetails" striped expandable loading highlight>
+                    <x-ts-table :headers="$purchaseOrderHeader" :rows="$purchaseList" striped expandable loading highlight>
+                        @interact('column_requisition_status', $row)
+                            <div class="flex items-center gap-2">
+                                @if ($row->requisition_status == 'FOR APPROVAL')
+                                    <x-ts-badge :text="$row->requisition_status" color="cyan" />
+                                @elseif($row->requisition_status == 'PARTIALLY FULFILLED')
+                                    <x-ts-badge :text="$row->requisition_status" color="amber" />
+                                @elseif($row->requisition_status == 'TO RECEIVE')
+                                    <x-ts-badge :text="$row->requisition_status" color="primary" />
+                                @elseif($row->requisition_status == 'FOR REVIEW')
+                                    <x-ts-badge :text="$row->requisition_status" color="teal" />
+                                @elseif($row->requisition_status == 'REJECTED')
+                                    <x-ts-badge :text="$row->requisition_status" color="red" />
+                                @elseif($row->requisition_status == 'PREPARING')
+                                    <x-ts-badge text="DRAFT" color="secondary" />
+                                @elseif($row->requisition_status == 'COMPLETED')
+                                    <x-ts-badge :text="$row->requisition_status" color="green" />
+                                @elseif($row->requisition_status == 'CANCELLED')
+                                    <x-ts-badge :text="$row->requisition_status" color="rose" />
+                                @endif
+                            </div>
+                        @endinteract
+                        @interact('column_created_at', $row)
+                             {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
+                        @endinteract
+                        @interact('column_prepared_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
                                 ['index' => 'id', 'label' => 'id'],
@@ -391,24 +384,113 @@ new class extends Component
                                 'subClass'          => $row['subClass'],
                             ]]" />
                         @endinteract
-                        <x-slot:footer>
+                        @interact('column_total_amount', $row)
+                            ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
+                        @endinteract
+                        
+                    </x-ts-table>
+                    <x-slot:footer>
                             <div class="flex justify-end mt-3">
                                 <x-ts-stats
-                                    x-bind:number="Number(Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toFixed(2))"
                                     title="Total amount">
                                     <x-slot:icon>
                                         <x-icon-peso class="w-6 h-6" />
                                     </x-slot:icon>
-                                    <div class="font-semibold text-3xl"><span x-text="Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})">0.00</span></div>
+                                    <div class="font-semibold text-3xl"><span>{{ number_format($purchaseOrderTotal, 2)}}</span></div>
                                 </x-ts-stats>
                             </div>
                         </x-slot:footer>
+                </x-ts-card>
+                
+            </x-ts-tab.items>
+            <x-ts-tab.items tab="PURCHASE RECEIVED">
+                <x-ts-card>
+                    <x-ts-table :headers="$receivedOrderHeader" :rows="$receivedList" striped expandable loading highlight>
+                        @interact('column_receiving_status', $row)
+                            <div class="flex items-center gap-2">
+                                @if ($row->RECEIVING_STATUS == 'DRAFT')
+                                    <x-ts-badge :text="$row->RECEIVING_STATUS" color="grey" />
+                                @elseif($row->RECEIVING_STATUS == 'FINAL')
+                                    <x-ts-badge :text="$row->RECEIVING_STATUS" color="green" />
+                                @elseif($row->RECEIVING_STATUS == 'CANCELLED')
+                                    <x-ts-badge :text="$row->RECEIVING_STATUS" color="rose" />
+                                @endif
+                            </div>
+                        @endinteract
+                        @interact('column_created_at', $row)
+                             {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
+                        @endinteract
+                        @interact('column_prepared_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
+                         @interact('column_total_received_amount', $row)
+                            ₱ {{  number_format(($row->receive_amount) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('sub_table', $row)
+                            <x-ts-table :headers="[
+                                ['index' => 'id', 'label' => 'id'],
+                                ['index' => 'item_code', 'label' => 'Code'],
+                                ['index' => 'item_description', 'label' => 'Description'],
+                                ['index' => 'brand', 'label' => 'Brand'],
+                                ['index' => 'category', 'label' => 'Category'],
+                                ['index' => 'classification', 'label' => 'Classification'],
+                                ['index' => 'subClass', 'label' => 'Sub-Classification'],
+                            ]"
+                            :rows="[[
+                                'id'                => $row['id'],
+                                'item_code'         => $row['item_code'],
+                                'item_description'  => $row['item_description'],
+                                'brand'             => $row['brand'],
+                                'category'          => $row['category'],
+                                'classification'    => $row['classification'],
+                                'subClass'          => $row['subClass'],
+                            ]]" />
+                        @endinteract
                     </x-ts-table>
+                    <x-slot:footer>
+                            <div class="flex justify-end mt-3">
+                                <x-ts-stats
+                                    title="Total amount">
+                                    <x-slot:icon>
+                                        <x-icon-peso class="w-6 h-6" />
+                                    </x-slot:icon>
+                                    <div class="font-semibold text-3xl"><span>{{ number_format($receiveOrderTotal, 2)}}</span></div>
+                                </x-ts-stats>
+                            </div>
+                        </x-slot:footer>
                 </x-ts-card>
             </x-ts-tab.items>
             <x-ts-tab.items tab="ITEM WITHDRAWALS">
                 <x-ts-card>
-                    <x-ts-table :headers="$selectedItemHeader" :rows="$requisitionDetails" striped expandable loading highlight>
+                    <x-ts-table :headers="$withdrawalHeader" :rows="$withdrawalList" striped expandable loading highlight>
+                        @interact('column_receiving_status', $row)
+                            <div class="flex items-center gap-2">
+                                @if ($row->withdrawal_status == 'PREPARING')
+                                    <x-ts-badge :text="$row->withdrawal_status" color="grey" />
+                                @elseif($row->withdrawal_status == 'FOR REVIEW')
+                                    <x-ts-badge :text="$row->withdrawal_status" color="amber" />
+                                 @elseif($row->withdrawal_status == 'FOR APPROVAL')
+                                    <x-ts-badge :text="$row->withdrawal_status" color="teal" />
+                                 @elseif($row->withdrawal_status == 'APPROVED')
+                                    <x-ts-badge text="CLOSED" color="green" />
+                                @else
+                                    <x-ts-badge :text="$row->withdrawal_status" color="rose" />
+                                @endif
+                            </div>
+                        @endinteract
+                        @interact('column_created_at', $row)
+                             {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
+                        @endinteract
+                        @interact('column_prepared_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
+                         @interact('column_total_received_amount', $row)
+                            ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
+                        @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[
                                 ['index' => 'id', 'label' => 'id'],
@@ -429,19 +511,18 @@ new class extends Component
                                 'subClass'          => $row['subClass'],
                             ]]" />
                         @endinteract
-                        <x-slot:footer>
+                    </x-ts-table>
+                    <x-slot:footer>
                             <div class="flex justify-end mt-3">
                                 <x-ts-stats
-                                    x-bind:number="Number(Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toFixed(2))"
                                     title="Total amount">
                                     <x-slot:icon>
                                         <x-icon-peso class="w-6 h-6" />
                                     </x-slot:icon>
-                                    <div class="font-semibold text-3xl"><span x-text="Object.values(items).reduce((s, it) => s + ((Number(it.received)||0) * (Number(it.newCost)||0)), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})">0.00</span></div>
+                                    <div class="font-semibold text-3xl"><span>{{ number_format($withdrawalTotal, 2)}}</span></div>
                                 </x-ts-stats>
                             </div>
                         </x-slot:footer>
-                    </x-ts-table>
                 </x-ts-card>
             </x-ts-tab.items>
         </x-ts-tab>
@@ -450,18 +531,83 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
+                    <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
                     <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
+                    <div class="grid grid-cols-4">
+                        <div class="grid">
+                            <span class="font-bold">Petty Cash Voucher</span>
+                            <span>₱ {{number_format($pcvTotal, 2)}}</span>
+                        </div>
+                        <div class="grid">
+                            <span class="font-bold">Purchase Order</span>
+                            <span>₱ {{number_format($purchaseOrderTotal,2)}}</span>
+                        </div>
+                        <div class="grid">
+                            <span class="font-bold">Purchase received</span>
+                            <span>₱ {{number_format($receiveOrderTotal,2)}}</span>
+                        </div>
+                        <div class="grid">
+                            <span class="font-bold">Withdrawal</span>
+                            <span>₱ {{number_format($withdrawalTotal,2)}}</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
-                        <div class="col-span-2">
-                            <x-ts-upload delete multiple label="Attachments" wire:model="photos"/>
+                        <div class="col-span-2 grid grid-cols-2 gap-2">
+                            <x-ts-select.styled
+                            :request="route('api.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                            select="label:fullName|value:id|description:position"
+                            wire:model="reviewedBy"
+                            label="REVIEWED BY"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No reviewers found',
+                            ]" ... required/>
+
+                            <x-ts-select.styled
+                                :request="route('api.active.approvers', ['branch_id' => auth()->user()->branch_id])"
+                                wire:model="approvedBy"
+                                select="label:fullName|value:id|description:position"
+                                label="APPROVED BY"
+                                :placeholders="[
+                                    'default' => 'Select    ',
+                                    'empty'   => 'No aapprovers found',
+                                ]" required />
                         </div>
+                         <div class="mt-3">
+                        <x-ts-step selected="1" circles>
+                            <x-ts-step.items step="1"
+                                        title="Create Liquidation"
+                                        description="Step 1">
+                            </x-ts-tep.items>
+                            <x-ts-step.items step="2"
+                                        title="Review"
+                                        description="Step 2">
+                            </x-ts-step.items>
+                            <x-ts-step.items step="3"
+                                        completed
+                                        title="Reconcillation"
+                                        description="Step 3">
+                            </x-ts-step.items>
+                            <x-ts-step.items step="4"
+                                        completed
+                                        title="Approved"
+                                        description="Step 4">
+                            </x-ts-step.items>
+                            <x-ts-step.items step="5"
+                                        completed
+                                        title="Completed"
+                                        description="Step 6">
+                                        <b>Event Liquidated!</b>
+                            </x-ts-step.items>
+                        </x-ts-step>
+                    </div>
                     </div>
                 </div>
             </div>
             <x-slot:footer>
-                <div class="flex justify-end">
+                {{-- <div class="flex justify-end">
                     <x-ts-dropdown>
                         <x-slot:action>
                             <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
@@ -471,7 +617,7 @@ new class extends Component
                         <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
                             wire:click="saveAsFinalAction()" />
                     </x-ts-dropdown>
-                </div>
+                </div> --}}
             </x-slot:footer>
         </x-ts-card>
     </div>

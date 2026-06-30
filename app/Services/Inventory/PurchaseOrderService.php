@@ -518,4 +518,21 @@ class PurchaseOrderService
             $path->delete();
         }
     }
+
+    public static function getEventReceivingAttachments(int $event, int $branch)
+    {
+        $purchaseIds = PurchaseOrder::where('event_id', $event)->where('from_branch_id', $branch)->get()->pluck('id');
+        $receivingIds  = Receiving::whereIn('requisition_id', $purchaseIds)->get()->pluck('id');
+        $attachments = ReceivingAttachment::whereIn('receiving_id', $receivingIds)->get();
+        return $attachments;
+    }
+    public static function purchaseReceivedData(int $event, int $branch)
+    {
+        //get the list of purchase order first
+        $purchaseIds = PurchaseOrder::where('event_id', $event)->where('from_branch_id', $branch)->get()->pluck('id');
+
+        ///get the receiving data for each purchase order
+        $receiving = Receiving::whereIn('requisition_id', $purchaseIds)->get();
+        return $receiving;
+    }
 }

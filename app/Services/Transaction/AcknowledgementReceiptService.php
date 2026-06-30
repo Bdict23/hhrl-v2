@@ -8,12 +8,13 @@ use App\Models\Transaction\Acknowledgement;
 
 
 
-class AcknowledgementReceiptService{
+class AcknowledgementReceiptService
+{
 
     protected $acknowledgement;
     protected $branch;
 
-        public function __construct( Acknowledgement $acknowledgement, Branch $branch)
+    public function __construct(Acknowledgement $acknowledgement, Branch $branch)
     {
         $this->acknowledgement = $acknowledgement;
         $this->branch = $branch;
@@ -22,7 +23,7 @@ class AcknowledgementReceiptService{
     public function create(array $data): Acknowledgement
     {
 
-    return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data) {
             $branchId = $data['branch_id'];
             $branch = $this->branch->findOrFail($branchId);
             $branchCode = $branch->branch_code;
@@ -50,14 +51,13 @@ class AcknowledgementReceiptService{
                 'status' => $data['status'],
                 'notes' => $data['note'],
             ]);
-        return $ar;
-    });
-
+            return $ar;
+        });
     }
 
     public function update(array $data): Acknowledgement
     {
-    return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data) {
             $ar = $this->acknowledgement->findOrFail($data['id']);
             $ar->update([
                 'customer_id' => $data['customer_id'],
@@ -73,10 +73,14 @@ class AcknowledgementReceiptService{
                 'status' => $data['status'],
                 'notes' => $data['note'],
             ]);
-        return $ar;
-    });
-
-
+            return $ar;
+        });
     }
 
+
+    public static function eventCheckData(int $event, int $branch)
+    {
+        $data = Acknowledgement::where('event_id', $event)->where('branch_id', $branch)->first();
+        return $data;
+    }
 }

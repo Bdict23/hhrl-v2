@@ -15,7 +15,7 @@ class EventLiquidation extends Model
         'event_id',
         'status',
         'updated_by',
-        'purpose',
+        'note',
         'total_incurred',
         'created_at',
         'updated_at',
@@ -33,11 +33,11 @@ class EventLiquidation extends Model
     {
         return $this->belongsTo(Event::class, 'event_id');
     }
-    public function reviewer()
+    public function reviewedBy()
     {
         return $this->belongsTo(Employee::class, 'reviewed_by');
     }
-    public function approver()
+    public function approvedBy()
     {
         return $this->belongsTo(Employee::class, 'approved_by');
     }

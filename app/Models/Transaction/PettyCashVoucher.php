@@ -91,4 +91,10 @@ class PettyCashVoucher extends Model
     {
         return $this->belongsTo(EmployeeAdvance::class, 'employee_advance_id');
     }
+
+    // use in event liquidation
+    public function cashReturn()
+    {
+        return $this->hasOne(CashReturn::class, 'pcv_id');
+    }
 }
