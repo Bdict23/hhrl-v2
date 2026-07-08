@@ -11,6 +11,7 @@ use App\Services\Transaction\AdvancesForLiquidationService;
 use App\Services\Transaction\RevolvingFundService;
 use App\Models\Transaction\PettyCashVoucher;
 use App\Models\Transaction\EmployeeAdvance;
+use App\Models\BanquetEvent\EventLiquidation;
 
 
 
@@ -28,6 +29,7 @@ class CashReturnService
     protected $revolvingFund;
     protected $pettyCashVoucher;
     protected $employeeAdvance;
+    protected $eventLiquidation;
 
 
 
@@ -38,7 +40,8 @@ class CashReturnService
         AdvancesForLiquidation $advancesForLiquidation,
         RevolvingFund $revolvingFund,
         PettyCashVoucher $pettyCashVoucher,
-        EmployeeAdvance $employeeAdvance
+        EmployeeAdvance $employeeAdvance,
+        EventLiquidation $eventLiquidation
 
     ) {
         $this->cashReturn = $cashReturn;
@@ -47,6 +50,7 @@ class CashReturnService
         $this->revolvingFund = $revolvingFund;
         $this->pettyCashVoucher = $pettyCashVoucher;
         $this->employeeAdvance = $employeeAdvance;
+        $this->eventLiquidation = $eventLiquidation;
     }
 
     public function createPcvCrs(array $data): CashReturn
@@ -105,6 +109,43 @@ class CashReturnService
             $totalReturnedAmount = $pcv->liquidationData()->sum('amount') + $this->cashReturn->where('pcv_id', $pcr->pcv_id)->where('status', 'FINAL')->sum('amount_returned') ?? 0;
             if ($totalReturnedAmount >= $pcv->total_amount) {
                 $pcv->update(['status' => 'CLOSED']);
+            }
+
+
+
+
+            return $pcr;
+        });
+    }
+
+    public function createEventCrs(array $data): CashReturn
+    {
+
+        return DB::transaction(function () use ($data) {
+            $branchId = $data['branch_id'];
+            $branch = $this->branch->findOrFail($branchId);
+            $branchCode = $branch->branch_code;
+            $currentYear = now()->year;
+            $yearlyCount = $this->cashReturn
+                ->where('branch_id', $branchId)
+                ->whereYear('created_at', $currentYear)
+                ->count() + 1;
+
+            $reference = 'CRE-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            $pcr = $this->cashReturn->create([
+                'branch_id' => $branchId,
+                'reference' => $reference,
+                'status' => $data['status'],
+                'event_id' => $data['event_id'],
+                'prepared_by' => $data['prepared_by'],
+                'amount_returned' => $data['amount_returned'],
+                'notes' => $data['notes'],
+            ]);
+
+            // update pcv to close if full amount is returned
+            $liquidation = $this->eventLiquidation->findOrFail($data['liquidation_id']);
+            if ($data['status'] == 'FINAL') {
+                $liquidation->update(['status' => 'FOR APPROVAL']);
             }
 
 

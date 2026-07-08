@@ -174,9 +174,10 @@ new class extends Component
                 ['index' => 'created_at', 'label' => 'Date' ],
                 ['index' => 'reference', 'label' => 'reference' ],
                 ['index' => 'paid_to_employee_id', 'label' => 'payee'],
-                ['index' => 'total_amount', 'label' => 'released amount' ],
-                ['index' => 'return_amount', 'label' => 'returned amount' ],
-                ['index' => 'reimburse_amount', 'label' => 'reimbursed amount' ],
+                ['index' => 'total_amount', 'label' => 'PCV amount' ],
+                ['index' => 'liquidated_amount', 'label' => 'liquidated amount' ],
+                ['index' => 'return_amount', 'label' => 'cash return' ],
+                ['index' => 'reimburse_amount', 'label' => 'reimbursement' ],
                 ['index' => 'total', 'label' => 'total' ],
             ],
             'purchaseOrderHeader' => [
@@ -194,11 +195,12 @@ new class extends Component
                 ['index' => 'total_received_amount', 'label' => 'total received amount' ],
             ],
             'withdrawalHeader' => [
+                ['index' => 'reference_number', 'label' => 'reference' ],
                 ['index' => 'receiving_status', 'label' => 'status'],
                 ['index' => 'created_at', 'label' => 'Date' ],
-                ['index' => 'reference_number', 'label' => 'reference' ],
-                ['index' => 'prepared_by', 'label' => 'prepared by'],
-                ['index' => 'total_received_amount', 'label' => 'total received amount' ],
+                ['index' => 'total_received_amount', 'label' => 'withdrawal amount' ],
+                ['index' => 'prepared_by', 'label' => 'withdrawer'],
+                ['index' => 'approved_by', 'label' => 'approver'],
             ],
         ];
     }
@@ -288,7 +290,7 @@ new class extends Component
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                               ['label' => 'Event', 'link' => route('event-liquidation-summary'), 'icon' => 'archive-box' ],
                               ['label' => 'Event Liquidation Summary', 'link' => route('event-liquidation-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'View Event Liquidation', 'icon' => 'pencil-square'],
+                              ['label' => 'Edit Event Liquidation', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
                   <i>({{$liquidationData->reference}})
                     <x-ts-badge text="{{$liquidationData->status}}" color="gray" outline /> </i>
@@ -302,15 +304,19 @@ new class extends Component
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="BANQUET EVENT" value="{{$liquidationData->event->reference}}" readonly/>
 
-                    <x-ts-currency mutate currency symbol label="Approved Budget" wire:model="approvedBudget" readonly/>
+                    <x-ts-currency mutate currency symbol label="APPROVED BUDGET" wire:model="approvedBudget" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Check No̱." wire:model.blur="checkNumber" readonly/>
-                    <x-ts-currency mutate symbol currency label="Total incurred amount" wire:model="pcvTotalMutate" readonly/>
+                    <x-ts-input label="CHECK No̱." wire:model.blur="checkNumber" readonly/>
+                    <x-ts-currency mutate symbol currency label="TOTAL INCURRED AMOUNT" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="CRS No̱." readonly/>
-                    <x-ts-input label="Return amount" readonly/>
+                    <x-ts-input label="RETURN AMOUNT" readonly/>
+                </div>
+                <div class="grid gap-3 p-2">
+                    <x-ts-input label="RMB No̱." readonly/>
+                    <x-ts-input label="REIMBURSEMENT" readonly/>
                 </div>
             </div>
         </x-ts-card>
@@ -343,6 +349,9 @@ new class extends Component
                         @endinteract
                         @interact('column_total_amount', $row)
                             ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('column_liquidated_amount', $row)
+                            ₱ {{  number_format(($row->liquidationData?->sum('amount')) ?? 0 , 2) }}
                         @endinteract
                         @interact('column_return_amount', $row)
                             ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
@@ -539,13 +548,19 @@ new class extends Component
                         @interact('column_created_at', $row)
                              {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
                         @endinteract
+                        
+                         @interact('column_total_received_amount', $row)
+                            ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
+                        @endinteract
                         @interact('column_prepared_by', $row)
                             <div class="flex items-center gap-2">
                                 <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                             </div>
                         @endinteract
-                         @interact('column_total_received_amount', $row)
-                            ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
+                        @interact('column_approved_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->approvedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
                         @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[

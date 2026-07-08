@@ -46,6 +46,10 @@ class Withdrawal extends Model
     {
         return $this->belongsTo(Employee::class, 'prepared_by');
     }
+    public function approvedBy()
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
+    }
     public  function cardex()
     {
         return $this->hasMany(Cardex::class, 'withdrawal_id');

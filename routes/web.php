@@ -95,8 +95,8 @@ Route::middleware(['auth'])->group(function () {
 
     //EVENT
     Volt::route('/cash-return/event-crs-create', 'transactions.cash-return.cash-return-event.cash-return-event-create')->name('cash-return.event-crs.create');
-    Volt::route('/cash-return/event-crs-view/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
-    Volt::route('/cash-return/event-crs-edit/{id}',  'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
+    Volt::route('/cash-return/event-crs-edit/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-edit')->name('cash-return.event-crs.edit');
+    Volt::route('/cash-return/event-crs-view/{id}',  'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
     //CRS AFL
     Volt::route('/cash-return/advances-for-liquidation-crs-create', 'transactions.cash-return.cash-return-afl.cash-return-afl-create')->name('cash-return.afl-crs.create');
     Volt::route('/cash-return/advances-for-liquidation-crs-view/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-view')->name('cash-return.afl-crs.view');

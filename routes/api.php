@@ -55,7 +55,8 @@ Route::middleware('auth:sanctum')->get('/get-for-reimburse-approvers', [PettyCas
 Route::middleware('auth:sanctum')->get('/get-for-cash-return-pcv', [PettyCashVoucherApiController::class, 'getForCashReturnPcv'])->name('api.get.cash-return-pcv');
 //CRS for cash advance
 Route::middleware('auth:sanctum')->get('/get-active-employee-advances', [EmployeeCashAdvanceApiController::class, 'getBarnchActiveCashAdvances'])->name('api.get.active-advances-for-employees');
-
+//CRS for event liquidation
+Route::middleware('auth:sanctum')->get('/get-active-event-liquidation', [EventLiquidationApiController::class, 'getCashReturnEventLiquidation'])->name('api.get.cash-return.event-liquidation');
 
 // petty cash voucher
 Route::middleware('auth:sanctum')->get('/get-pcv-type', [SystemParameterApiController::class, 'pcvType'])->name('api.get.pcv-type');

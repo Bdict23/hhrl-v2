@@ -52,7 +52,10 @@ new class extends Component
     $notes,
     $approvedBy,
     $liquidationId,
-    $liquidationData;
+    $liquidationData,
+    $currentStep = 1,
+    $liquidationTotalAmount=0.00,
+    $eventExpenseTotalAmount=0.00;
 
 
     public function mount($id)
@@ -81,7 +84,20 @@ new class extends Component
             $this->withdrawalList = ItemWithdrawalService::getEventwithdrawals($id, Auth::user()->branch_id);
             $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
             $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
+            $this->liquidationTotalAmount = $this->pcvTotal - $this->receiveOrderTotal;
+            $this->eventExpenseTotalAmount = $this->liquidationTotalAmount - $this->withdrawalTotal;
             $this->notes = $this->liquidationData->note;
+            if($this->liquidationData->status == 'DRAFT'){
+                $this->currentStep = 1;
+            }else if($this->liquidationData->status == 'FOR REVIEW'){
+                $this->currentStep = 2;
+            }else if($this->liquidationData->status =='FOR SETTLEMENT'){
+                $this->currentStep = 2;
+            }else if($this->liquidationData->status == 'FOR APPROVAL'){
+                $this->currentStep = 4;
+            }else if($this->liquidationData->status == 'CLOSED'){
+                $this->currentStep = 5;
+            }
 
   
 
@@ -172,9 +188,10 @@ new class extends Component
                 ['index' => 'created_at', 'label' => 'Date' ],
                 ['index' => 'reference', 'label' => 'reference' ],
                 ['index' => 'paid_to_employee_id', 'label' => 'payee'],
-                ['index' => 'total_amount', 'label' => 'released amount' ],
-                ['index' => 'return_amount', 'label' => 'returned amount' ],
-                ['index' => 'reimburse_amount', 'label' => 'reimbursed amount' ],
+                ['index' => 'total_amount', 'label' => 'PCV amount' ],
+                ['index' => 'liquidated_amount', 'label' => 'liquidated amount' ],
+                ['index' => 'return_amount', 'label' => 'cash return' ],
+                ['index' => 'reimburse_amount', 'label' => 'reimbursement' ],
                 ['index' => 'total', 'label' => 'total' ],
             ],
             'purchaseOrderHeader' => [
@@ -192,11 +209,12 @@ new class extends Component
                 ['index' => 'total_received_amount', 'label' => 'total received amount' ],
             ],
             'withdrawalHeader' => [
+                ['index' => 'reference_number', 'label' => 'reference' ],
                 ['index' => 'receiving_status', 'label' => 'status'],
                 ['index' => 'created_at', 'label' => 'Date' ],
-                ['index' => 'reference_number', 'label' => 'reference' ],
-                ['index' => 'prepared_by', 'label' => 'prepared by'],
-                ['index' => 'total_received_amount', 'label' => 'total received amount' ],
+                ['index' => 'total_received_amount', 'label' => 'withdrawal amount' ],
+                ['index' => 'prepared_by', 'label' => 'Withdrawer'],
+                ['index' => 'approved_by', 'label' => 'Approver'],
             ],
         ];
     }
@@ -285,7 +303,7 @@ new class extends Component
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                               ['label' => 'Event', 'link' => route('event-liquidation-summary'), 'icon' => 'archive-box' ],
                               ['label' => 'Event Liquidation Summary', 'link' => route('event-liquidation-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'View Event Liquidation', 'icon' => 'pencil-square'],
+                              ['label' => 'View Event Liquidation', 'icon' => 'eye'],
                   ]"  class="mb-3"/>
                   <i>({{$liquidationData->reference}})
                     <x-ts-badge text="{{$liquidationData->status}}" color="gray" outline /> </i>
@@ -299,15 +317,19 @@ new class extends Component
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="BANQUET EVENT" value="{{$liquidationData->event->reference}}" readonly/>
 
-                    <x-ts-currency mutate currency symbol label="Approved Budget" wire:model="approvedBudget" readonly/>
+                    <x-ts-currency mutate currency symbol label="APPROVED BUDGET" wire:model="approvedBudget" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="Check No̱." wire:model.blur="checkNumber" readonly/>
-                    <x-ts-currency mutate symbol currency label="Total incurred amount" wire:model="pcvTotalMutate" readonly/>
+                    <x-ts-input label="CHECK No̱." wire:model.blur="checkNumber" readonly/>
+                    <x-ts-currency mutate symbol currency label="INCURRED TOTAL" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="CRS No̱." readonly/>
-                    <x-ts-input label="Return amount" readonly/>
+                    <x-ts-input label="CASH RETURN" readonly/>
+                </div>
+                <div class="grid gap-3 p-2">
+                    <x-ts-input label="RMB No̱." readonly/>
+                    <x-ts-input label="REIMBURSEMENT" readonly/>
                 </div>
             </div>
         </x-ts-card>
@@ -340,6 +362,9 @@ new class extends Component
                         @endinteract
                         @interact('column_total_amount', $row)
                             ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('column_liquidated_amount', $row)
+                            ₱ {{  number_format(($row->liquidationData?->sum('amount')) ?? 0 , 2) }}
                         @endinteract
                         @interact('column_return_amount', $row)
                             ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
@@ -541,6 +566,11 @@ new class extends Component
                                 <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                             </div>
                         @endinteract
+                        @interact('column_approved_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->approvedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
                          @interact('column_total_received_amount', $row)
                             ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
                         @endinteract
@@ -585,60 +615,74 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
-                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes" readonly/>
-                    <div class="grid grid-cols-4">
-                        <div class="grid">
-                            <span class="font-bold">Petty Cash Voucher</span>
-                            <span>₱ {{number_format($pcvTotal, 2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Purchase Order</span>
-                            <span>₱ {{number_format($purchaseOrderTotal,2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Purchase received</span>
-                            <span>₱ {{number_format($receiveOrderTotal,2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Withdrawal</span>
-                            <span>₱ {{number_format($withdrawalTotal,2)}}</span>
+                    <div class="grid">
+                        <x-ts-card>
+                            <div class="grid grid-cols-4">
+                                <div class="grid">
+                                    <span class="font-bold">Petty Cash Voucher</span>
+                                    <span>₱ {{number_format($pcvTotal, 2)}}</span>
+                                </div>
+                                <div class="grid">
+                                    <span class="font-bold">Purchase Order</span>
+                                    <span>₱ {{number_format($purchaseOrderTotal,2)}}</span>
+                                </div>
+                                <div class="grid">
+                                    <span class="font-bold">Purchase received</span>
+                                    <span>₱ {{number_format($receiveOrderTotal,2)}}</span>
+                                </div>
+                                <div class="grid">
+                                    <span class="font-bold">Withdrawal</span>
+                                    <span>₱ {{number_format($withdrawalTotal,2)}}</span>
+                                </div>
+                            </div>
+                        </x-ts-card>
+                        <div class="grid grid-cols-2 mt-4">
+                            <div class="grid">
+                                <span class="font-bold">LIQUIDATION TOTAL AMOUNT</span>
+                                <span>₱ {{number_format($liquidationTotalAmount, 2)}}</span>
+                            </div>
+                            <div class="grid">
+                                <span class="font-bold">EVENT EXPENSE TOTAL AMOUNT</span>
+                                <span>₱ {{number_format($eventExpenseTotalAmount, 2)}}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
+                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes" readonly/>
                         <div class="col-span-2 grid grid-cols-2 gap-2">
                             <x-ts-input label="REVIEWED BY" readonly value="{{$liquidationData->reviewedBy->full_name}}  ({{$liquidationData->reviewedBy->position->position_name}})"/>
                             <x-ts-input label="APPROVED BY" readonly value="{{$liquidationData->approvedBy->full_name}}  ({{$liquidationData->approvedBy->position->position_name}})"/>
                         </div>
                          <div class="mt-3">
-                        <x-ts-step selected="1" circles>
-                            <x-ts-step.items step="1"
-                                        title="Create Liquidation"
-                                        description="Step 1">
-                            </x-ts-tep.items>
-                            <x-ts-step.items step="2"
-                                        title="Review"
-                                        description="Step 2">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="3"
-                                        completed
-                                        title="Settlement"
-                                        description="Step 3">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="4"
-                                        completed
-                                        title="Approved"
-                                        description="Step 4">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="5"
-                                        completed
-                                        title="Completed"
-                                        description="Step 6">
-                                        <b>Event Liquidated!</b>
-                            </x-ts-step.items>
-                        </x-ts-step>
-                    </div>
+                            <x-ts-step wire:model="currentStep" circles>
+                                <x-ts-step.items step="1"
+                                            title="Create Liquidation"
+                                            description="Step 1">
+                                </x-ts-tep.items>
+                                <x-ts-step.items step="2"
+                                            title="Review"
+                                            description="Step 2">
+                                </x-ts-step.items>
+                                <x-ts-step.items step="3"
+                                            completed
+                                            title="Settlement"
+                                            description="Step 3">
+                                </x-ts-step.items>
+                                <x-ts-step.items step="4"
+                                            completed
+                                            title="Approved"
+                                            description="Step 4">
+                                </x-ts-step.items>
+                                <x-ts-step.items step="5"
+                                            completed
+                                            title="Completed"
+                                            description="Step 6">
+                                            <b>Event Liquidated!</b>
+                                </x-ts-step.items>
+                            </x-ts-step>
+                        </div>
                     </div>
                 </div>
             </div>

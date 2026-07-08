@@ -2,6 +2,8 @@
 
 namespace App\Models\BanquetEvent;
 
+use App\Models\Transaction\Acknowledgement;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Event extends Model
@@ -31,5 +33,13 @@ class Event extends Model
     public function banquetEventBudget()
     {
         return $this->hasOne(BanquetProcurement::class, 'event_id');
+    }
+    public function banquetEventLiquidation()
+    {
+        return $this->hasOne(EventLiquidation::class, 'event_id');
+    }
+    public function acknowledgment()
+    {
+        return $this->hasOne(Acknowledgement::class, 'event_id');
     }
 }

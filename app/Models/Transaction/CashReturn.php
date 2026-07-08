@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Business\Employee;
 use App\Models\Transaction\PettyCashVoucher;
 use App\Models\Transaction\CashReturnDetail;
+use App\Models\BanquetEvent\Event;
 
 
 
@@ -57,5 +58,9 @@ class CashReturn extends Model
     public function employeeCashAdvance()
     {
         return $this->belongsTo(EmployeeAdvance::class, 'employee_advance_id');
+    }
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id');
     }
 }

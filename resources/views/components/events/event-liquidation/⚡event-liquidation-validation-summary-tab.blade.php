@@ -111,7 +111,7 @@ new class extends Component
                 @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                        <a href="{{route('purchase-order.validation.approval-show', ['id' => $row->id])}}">
+                        <a href="{{route('event-liquidation.validation.approval-show', ['id' => $row->id])}}">
                             <x-ts-dropdown.items text="View" separator icon="eye" />
                         </a>
                         <a>

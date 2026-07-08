@@ -49,13 +49,15 @@ new class extends Component
     $reviewedBy,
     $status,
     $notes,
-    $approvedBy;
+    $approvedBy,
+    $checkAmount;
 
     public function updatedEventId($id)
     {
         if($id){
             $this->checkData = AcknowledgementReceiptService::eventCheckData( $id, Auth::user()->branch_id);
             $this->checkNumber = $this->checkData?->check_number ?? '';
+            $this->checkAmount = number_format($this->checkData->check_amount ?? 0,2);
             $this->approvedBudget = number_format($this->checkData->check_amount ?? 0,2);
 
             $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
@@ -115,9 +117,10 @@ new class extends Component
                 ['index' => 'created_at', 'label' => 'Date' ],
                 ['index' => 'reference', 'label' => 'reference' ],
                 ['index' => 'paid_to_employee_id', 'label' => 'payee'],
-                ['index' => 'total_amount', 'label' => 'released amount' ],
-                ['index' => 'return_amount', 'label' => 'returned amount' ],
-                ['index' => 'reimbursed_amount', 'label' => 'reimburse amount' ],
+                ['index' => 'total_amount', 'label' => 'PCV amount' ],
+                ['index' => 'liquidated_amount', 'label' => 'liquidated amount' ],
+                ['index' => 'return_amount', 'label' => 'cash return' ],
+                ['index' => 'reimbursed_amount', 'label' => 'reimbursement' ],
                 ['index' => 'total', 'label' => 'total' ],
             ],
             'purchaseOrderHeader' => [
@@ -136,11 +139,13 @@ new class extends Component
                 ['index' => 'total_received_amount', 'label' => 'total received amount' ],
             ],
             'withdrawalHeader' => [
-                ['index' => 'receiving_status', 'label' => 'status'],
-                ['index' => 'created_at', 'label' => 'Date' ],
                 ['index' => 'reference_number', 'label' => 'reference' ],
-                ['index' => 'prepared_by', 'label' => 'prepared by'],
-                ['index' => 'total_received_amount', 'label' => 'total received amount' ],
+                ['index' => 'created_at', 'label' => 'Date' ],
+                ['index' => 'receiving_status', 'label' => 'status'],
+                ['index' => 'total_received_amount', 'label' => 'withdrawal amount' ],
+                ['index' => 'prepared_by', 'label' => 'withdrawer'],
+                ['index' => 'approved_by', 'label' => 'approver'],
+
             ],
         ];
     }
@@ -258,13 +263,19 @@ new class extends Component
                     <x-ts-currency mutate currency symbol label="APPROVED BUDGET" wire:model="approvedBudget" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="CHECK No̱." wire:model.blur="checkNumber" readonly/>
-                    <x-ts-currency mutate symbol currency label="TOTAL INCURRED AMOUNT" wire:model="pcvTotalMutate" readonly/>
+                    <x-ts-input label="CHECK No̱." wire:model="checkNumber" readonly/>
+                    <x-ts-currency mutate symbol currency label="CHECK AMOUNT" wire:model="checkAmount" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="CRS No̱." readonly/>
                     <x-ts-input label="RETURN AMOUNT" readonly/>
                 </div>
+                <div class="grid gap-3 p-2">
+                    <x-ts-input label="RMB No̱." readonly/>
+                    <x-ts-input label="REIMBURSEMENT" readonly/>
+                </div>
+                  <x-ts-currency mutate symbol currency label="TOTAL INCURRED AMOUNT" wire:model="pcvTotalMutate" readonly/>
+
             </div>
         </x-ts-card>
 
@@ -296,6 +307,9 @@ new class extends Component
                         @endinteract
                         @interact('column_total_amount', $row)
                             ₱ {{  number_format(($row->total_amount) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('column_liquidated_amount', $row)
+                            ₱ {{  number_format(($row->liquidationData?->sum('amount')) ?? 0 , 2) }}
                         @endinteract
                         @interact('column_return_amount', $row)
                             ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
@@ -500,6 +514,11 @@ new class extends Component
                                 <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
                             </div>
                         @endinteract
+                        @interact('column_approved_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->approvedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
                          @interact('column_total_received_amount', $row)
                             ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
                         @endinteract
@@ -567,8 +586,8 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
                         <div class="col-span-2 grid grid-cols-2 gap-2">
-                            <x-ts-select.styled
-                            :request="route('api.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                           <x-ts-select.styled
+                            :request="route('api.liquidate-event.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
                             select="label:fullName|value:id|description:position"
                             wire:model="reviewedBy"
                             label="REVIEWED BY"
@@ -578,7 +597,7 @@ new class extends Component
                             ]" ... required/>
 
                             <x-ts-select.styled
-                                :request="route('api.active.approvers', ['branch_id' => auth()->user()->branch_id])"
+                                :request="route('api.liquidate-event.active.approvers', ['branch_id' => auth()->user()->branch_id])"
                                 wire:model="approvedBy"
                                 select="label:fullName|value:id|description:position"
                                 label="APPROVED BY"

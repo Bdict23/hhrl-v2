@@ -87,10 +87,10 @@ new class extends Component
                 {{ $row->reference }}
             @endinteract
             @interact('column_event_name', $row)
-                {{ $row->event->event_name }}
+                {{ $row->event?->event_name }}
             @endinteract
             @interact('column_budget', $row)
-               ₱ {{ number_format($row->event->banquetEventBudget->suggested_amount, 2) }}
+               ₱ {{ number_format($row->event?->banquetEventBudget->suggested_amount, 2) }}
             @endinteract
             @interact('column_total_incurred', $row)
                ₱ {{ number_format($row->total_incurred, 2) }}
@@ -103,8 +103,6 @@ new class extends Component
                         <x-ts-badge :text="$row->status" color="teal" />
                     @elseif($row->status == 'FOR SETTLEMENT')
                         <x-ts-badge :text="$row->status" color="amber" />
-                    @elseif($row->status == 'FOR APPROVAL')
-                        <x-ts-badge :text="$row->status" color="green" />
                     @elseif($row->status == 'FOR APPROVAL')
                         <x-ts-badge :text="$row->status" color="cyan" />
                     @elseif($row->status == 'CLOSED')

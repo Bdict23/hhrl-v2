@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Event;
 
 use Illuminate\Routing\Controller;
 use App\Models\Validation\Signatory;
+use App\Models\BanquetEvent\EventLiquidation;
 
 use Illuminate\Http\Request;
 
@@ -43,5 +44,21 @@ class EventLiquidationApiController extends Controller
                 ];
             });
         return response()->json($approvers);
+    }
+
+    public function getCashReturnEventLiquidation(Request $request)
+    {
+        $branch_id = $request->query('branch_id');
+        $eventLiquidations = EventLiquidation::with('event')
+            ->where('branch_id', $branch_id)
+            ->where('status', 'FOR SETTLEMENT')
+            ->get()->map(function ($liquidation) {
+                return [
+                    'id' => $liquidation->id,
+                    'reference' => $liquidation->reference,
+                    'description' => $liquidation->event?->event_name,
+                ];
+            });
+        return response()->json($eventLiquidations);
     }
 }

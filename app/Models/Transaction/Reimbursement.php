@@ -13,6 +13,7 @@ class Reimbursement extends Model
         'status',
         'branch_id',
         'pcv_id',
+        'event_id',
         'amount',
         'prepared_by',
         'approved_by',

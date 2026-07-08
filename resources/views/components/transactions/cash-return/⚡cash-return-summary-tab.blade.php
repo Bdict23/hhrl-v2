@@ -162,6 +162,9 @@ new class extends Component {
                         <x-ts-badge :text="$row->preparedBy?->fullName ?? 'Unknown'" outline />
                     </div>
                 @endinteract
+                @interact('column_amount_returned', $row)
+                   ₱ {{ number_format($row->amount_returned, 2) }}
+                @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
                         @if ($row->status == 'DRAFT')
@@ -213,6 +216,9 @@ new class extends Component {
                     <div class="flex items-center gap-2">
                         <x-ts-badge :text="$row->preparedBy?->fullName ?? 'Unknown'" outline />
                     </div>
+                @endinteract
+                @interact('column_amount_returned', $row)
+                   ₱ {{ number_format($row->amount_returned, 2) }}
                 @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
@@ -266,6 +272,9 @@ new class extends Component {
                         <x-ts-badge :text="$row->preparedBy?->fullName ?? 'Unknown'" outline />
                     </div>
                 @endinteract
+                @interact('column_amount_returned', $row)
+                   ₱ {{ number_format($row->amount_returned, 2) }}
+                @endinteract
                 @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
                         @if ($row->status == 'DRAFT')
@@ -274,6 +283,62 @@ new class extends Component {
                             </a>
                         @endif
                         <a href="{{ route('cash-return.employee-advances.view', ['id' => $row->id]) }}">
+                            <x-ts-dropdown.items text="View" separator icon="eye" />
+                        </a>
+                        <a>
+                            <x-ts-dropdown.items text="Cancel" color="rose" separator icon="x-mark" />
+                        </a>
+                    </x-ts-dropdown>
+                @endinteract
+            </x-ts-table>
+        </x-ts-tab.items>
+
+
+         <x-ts-tab.items tab="CRS (EVENT)">
+            <div class="flex justify-end gap-4 mb-4">
+                <x-ts-select.native wire:model.live="status" placeholder="All Statuses" :options="[
+                    ['name' => 'All', 'id' => null],
+                    ['name' => 'DRAFT', 'id' => 'DRAFT'],
+                    ['name' => 'FINAL', 'id' => 'FINAL'],
+                    ['name' => 'CANCELLED', 'id' => 'CANCELLED'],
+                ]"
+                    select="label:name|value:id" />
+                <x-ts-date wire:model.live="dates" range placeholder="Date range" />
+            </div>
+            <x-ts-table :headers="$eventCrsHeader" :rows="$eventCrsRows" striped :$sort paginate persistent loading filter>
+                @interact('column_status', $row)
+                    <div class="flex items-center gap-2">
+                        @if ($row->status == 'DRAFT')
+                            <x-ts-badge text="DRAFT" color="secondary" />
+                        @elseif($row->status == 'FINAL')
+                            <x-ts-badge :text="$row->status" color="green" />
+                        @elseif($row->status == 'CANCELLED')
+                            <x-ts-badge :text="$row->status" color="rose" />
+                        @endif
+                    </div>
+                @endinteract
+                @interact('column_event_id', $row)
+                    {{ $row->event?->reference }}
+                @endinteract
+                @interact('column_created_at', $row)
+                    {{ \Carbon\Carbon::parse($row->created_at)->format('M d, Y') }}
+                @endinteract
+                @interact('column_prepared_by', $row)
+                    <div class="flex items-center gap-2">
+                        <x-ts-badge :text="$row->preparedBy?->fullName ?? 'Unknown'" outline />
+                    </div>
+                @endinteract
+                @interact('column_amount_returned', $row)
+                   ₱ {{ number_format($row->amount_returned, 2) }}
+                @endinteract
+                @interact('column_action', $row)
+                    <x-ts-dropdown icon="ellipsis-vertical" static lg>
+                        @if ($row->status == 'DRAFT')
+                            <a href="{{ route('cash-return.event-crs.edit', ['id' => $row->id]) }}">
+                                <x-ts-dropdown.items text="Edit" icon="pencil-square" />
+                            </a>
+                        @endif
+                        <a href="{{ route('cash-return.event-crs.view', ['id' => $row->id]) }}">
                             <x-ts-dropdown.items text="View" separator icon="eye" />
                         </a>
                         <a>
@@ -296,6 +361,10 @@ new class extends Component {
         {{-- <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover /> --}}
         <x-ts-dial.items icon="plus" label="New CRS for Cash Advances" href="{{ route('cash-return.employee-advances.create') }}"
             navigate />
+
+        <x-ts-dial.items icon="plus" label="New CRS for Event" href="{{ route('cash-return.event-crs.create') }}"
+            navigate />
+
     </x-ts-dial>
 
 </div>
