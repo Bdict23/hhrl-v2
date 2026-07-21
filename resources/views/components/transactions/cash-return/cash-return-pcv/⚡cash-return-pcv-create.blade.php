@@ -188,7 +188,7 @@ new class extends Component {
                     <x-ts-input label="Purchase Order" wire:model='purchaseOrderReference' readonly />
                     <x-ts-input label="Transaction" wire:model="transaction" readonly />
                     <div class="grid grid-cols-2 gap-2">
-                        <x-ts-currency mutate decimal wire:model="pcvAmount" label="PCV Amount" readonly />
+                        <x-ts-currency mutate  wire:model="pcvAmount" label="PCV Amount" readonly />
                         <x-ts-currency wire:model="totalExpense" label="Total Expense" readonly />
                     </div>
                 </div>

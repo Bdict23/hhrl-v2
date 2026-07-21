@@ -246,7 +246,7 @@ new class extends Component
 
                     <div class="md:col-span-8 flex flex-col justify-between space-y-5">
                         <div>
-                            <x-ts-currency wire:model.live='checkAmount' mutate decimal label="AMOUNT" readonly/>
+                            <x-ts-currency wire:model.live='checkAmount' mutate  label="AMOUNT" readonly/>
                         </div>
 
                         <div>
