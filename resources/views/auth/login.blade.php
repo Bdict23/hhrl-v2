@@ -1,6 +1,9 @@
+
+<x-ts-banner rotate text="Event Booking screen are now available!" color="green" />
 <x-guest-layout>
+
     <div class="my-6 flex items-center justify-center">
-        <img src="{{ asset('/assets/images/tsui.png') }}" />
+        <img src="{{ asset('/assets/images/1772440510.png') }}" class="h-30 w-30"/>
     </div>
 
     <form method="POST" action="{{ route('login') }}">

@@ -43,9 +43,9 @@ Route::middleware('auth:sanctum')->get('/to-receive-purchase-order', [PurchaseOr
 //withdrawal
 Route::middleware('auth:sanctum')->get('/active-receiving-number', [ReceivingApiController::class, 'activeReceivingNumber'])->name('api.active.receiving-number');
 Route::middleware('auth:sanctum')->get('/active-withdrawal-type', [ReceivingApiController::class, 'withdrawalType'])->name('api.active.withdrawal-type');
-Route::middleware('auth:sanctum')->get('/active-department', [ReceivingApiController::class, 'activeDepartment'])->name('api.active.department');
-Route::middleware('auth:sanctum')->get('/active-approvers', [ReceivingApiController::class, 'activeApprovers'])->name('api.active.withdrawal-approvers');
-Route::middleware('auth:sanctum')->get('/active-reviewers', [ReceivingApiController::class, 'activeReviewers'])->name('api.active.withdrawal-reviewers');
+Route::middleware('auth:sanctum')->get('/active-department-withdrawal', [ReceivingApiController::class, 'activeDepartment'])->name('api.active.department');
+Route::middleware('auth:sanctum')->get('/active-approvers-withdrawal', [ReceivingApiController::class, 'activeApprovers'])->name('api.active.withdrawal-approvers');
+Route::middleware('auth:sanctum')->get('/active-reviewers-withdrawal', [ReceivingApiController::class, 'activeReviewers'])->name('api.active.withdrawal-reviewers');
 
 // fixed asset api
 Route::middleware('auth:sanctum')->get('/active-asset-registration-type', [InventoryApiController::class, 'activeAssetRegistrationType'])->name('api.active.asset-registration-type');

@@ -20,6 +20,7 @@
                    avatar: @js(asset(auth()->user()->photo_url) ?? asset('/images/1772440510.png')),
                 }"
           x-bind:class="{ 'dark bg-gray-800': darkTheme, 'bg-gray-100': !darkTheme }">
+
     <x-ts-layout>
         
         <x-slot:top>
