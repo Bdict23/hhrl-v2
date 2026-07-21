@@ -61,8 +61,7 @@ new class extends Component
             'approvedBy.exists' => 'Select a valid reviewer on the list.',
         ];
 
-    public function mount(){
-    }
+
 
     /**
      * Hook when the checkbox selection changes.

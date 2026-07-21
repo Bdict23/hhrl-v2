@@ -176,7 +176,7 @@ new class extends Component
             <x-ts-card>
                 <div class="grid gap-3">
                     <x-ts-currency label="Disbursed Amount" disabled wire:model="disbursedAmt" mutate symbol />
-                    <x-ts-currency label="Liquidated Amount" disabled wire:model="liquidatedAmt" mutate symbol decimal />
+                    <x-ts-currency label="Liquidated Amount" disabled wire:model="liquidatedAmt" mutate symbol  />
                 </div>
             </x-ts-card>
         </div>

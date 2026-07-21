@@ -163,7 +163,7 @@ new class extends Component {
                         <x-ts-input label="APPROVED BY" wire:model="approvedBy" readonly />
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <x-ts-currency mutate decimal wire:model="checkAmount" label="CHECK AMOUNT" readonly symbol
+                        <x-ts-currency mutate  wire:model="checkAmount" label="CHECK AMOUNT" readonly symbol
                             currency />
                         <x-ts-currency wire:model="totalExpense" label="EVENT EXPENSE" readonly symbol currency/>
                     </div>

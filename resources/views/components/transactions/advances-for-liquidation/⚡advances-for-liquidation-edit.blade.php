@@ -168,7 +168,7 @@ new class extends Component
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
                     <div class="md:col-span-6">
-                       <x-ts-input label="AMOUNT RECEIVED *" wire:model.live="receivedAmount" mutate decimal symbol/>
+                       <x-ts-input label="AMOUNT RECEIVED *" wire:model.live="receivedAmount" mutate  symbol/>
                     </div>
 
                     <div class="md:col-span-6">
@@ -176,7 +176,7 @@ new class extends Component
                     </div>
 
                     <div class="md:col-span-12">
-                        <x-ts-input label="TOTAL AFL AMOUNT" :value="number_format($receivedAmount,2)" disabled mutate decimal symbol/>
+                        <x-ts-input label="TOTAL AFL AMOUNT" :value="number_format($receivedAmount,2)" disabled mutate  symbol/>
                     </div>
 
                     <div class="md:col-span-8 flex flex-col justify-between space-y-5">

@@ -129,7 +129,7 @@ new class extends Component
             <x-ts-card>
                 <div class="grid gap-3">
                     <x-ts-currency label="Disbursed Amount" disabled value="{{ $pcvData?->total_amount }}" mutate symbol />
-                    <x-ts-currency label="Liquidated Amount" disabled value="{{ ($liqudatedAmt) }}" mutate symbol decimal />
+                    <x-ts-currency label="Liquidated Amount" disabled value="{{ ($liqudatedAmt) }}" mutate symbol  />
                 </div>
             </x-ts-card>
         </div>

@@ -147,7 +147,7 @@ new class extends Component
             <div class="mt-8 pt-6 border-t border-gray-100">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
                     <div class="md:col-span-6">
-                       <x-ts-currency label="REQUESTED AMOUNT *" wire:model.live="receivedAmount" mutate decimal symbol currency/>
+                       <x-ts-currency label="REQUESTED AMOUNT *" wire:model.live="receivedAmount" mutate  symbol currency/>
                     </div>
 
                     <div class="md:col-span-8 flex flex-col justify-between space-y-5">
