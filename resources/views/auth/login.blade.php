@@ -1,5 +1,5 @@
 
-<x-ts-banner rotate text="Event Booking screen are now available!" color="green" />
+<x-ts-banner rotate text="LYR Agro Inland Resort . Go Fight Win!" color="green" />
 <x-guest-layout>
 
     <div class="my-6 flex items-center justify-center">

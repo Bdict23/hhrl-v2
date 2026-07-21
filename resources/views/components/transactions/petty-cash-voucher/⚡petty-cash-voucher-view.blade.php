@@ -432,7 +432,7 @@ new class extends Component {
                     @endinteract
                     @interact('column_amount')
                         <x-ts-currency clearable symbol wire:model='selectedRows.{{ $loop->index }}.amount' mutate
-                            decimal />
+                             />
                     @endinteract
 
                     @interact('column_action', $row)

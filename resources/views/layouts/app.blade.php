@@ -134,7 +134,7 @@
 
                     <!-- Events -->
                     <x-ts-side-bar.item text="Events" icon="calendar">
-                        <x-ts-side-bar.item text="Event Booking">
+                        <x-ts-side-bar.item text="Event Booking" :route="route('event-booking-summary')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>

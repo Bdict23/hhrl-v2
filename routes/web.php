@@ -20,6 +20,13 @@ Route::middleware(['auth'])->group(function () {
 
 
     //EVENTS
+
+    //EVENT BOOKING
+    Volt::route('/events/booking-summary', 'events.event-booking.event-booking-summary')->name('event-booking-summary');
+    Volt::route('/events/booking-create', 'events.event-booking.event-booking-create')->name('event-booking-create');
+    Volt::route('/events/booking-edit/{id}', 'events.event-booking.event-booking-edit')->name('event-booking-edit');
+    Volt::route('/events/booking-view/{id}', 'events.event-booking.event-booking-view')->name('event-booking-view');
+
     //EVENT LIQUIDATION
     Volt::route('/events/summary', 'events.event-liquidation.event-liquidation-summary')->name('event-liquidation-summary');
     Volt::route('/events/create', 'events.event-liquidation.event-liquidation-create')->name('event-liquidation-create');
