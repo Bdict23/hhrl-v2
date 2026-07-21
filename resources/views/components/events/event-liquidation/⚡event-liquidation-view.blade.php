@@ -55,7 +55,9 @@ new class extends Component
     $liquidationData,
     $currentStep = 1,
     $liquidationTotalAmount=0.00,
-    $eventExpenseTotalAmount=0.00;
+    $eventExpenseTotalAmount=0.00,
+    $crsNumber,
+    $crsAmount;
 
 
     public function mount($id)
@@ -69,6 +71,8 @@ new class extends Component
         $id = $this->liquidationData?->event_id;
         
         if($id){
+            $this->crsNumber = $this->liquidationData?->cashReturn?->reference ?? '';
+            $this->crsAmount = $this->liquidationData?->cashReturn?->amount_returned ?? 0;
             $this->checkData = AcknowledgementReceiptService::eventCheckData( $id, Auth::user()->branch_id);
             $this->checkNumber = $this->checkData?->check_number ?? '';
             $this->approvedBudget = number_format($this->checkData->check_amount ?? 0,2);
@@ -316,7 +320,6 @@ new class extends Component
             <div class="grid grid-cols-4 w-full">
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="BANQUET EVENT" value="{{$liquidationData->event->reference}}" readonly/>
-
                     <x-ts-currency mutate currency symbol label="APPROVED BUDGET" wire:model="approvedBudget" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
@@ -324,7 +327,7 @@ new class extends Component
                     <x-ts-currency mutate symbol currency label="INCURRED TOTAL" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="CRS No̱." readonly/>
+                    <x-ts-input label="CRS No̱." readonly />
                     <x-ts-input label="CASH RETURN" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
@@ -666,12 +669,10 @@ new class extends Component
                                             description="Step 2">
                                 </x-ts-step.items>
                                 <x-ts-step.items step="3"
-                                            completed
                                             title="Settlement"
                                             description="Step 3">
                                 </x-ts-step.items>
                                 <x-ts-step.items step="4"
-                                            completed
                                             title="Approved"
                                             description="Step 4">
                                 </x-ts-step.items>

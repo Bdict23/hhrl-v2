@@ -18,6 +18,7 @@ use App\Models\Transaction\AdvancesForLiquidation;
 use App\Http\Controllers\Api\Business\EmployeeApiController;
 use App\Http\Controllers\Api\Transaction\EmployeeCashAdvanceApiController;
 use App\Http\Controllers\Api\Event\EventLiquidationApiController;
+use App\Http\Controllers\Api\Inventory\ReceivingApiController;
 
 
 
@@ -39,6 +40,12 @@ Route::middleware('auth:sanctum')->get('/received-purchase-order-filter1', [Purc
 //RECEIVING
 Route::middleware('auth:sanctum')->get('/to-receive-purchase-order', [PurchaseOrderApiController::class, 'toReceivePurchaseOrder'])->name('api.get.to-receive-purchase-order');
 
+//withdrawal
+Route::middleware('auth:sanctum')->get('/active-receiving-number', [ReceivingApiController::class, 'activeReceivingNumber'])->name('api.active.receiving-number');
+Route::middleware('auth:sanctum')->get('/active-withdrawal-type', [ReceivingApiController::class, 'withdrawalType'])->name('api.active.withdrawal-type');
+Route::middleware('auth:sanctum')->get('/active-department', [ReceivingApiController::class, 'activeDepartment'])->name('api.active.department');
+Route::middleware('auth:sanctum')->get('/active-approvers', [ReceivingApiController::class, 'activeApprovers'])->name('api.active.withdrawal-approvers');
+Route::middleware('auth:sanctum')->get('/active-reviewers', [ReceivingApiController::class, 'activeReviewers'])->name('api.active.withdrawal-reviewers');
 
 // fixed asset api
 Route::middleware('auth:sanctum')->get('/active-asset-registration-type', [InventoryApiController::class, 'activeAssetRegistrationType'])->name('api.active.asset-registration-type');

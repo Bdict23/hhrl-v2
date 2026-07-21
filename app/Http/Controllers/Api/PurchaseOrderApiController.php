@@ -110,4 +110,15 @@ class PurchaseOrderApiController extends Controller
             ->get();
         return response()->json($purchaseOrder);
     }
+
+    public function activeReceivingNumber(Request $request)
+    {
+        $branch_id = $request->query('branch_id');
+        $types = Receiving::where('branch_id', $branch_id)
+            // ->where('receiving_status',  'FINAL')
+            // ->where('receiving_type',  'PO')
+            // ->where('reference', '!=', null)
+            ->get();
+        return response()->json($types);
+    }
 }

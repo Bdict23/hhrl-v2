@@ -82,23 +82,7 @@ new class extends Component
                 {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y') }}
             @endinteract
             @interact('column_REQUISITION_ID', $row)
-                <div class=" flex text-sm mr-6" flat>{{ $row->purchaseOrder?->requisition_number }}
-                        @if ($row->purchaseOrder?->requisition_status == 'PARTIALLY FULFILLED')
-                            {{-- <x-ts-badge color="yellow" text="{{ $row->purchaseOrder?->requisition_status }}" round light xs /> --}}
-                            <p class=" bg-amber-300 rounded-2xl h-6 w-0.5 ml-2">
-                                <i class="text-amber-600 text-xs font-bold ml-2">PARTIAL</i>
-                            </p>
-                        @elseif($row->purchaseOrder?->requisition_status == 'COMPLETED')
-                            {{-- <x-ts-badge color="green" text="COMPLETED" round light xs /> --}}
-                            <p class=" bg-green-300 rounded-2xl h-6 w-0.5 ml-2">
-                                <i class="text-green-600 text-xs font-bold ml-2">COMPLETED</i>
-                            </p>
-                        @else
-                            <p class=" bg-gray-300 rounded-2xl h-6 w-0.5 ml-2">
-                                <i class="text-gray-600 text-xs font-bold ml-2">{{$row->purchaseOrder?->requisition_status}}</i>
-                            </p>
-                        @endif
-                    </div>
+                {{ $row->purchaseOrder?->requisition_number }} 
             @endinteract
              @interact('column_reference', $row)
                 {{ $row->reference }}

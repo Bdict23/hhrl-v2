@@ -15,13 +15,28 @@ new class extends Component {
         'notes' => 'nullable|max:225',
     ];
 
-    public $liquidationReference,$liquidationId, $liquidationDate, $event, $eventReference,$eventId, $preparedBy, $approvedBy, $checkAmount, $totalExpense, $amountReturned, $notes, $amountToReturn;
+    public 
+    $liquidationReference,
+    $liquidationId, 
+    $liquidationDate, 
+    $event, 
+    $eventReference,
+    $eventId, 
+    $preparedBy, 
+    $approvedBy, 
+    $checkAmount, 
+    $totalExpense, 
+    $amountReturned, 
+    $notes, 
+    $amountToReturn,
+    $cashReturnId;
     public $status = 'DRAFT';
 
     public function mount($id)
     {
         $cashReturn = CashReturn::find($id);
         if ($cashReturn) {
+            $this->cashReturnId = $cashReturn->id;
             $this->liquidationId = $cashReturn->event?->banquetEventLiquidation->id;
             $this->liquidationReference = $cashReturn->event?->banquetEventLiquidation->reference;
             $this->liquidationDate = $cashReturn->event?->banquetEventLiquidation->created_at;
@@ -32,7 +47,7 @@ new class extends Component {
             $this->approvedBy = $cashReturn->event?->banquetEventLiquidation->approvedBy?->full_name;
             $this->checkAmount = $cashReturn->event?->banquetEventLiquidation->event?->acknowledgment?->check_amount;
             $this->totalExpense = $cashReturn->event?->banquetEventLiquidation->total_incurred;
-            $this->amountToReturn = $cashReturn->event?->banquetEventLiquidation->event?->acknowledgment?->check_amount - $cashReturn->event?->banquetEventLiquidation->total_incurred;
+            $this->amountToReturn = $cashReturn->amount_returned;
             $this->amountReturned = str_replace(',', '', number_format($cashReturn->amount_returned, 2));
             $this->notes = $cashReturn->notes;
             $this->status = $cashReturn->status;
@@ -51,7 +66,7 @@ new class extends Component {
                 $this->approvedBy = $liquidation->approvedBy?->full_name;
                 $this->checkAmount = $liquidation->event?->acknowledgment->check_amount;
                 $this->totalExpense = $liquidation->total_incurred;
-                $this->amountToReturn = $liquidation->event?->acknowledgment->check_amount - $liquidation->total_incurred;
+                $this->amountToReturn = ($liquidation->event?->acknowledgment->check_amount - $liquidation->total_incurred);
                 $this->amountReturned = $this->amountToReturn;
             }
         }
@@ -71,10 +86,10 @@ new class extends Component {
         }
         $this->status = 'DRAFT';
         $this->dialog()
-            ->question('Save Cash return - Event liquidation ?', 'Are you sure to save this cash return as draft?')
+            ->question('Update Cash return - Event liquidation ?', 'Are you sure to update this cash return as draft?')
             ->confirm(
                 'Confirm',
-                'store', //pass a functio to call
+                'updateCashReturn', //pass a functio to call
             )
             ->cancel('Cancel')
             ->send();
@@ -89,35 +104,35 @@ new class extends Component {
         }
         $this->status = 'FINAL';
         $this->dialog()
-            ->question('Save Cash return - Event liquidation ?', 'Are you sure to save this cash return as draft?')
+            ->question('Update Cash return - Event liquidation ?', 'Are you sure to update this cash return as final?')
             ->confirm(
                 'Confirm',
-                'store', //pass a functio to call
+                'updateCashReturn', //pass a functio to call
             )
             ->cancel('Cancel')
             ->send();
     }
-    public function store(CashReturnService $service)
+    public function updateCashReturn(CashReturnService $service)
     {
         try {
             $data = [
                 'branch_id' => Auth::user()->branch_id,
                 'status' => $this->status,
                 'prepared_by' => Auth::user()->emp_id,
-                'amount_returned' => str_replace(',', '', $this->amountReturned),
                 'notes' => $this->notes,
-                'event_id' => $this->eventId,
                 'liquidation_id' => $this->liquidationId,
+                'id' => $this->cashReturnId,
             ];
-            $crs = $service->createEventCrs($data);
+            $crs = $service->updateEventCrs($data);
             $this->toast()
-                ->success('Success', "Cash Return {$crs->reference} created successfully!")
+                ->success('Success', "Cash Return {$crs->reference} updated successfully!")
                 ->send();
             $this->reset();
+            return redirect()->route('cash-return.summary-tab');
         } catch (\Exception $e) {
-            \Log::error('Cash return Creation Failed: ' . $e->getMessage());
+            \Log::error('Cash return Update Failed: ' . $e->getMessage());
             $this->toast()
-                ->error('Error', 'Something went wrong while saving: ' . $e->getMessage())
+                ->error('Error', 'Something went wrong while updating: ' . $e->getMessage())
                 ->send();
         }
     }
@@ -128,7 +143,7 @@ new class extends Component {
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
             ['label' => 'Transaction', 'link' => route('cash-return.summary-tab'), 'icon' => 'archive-box'],
             ['label' => 'Cash Return Summary', 'link' => route('cash-return.summary-tab'), 'icon' => 'list-bullet'],
-            ['label' => 'Create cash return - Event liquidation', 'icon' => 'pencil-square'],
+            ['label' => 'Edit cash return - Event liquidation', 'icon' => 'pencil-square'],
         ]" class="mb-3" />
     </div>
 
@@ -138,7 +153,7 @@ new class extends Component {
         <x-ts-card>
             <div class="grid grid-cols-2 w-full p-3 gap-3">
                 <div class="grid gap-3">
-                    <x-ts-input  readonly wire:model='liquidationReference' />
+                    <x-ts-input label='EVENT LIQUIDATION' readonly wire:model='liquidationReference' />
 
                     <x-ts-date format="DD [of] MMMM [of] YYYY" wire:model='liquidationDate' label="LIQUIDATION DATE" disabled />
                     <x-ts-input label="EVENT REFERENCE" wire:model='eventReference' readonly />
@@ -150,11 +165,11 @@ new class extends Component {
                     <div class="grid grid-cols-2 gap-2">
                         <x-ts-currency mutate decimal wire:model="checkAmount" label="CHECK AMOUNT" readonly symbol
                             currency />
-                        <x-ts-currency wire:model="totalExpense" label="EVENT EXPENSE" readonly symbol currency />
+                        <x-ts-currency wire:model="totalExpense" label="EVENT EXPENSE" readonly symbol currency/>
                     </div>
                 </div>
                 <div>
-                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol />
+                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol readonly/>
                     <x-ts-textarea label="Notes" resize maxlength="225" count placeholder="Add note here..."
                         wire:model="notes" />
                 </div>

@@ -28,6 +28,7 @@ class CashReturn extends Model
         'approved_date',
         'advances_liquidation_id',
         'employee_advance_id',
+        'event_liquidation_id',
 
     ];
 

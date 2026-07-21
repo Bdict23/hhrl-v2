@@ -29,6 +29,8 @@ class Cardex extends Model
         'final_date',
         'batch_id',
         'reference',
+        'type',
+        'qty',
     ];
 
 

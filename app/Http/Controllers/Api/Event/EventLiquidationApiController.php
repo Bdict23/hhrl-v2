@@ -52,6 +52,7 @@ class EventLiquidationApiController extends Controller
         $eventLiquidations = EventLiquidation::with('event')
             ->where('branch_id', $branch_id)
             ->where('status', 'FOR SETTLEMENT')
+            ->whereDoesntHave('cashReturn')
             ->get()->map(function ($liquidation) {
                 return [
                     'id' => $liquidation->id,

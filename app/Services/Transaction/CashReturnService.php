@@ -136,6 +136,7 @@ class CashReturnService
                 'branch_id' => $branchId,
                 'reference' => $reference,
                 'status' => $data['status'],
+                'event_liquidation_id' => $data['liquidation_id'],
                 'event_id' => $data['event_id'],
                 'prepared_by' => $data['prepared_by'],
                 'amount_returned' => $data['amount_returned'],
@@ -150,6 +151,25 @@ class CashReturnService
 
 
 
+
+            return $pcr;
+        });
+    }
+    public function updateEventCrs(array $data): CashReturn
+    {
+        return DB::transaction(function () use ($data) {
+            $pcr = $this->cashReturn->findOrFail($data['id']);
+            $pcr->update([
+                'status' => $data['status'],
+                'prepared_by' => $data['prepared_by'],
+                'notes' => $data['notes'],
+            ]);
+
+            // update pcv to close if full amount is returned
+            $liquidation = $this->eventLiquidation->findOrFail($data['liquidation_id']);
+            if ($data['status'] == 'FINAL') {
+                $liquidation->update(['status' => 'FOR APPROVAL']);
+            }
 
             return $pcr;
         });

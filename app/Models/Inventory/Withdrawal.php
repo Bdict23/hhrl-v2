@@ -3,6 +3,9 @@
 namespace App\Models\Inventory;
 
 use App\Models\Business\Employee;
+use App\Models\Business\Department;
+use App\Models\Settings\SystemParameter;
+
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -27,7 +30,6 @@ class Withdrawal extends Model
         'rejected_date',
         'withdrawal_type',
         'production_order_id',
-        'event_id',
         'type_id',
     ];
 
@@ -37,7 +39,7 @@ class Withdrawal extends Model
     public function getCostAmountAttribute(): string
     {
         $total = $this->cardex()->get()->map(function ($item) {
-            return ['cost' => $item->cost->amount];
+            return ['cost' => $item->cost->amount * ($item->qty == 0 ? $item->qty_out : $item->qty)];
         })->sum('cost');
         return $total;
     }
@@ -50,9 +52,21 @@ class Withdrawal extends Model
     {
         return $this->belongsTo(Employee::class, 'approved_by');
     }
+    public function reviewedBy()
+    {
+        return $this->belongsTo(Employee::class, 'reviewed_by');
+    }
     public  function cardex()
     {
         return $this->hasMany(Cardex::class, 'withdrawal_id');
+    }
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+    public function type()
+    {
+        return $this->belongsTo(SystemParameter::class, 'type_id');
     }
 
     // purpose : display ang cost dretso when called

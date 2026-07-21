@@ -40,12 +40,17 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/purchase-order-validation-review-show/{id}', 'inventory.purchase-order.purchase-order-validation-review-show')->name('purchase-order.validation.review-show');
     Volt::route('/purchase-order-validation-approval-show/{id}', 'inventory.purchase-order.purchase-order-validation-approval-show')->name('purchase-order.validation.approval-show');
 
-
     //Receiving Order
     Volt::route('/receiving-order/summary', 'inventory.receiving-order.receiving-purchase-order-summary')->name('receiving-summary');
     Volt::route('/receiving-order/create', 'inventory.receiving-order.receiving-purchase-order-create')->name('receiving.create');
     Volt::route('/receiving-order/edit/{id}', 'inventory.receiving-order.receiving-purchase-order-edit')->name('receiving.edit');
     Volt::route('/receiving-order/view/{id}', 'inventory.receiving-order.receiving-purchase-order-view')->name('receiving.view');
+
+    //Item Withdrawal
+    Volt::route('/item-withdrawal/summary', 'inventory.withdrawal.withdrawal-summary')->name('withdrawal-summary');
+    Volt::route('/item-withdrawal/create', 'inventory.withdrawal.withdrawal-create')->name('withdrawal.create');
+    Volt::route('/item-withdrawal/edit/{id}', 'inventory.withdrawal.withdrawal-edit')->name('withdrawal.edit');
+    Volt::route('/item-withdrawal/view/{id}', 'inventory.withdrawal.withdrawal-view')->name('withdrawal.view');
 
     //BACKORDER
     Volt::route('/backorder/summary', 'inventory.backorder.backorder-summary')->name('backorder-summary');
@@ -134,6 +139,11 @@ Route::middleware(['auth'])->group(function () {
     //CASH ADVANCES
     volt::route('/cash-advances/approval-summary', 'transactions.employees-advances.employees-advances-validation-approval-summary')->name('cash-advances.validation.approval-summary');
     volt::route('/cash-advances/approval-view/{id}', 'transactions.employees-advances.employees-advances-validation-approval-view')->name('cash-advances.validation.approval-view');
+
+    //WITHDRAWAL
+    volt::route('/withdrawal/validation-summary', 'inventory.withdrawal.withdrawal-validation-summary')->name('withdrawal.validation-summary');
+    volt::route('/withdrawal/validation-review-view/{id}', 'inventory.withdrawal.withdrawal-validation-review-show')->name('withdrawal.validation.review-show');
+    volt::route('/withdrawal/validation-approval-view/{id}', 'inventory.withdrawal.withdrawal-validation-approval-show')->name('withdrawal.validation.approval-show');
 });
 
 require __DIR__ . '/auth.php';

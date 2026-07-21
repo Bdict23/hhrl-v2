@@ -31,7 +31,7 @@ new class extends Component {
                 $this->approvedBy = $liquidation->approvedBy?->full_name;
                 $this->checkAmount = $liquidation->event?->acknowledgment->check_amount;
                 $this->totalExpense = $liquidation->total_incurred;
-                $this->amountToReturn = $liquidation->event?->acknowledgment->check_amount - $liquidation->total_incurred;
+                $this->amountToReturn = number_format($liquidation->event?->acknowledgment->check_amount - $liquidation->total_incurred, 2);
                 $this->amountReturned = $this->amountToReturn;
             }
         }
@@ -135,7 +135,7 @@ new class extends Component {
                     </div>
                 </div>
                 <div>
-                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol />
+                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol readonly/>
                     <x-ts-textarea label="Notes" resize maxlength="225" count placeholder="Add note here..."
                         wire:model="notes" />
                 </div>

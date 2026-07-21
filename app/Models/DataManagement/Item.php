@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\UnitOfMeasure;
 use App\Models\DataManagement\Price;
 use App\Models\Inventory\FixedAsset\AssetCardex;
+use App\Models\Inventory\Cardex;
 
 class Item extends Model
 {
@@ -24,25 +25,36 @@ class Item extends Model
         'created_by',
     ];
 
-    public function unit(){
+    public function unit()
+    {
         return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
     }
-    public function cost(){
-          return $this->hasOne(Price::class, 'item_id')->where('price_type', 'Cost')->latest('created_at')->with('supplier');
+    public function cost()
+    {
+        return $this->hasOne(Price::class, 'item_id')->where('price_type', 'Cost')->latest('created_at')->with('supplier');
     }
-    public function brand(){
-        return $this->belongsTo(Brand::class,'brand_id');
+    public function brand()
+    {
+        return $this->belongsTo(Brand::class, 'brand_id');
     }
-    public function classification(){
-        return $this->belongsTo(Classification::class,'classification_id');
+    public function classification()
+    {
+        return $this->belongsTo(Classification::class, 'classification_id');
     }
-    public function subClassification(){
-        return $this->belongsTo(Classification::class,'sub_class_id');
+    public function subClassification()
+    {
+        return $this->belongsTo(Classification::class, 'sub_class_id');
     }
-    public function category(){
-        return $this->belongsTo(Category::class,'category_id');
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
     }
-    public function assetCardex(){
+    public function assetCardex()
+    {
         return $this->hasMany(AssetCardex::class, 'item_id');
+    }
+    public function receivingItems()
+    {
+        return $this->hasMany(Cardex::class, 'item_id');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models\BanquetEvent;
 
 use App\Models\Business\Employee;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Transaction\CashReturn;
 
 class EventLiquidation extends Model
 {
@@ -40,5 +41,9 @@ class EventLiquidation extends Model
     public function approvedBy()
     {
         return $this->belongsTo(Employee::class, 'approved_by');
+    }
+    public function cashReturn()
+    {
+        return $this->hasOne(CashReturn::class, 'event_liquidation_id');
     }
 }

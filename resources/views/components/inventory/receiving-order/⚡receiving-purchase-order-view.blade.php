@@ -35,7 +35,8 @@ new class extends Component
      // 1. We create a property that will temporarily store the uploaded files
     public $backup = [];
 
-    public $receivingInfo,
+    public $reference,
+    $receivingInfo,
     $requestInfo,
     $requisitionDetails=[],
     $purchaseOrderId,
@@ -81,6 +82,7 @@ new class extends Component
     public function fetchData()
     {
         $this->receivingData = Receiving::findOrFail($this->receivingId);
+        $this->reference = $this->receivingData->reference;
         $this->purchaseOrderId = $this->receivingData->REQUISITION_ID;
         $this->requestInfo = PurchaseOrder::where('id', $this->purchaseOrderId)->first();
         $this->supplierId = $this->requestInfo->supplier_id;
@@ -349,7 +351,7 @@ new class extends Component
                               ['label' => 'Receiving Summary', 'link' => route('receiving-summary'), 'icon' => 'list-bullet'],
                               ['label' => 'View Receiving', 'icon' => 'eye'],
                   ]"  class="mb-3"/>
-            <span></span>
+             <label class="text-2xl italic">( {{ $reference }} )</label>
     </div>
 
     <div class="grid gap-4 mb-10">

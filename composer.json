@@ -25,7 +25,7 @@
         "livewire/livewire": "^4.0.0",
         "livewire/volt": "^1.10",
         "simplesoftwareio/simple-qrcode": "^4.2",
-        "tallstackui/tallstackui": "^3.0"
+        "tallstackui/tallstackui": "^3.5"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^4.0",
