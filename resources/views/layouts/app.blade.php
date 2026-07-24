@@ -134,12 +134,12 @@
 
                     <!-- Events -->
                     <x-ts-side-bar.item text="Events" icon="calendar">
-                        <x-ts-side-bar.item text="Event Booking" :route="route('event-booking-summary')">
+                        <x-ts-side-bar.item text="Event Booking" :route="route('event-booking-create')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="Event Orders (BEO)">
+                        <x-ts-side-bar.item text="Event Orders (BEO)" :route="route('event-booking-summary')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
