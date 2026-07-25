@@ -90,7 +90,7 @@ new class extends Component
                 {{ $row->event?->event_name }}
             @endinteract
             @interact('column_budget', $row)
-               ₱ {{ number_format($row->event?->banquetEventBudget->suggested_amount, 2) }}
+               ₱ {{ number_format($row->event?->budgetAllocation->suggested_amount ?? 0, 2) }}
             @endinteract
             @interact('column_total_incurred', $row)
                ₱ {{ number_format($row->total_incurred, 2) }}

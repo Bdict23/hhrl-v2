@@ -312,6 +312,7 @@ new class extends Component
                     <div class="grid gap-3 p-2">
                         <x-ts-input wire:model="endDate" label="END DATE" readonly/>
                         <x-ts-input wire:model="departureTime" label="CUSTOMER" readonly/>
+                        
                     </div>
                     <div class="grid gap-3 p-2">
                         <x-ts-input wire:model="address" label="ADDRESS" readonly/>

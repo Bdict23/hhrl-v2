@@ -6,6 +6,7 @@ use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 use App\Models\Business\Venue;
 use App\Models\Business\Service;
+use App\Models\Business\BranchRecipe as Recipe;
 
 
 
@@ -234,7 +235,32 @@ new class extends Component
                 })
                 ->where('status', 'ACTIVE')
                 ->paginate($this->quantity)
-                ->withQueryString()
+                ->withQueryString(),
+
+                // FOOD
+                'selectedFoodHeader' => [
+                ['index' => 'menu_image', 'label' => 'image'],
+                ['index' => 'menu_name', 'label' => 'name'],
+                ['index' => 'category_id', 'label' => 'category' , 'sortable' => false],
+                ['index' => 'rate', 'label' => 'rate' , 'sortable' => false],
+                ['index' => 'quantity', 'label' => 'Qty' , 'sortable' => false],
+                ['index' => 'sub_total', 'label' => 'Sub-total',  'sortable' => false],
+                ['index' => 'action', 'label' => 'Action',  'sortable' => false],
+            ],
+            'foodListHeader' => [
+                ['index' => 'service_code', 'label' => 'code'],
+                ['index' => 'service_name', 'label' => 'service name'],
+                ['index' => 'category', 'label' => 'category'],
+                ['index' => 'rate', 'label' => 'rate'],
+            ],
+            // 'foodRow' => Recipe::query()
+            //     // ->where('branch_id', auth()->user()->branch_id)
+            //     ->when($this->search, function (Builder $query) {
+            //         return $query->where('menu_name', 'like', "%{$this->search}%");
+            //     })
+            //     ->where('status', 'ACTIVE')
+            //     ->paginate($this->quantity)
+            //     ->withQueryString()
         ];
     }
 };
@@ -401,7 +427,51 @@ new class extends Component
                         </div>
                     </x-ts-step.items>
                     <x-ts-step.items step="4" title="Food" >
-                        Step 4 content...
+                        <div class="mb-8 mt-5">
+                            <x-ts-card header="FOOD" light color="primary" class="mb-4">
+                                {{-- <x-ts-table :headers="$selectedFoodHeader" :rows="$selectedFoodRows" striped expandable>
+                                    <x-slot:footer>
+                                        <x-ts-button icon="plus" position="left" class="mt-2" x-on:click="$tsui.open.modal('modal-add-food')" flat>Add Food</x-ts-button>
+                                    </x-slot:footer>
+                                    @interact('column_action', $row)
+                                        <x-ts-button
+                                                color="rose"
+                                                outline
+                                                wire:click="removeFood({{ $loop->index }})"
+                                                loading="removeFood({{ $loop->index }})">
+                            
+                                                <x-ts-icon name="trash"
+                                                    wire:loading.remove
+                                                    wire:target="removeFood({{ $loop->index }})"
+                                                    class="w-5 h-5" />
+                                            </x-ts-button>
+                                    @endinteract
+                                    @interact('column_rate', $row)
+                                        ₱ {{ number_format($row['rate'], 2) }}
+                                    @endinteract
+                                    @interact('column_qty', $row)
+                                    <x-ts-number sm
+                                        wire:model.live.debounce.500ms="selectedFoodRows.{{ $loop->index }}.qty" />
+                                    @endinteract
+                                    @interact('column_sub_total', $row)
+                                    ₱ {{ number_format($row['sub_total'], 2) }}
+                                    @endinteract
+                            
+                                    @interact('sub_table', $row)
+                                        <x-ts-table :headers="[
+                                            ['index' => 'description', 'label' => 'description'],
+                                        ]"
+                                        :rows="[[
+                                            'description'       => $row['description'],
+                                        ]]" />
+                                    @endinteract
+                            
+                                </x-ts-table>
+                                @error('selectedFoodRows')
+                                    <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                                @enderror --}}
+                            </x-ts-card>
+                        </div>
                     </x-ts-step.items>
                     <x-ts-step.items step="5" title="Summary" >
                         Step 5 content... <b>finished!</b>
@@ -464,5 +534,37 @@ new class extends Component
                 <x-ts-button icon="check" x-on:click="$tsui.close.modal('modal-add-service')">Done</x-ts-button>
             </x-slot:footer>
         </x-ts-modal>
+
+
+        {{-- ADD FOOD MODAL --}}
+        <x-ts-modal id="modal-add-food" size="5xl">
+            <x-ts-card class="p-4 max-h-200 overflow-y-auto">
+                {{-- <x-ts-table expandable loading  :headers="$foodListHeader" :rows="$foodRow" striped  filter  paginate selectable wire:model.live='selectedFood'>
+                    @interact('column_rate', $row)
+                        ₱ {{ number_format($row->rate->amount ?? 0, 2) }}
+                    @endinteract
+                    @interact('column_category',$row)
+                        {{ $row->category->category_name}}
+                    @endinteract
+                    @interact('sub_table', $row)
+                        <x-ts-table :headers="[
+                            ['index'       => 'description', 'label' => 'description'],
+                        ]"
+                        :rows="[[
+                            'description' => $row->service_description,
+                        ]]">
+                            @interact('column_description', $row)
+                                     <x-ts-textarea value="{{$row['description']}}" resize readonly/>
+                            @endinteract
+                        </x-ts-table>
+                    @endinteract
+                </x-ts-table> --}}
+            </x-ts-card>
+            <x-slot:footer>
+                <x-ts-button icon="check" x-on:click="$tsui.close.modal('modal-add-food')">Done</x-ts-button>
+            </x-slot:footer>
+        </x-ts-modal>
+
+
     </x-ts-card>
 </div>

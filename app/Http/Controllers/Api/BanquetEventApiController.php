@@ -16,7 +16,7 @@ class BanquetEventApiController extends Controller
             ->where('branch_id', $branch_id)
             ->where('status', 'CONFIRMED')
             ->where('liquidation_status', 'PENDING')
-            ->whereHas('banquetEventBudget', function ($query) {
+            ->whereHas('budgetAllocation', function ($query) {
                 $query->where('status', 'APPROVED');
             })
             ->whereDoesntHave('banquetEventLiquidation')
@@ -33,7 +33,7 @@ class BanquetEventApiController extends Controller
             ->where('branch_id', $branch_id)
             ->where('status', 'CONFIRMED')
             ->where('liquidation_status', 'PENDING')
-            ->whereHas('banquetEventBudget', function ($query) {
+            ->whereHas('budgetAllocation', function ($query) {
                 $query->where('status', 'APPROVED');
             })
             ->whereDoesntHave('banquetEventLiquidation')

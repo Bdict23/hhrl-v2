@@ -32,7 +32,7 @@ Route::middleware('auth:sanctum')->get('/active-purchase-type', [PurchaseOrderAp
 Route::middleware('auth:sanctum')->get('/active-purchase-term', [PurchaseOrderApiController::class, 'activePurchaseTerm'])->name('api.active.purchase-term');
 Route::middleware('auth:sanctum')->get('/active-approvers', [PurchaseOrderApiController::class, 'activeApprovers'])->name('api.active.approvers');
 Route::middleware('auth:sanctum')->get('/active-reviewers', [PurchaseOrderApiController::class, 'activeReviewers'])->name('api.active.reviewers');
-Route::middleware('auth:sanctum')->get('/active-event', [BanquetEventApiController::class, 'activeEvent'])->name('api.active.event');
+Route::middleware('auth:sanctum')->get('/purchase-order/active-event', [BanquetEventApiController::class, 'activeEvent'])->name('api.active.event');
 Route::middleware('auth:sanctum')->get('/active-production-order', [RestaurantApiController::class, 'activeProductionOrder'])->name('api.active.production-order');
 Route::middleware('auth:sanctum')->get('/active-purchase-order', [PurchaseOrderApiController::class, 'activePurchaseOrder'])->name('api.active.purchase-order');
 Route::middleware('auth:sanctum')->get('/received-purchase-order-filter1', [PurchaseOrderApiController::class, 'receivedPurchaseOrderFilter1'])->name('api.received.purchase-order.filter1');

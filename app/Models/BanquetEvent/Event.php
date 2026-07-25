@@ -36,10 +36,10 @@ class Event extends Model
     {
         return $this->hasOne(BanquetProcurement::class, 'event_id');
     }
-    // public function banquetEventLiquidation()
-    // {
-    //     return $this->hasOne(EventLiquidation::class, 'event_id');
-    // }
+    public function banquetEventLiquidation()
+    {
+        return $this->hasOne(EventLiquidation::class, 'event_id');
+    }
     public function acknowledgment()
     {
         return $this->hasOne(Acknowledgement::class, 'event_id');
