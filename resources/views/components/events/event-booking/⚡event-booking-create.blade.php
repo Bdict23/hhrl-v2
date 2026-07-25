@@ -539,7 +539,7 @@ new class extends Component
         {{-- ADD FOOD MODAL --}}
         <x-ts-modal id="modal-add-food" size="5xl">
             <x-ts-card class="p-4 max-h-200 overflow-y-auto">
-                {{-- <x-ts-table expandable loading  :headers="$foodListHeader" :rows="$foodRow" striped  filter  paginate selectable wire:model.live='selectedFood'>
+                <x-ts-table expandable loading  :headers="$foodListHeader" :rows="$foodRow" striped  filter  paginate selectable wire:model.live='selectedFood'>
                     @interact('column_rate', $row)
                         ₱ {{ number_format($row->rate->amount ?? 0, 2) }}
                     @endinteract
@@ -558,7 +558,7 @@ new class extends Component
                             @endinteract
                         </x-ts-table>
                     @endinteract
-                </x-ts-table> --}}
+                </x-ts-table>
             </x-ts-card>
             <x-slot:footer>
                 <x-ts-button icon="check" x-on:click="$tsui.close.modal('modal-add-food')">Done</x-ts-button>

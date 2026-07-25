@@ -326,7 +326,7 @@ new class extends Component
                     <x-ts-tab.items tab="Menu">
                         <x-ts-table :headers="$foodHeaders" :rows="$eventFood" :$sort loading striped expandable paginate>
                             @interact('column_menu_image', $row)
-                                <x-ts-avatar image="{{ asset($row->recipe?->menu_image) }}" md text="AIR" square />
+                                <x-ts-avatar image="{{ asset('storage/'.$row->recipe?->menu_image) }}" md text="AIR" square />
                             @endinteract
                             @interact('column_menu_name', $row)
                                 {{$row->recipe?->menu_name}}

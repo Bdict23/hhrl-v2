@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use App\Models\Business\Branch;
 use App\Models\Business\Employee;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property string $name
@@ -22,6 +23,7 @@ class User extends Authenticatable
 {
     use HasFactory;
     use Notifiable;
+    use HasApiTokens;
 
     protected $fillable = [
         'name',
@@ -51,5 +53,4 @@ class User extends Authenticatable
     {
         return $this->hasOne(Employee::class, 'id', 'emp_id'); //raldz
     }
-
 }
