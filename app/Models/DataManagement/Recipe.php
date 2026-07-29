@@ -3,6 +3,8 @@
 namespace App\Models\DataManagement;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\DataManagement\Price;
+use Illuminate\Support\Facades\Auth;
 
 class Recipe extends Model
 {
@@ -46,20 +48,16 @@ class Recipe extends Model
     //     return $this->hasMany(Recipe::class, 'menu_id');
     // }
 
-
-    // public function mySRP(){
-    //     return $this->hasOne(PriceLevel::class, 'menu_id')->where([['branch_id', auth()->user()->branch_id], ['price_type', 'RATE']])
-    //         ->latest('created_at');
-    // }
+    public function rate()
+    {
+        return $this->hasOne(Price::class, 'menu_id')->where([['branch_id', Auth::user()->branch_id], ['price_type', 'RATE']])
+            ->latest('created_at');
+    }
 
     // public function price_levels(){
     //     return $this->hasMany(PriceLevel::class);
     // }
 
-    // public function category()
-    // {
-    //     return $this->belongsTo(Category::class, 'category_id');
-    // }
 
     // public function recipeCount()
     // {

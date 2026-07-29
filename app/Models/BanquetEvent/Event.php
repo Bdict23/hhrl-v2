@@ -29,6 +29,7 @@ class Event extends Model
         'notes',
         'customer_id',
         'total_amount',
+        'branch_id',
     ];
 
 

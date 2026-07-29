@@ -38,7 +38,7 @@ new class extends Component {
     }
     public function isValidReturn()
     {
-        $validateReturn = str_replace(',', '', $this->amountReturned) <= $this->amountToReturn ? true : false;
+        $validateReturn = str_replace(',', '', $this->amountReturned) <=  str_replace(',', '', $this->amountToReturn)  ? true : false;
         return $validateReturn;
     }
 

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\RestaurantApiController;
 use App\Http\Controllers\Api\InventoryApiController;
 use App\Http\Controllers\Api\SystemParameterApiController;
 use App\Http\Controllers\Api\AccountingApiController;
+use App\Http\Controllers\Api\Restaurant\RecipeApiController;
 use App\Http\Controllers\Api\PettyCashVoucherApiController;
 use App\Http\Controllers\Api\RevolvingFundApiController;
 use App\Http\Controllers\Api\CustomerApiController;
@@ -25,6 +26,13 @@ use App\Http\Controllers\Api\Inventory\ReceivingApiController;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// Event Booking
+Route::middleware('auth:sanctum')->get('/event-booking/active-categories', [RecipeApiController::class, 'activeRecipeCategories'])->name('api.active.recipe-categories');
+Route::middleware('auth:sanctum')->get('/event-booking/active-reviewers', [BanquetEventApiController::class, 'activeReviewers'])->name('api.active.event-booking-reviewers');
+Route::middleware('auth:sanctum')->get('/event-booking/active-approvers', [BanquetEventApiController::class, 'activeApprovers'])->name('api.active.event-booking-approvers');
+Route::middleware('auth:sanctum')->get('/event-booking/active-branch-customers', [CustomerApiController::class, 'getBranchCustomers'])->name('api.active.event-booking-customers');
+
 
 //purchase order api
 Route::middleware('auth:sanctum')->get('/suppliers', [SupplierApiController::class, 'index'])->name('api.supplier.index');

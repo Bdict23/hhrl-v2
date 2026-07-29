@@ -11,12 +11,23 @@ class CustomerApiController extends Controller
 {
    public function getBranchCustomers(Request $request)
    {
-    $branch_id = $request->query('branch_id');
+      //  $branch_id = $request->query('branch_id');
 
-    $customers = Customer::query()
-    ->where('branch_id', $branch_id)
-    ->get();
+      //  $customers = Customer::query()
+      //  ->where('branch_id', $branch_id)
+      //  ->get();
 
-     return response()->json($customers);
+      //   return response()->json($customers);
+
+      $branch_id = $request->query('branch_id');
+      $payee = Customer::where('branch_id', $branch_id)->get()->map(function ($customer) {
+
+         return [
+            'id' => $customer->id,
+            'name' => $customer->full_name,
+            'description' => $customer->customer_address,
+         ];
+      });
+      return response()->json($payee);
    }
 }
