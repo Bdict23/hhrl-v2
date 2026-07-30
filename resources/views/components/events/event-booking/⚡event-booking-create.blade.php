@@ -46,18 +46,52 @@ new class extends Component
 
 
     // venue variables
-    public  $selectedVenue = [],
+        public  $selectedVenue = [],
             $selectedVenueRows = [],
             $grand_totalVenue = 0.00;
     // service variables
-    public  $selectedService = [],
+        public  $selectedService = [],
             $selectedServiceRows = [],
             $grand_totalService = 0.00;
     // food variables
-    public  $selectedFood = [],
+        public  $selectedFood = [],
             $selectedFoodRows = [],
             $grand_totalFood = 0.00;
 
+    // VALIDATION
+        protected $rules = [
+            'eventName' => 'required',
+            'address' => 'required',
+            'guestCount' => 'required',
+            'customer' => 'required|exists:customers,id',
+            'note' => 'nullable|string',
+            'checkInDate' => 'required|date',
+            'checkOutDate' => 'required|date|after_or_equal:checkInDate',
+            'approvedBy' => 'required|exists:employees,id',
+            'reviewedBy' => 'required|exists:employees,id',
+            'selectedVenueRows.*.quantity' => 'nullable|numeric|min:1',
+            'selectedServiceRows.*.quantity' => 'nullable|numeric|min:1',
+            'selectedFoodRows.*.quantity' => 'nullable|numeric|min:1',
+
+        ];
+    protected $messages=[
+            'selectedVenueRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedServiceRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedFoodRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedVenueRows.*.quantity.required' => 'Qty is required.',
+            'selectedServiceRows.*.quantity.required' => 'Qty is required.',
+            'selectedFoodRows.*.quantity.required' => 'Qty is required.',
+            'eventName.required' => 'Event name is required.',
+            'address.required' => 'Address is required.',
+            'guestCount.required' => 'Guest count is required.',
+            'customer.required' => 'Customer is required.',
+            'approvedBy.required' => 'Approver is required.',
+            'reviewedBy.required' => 'Reviewer is required.',
+            'reviewedBy.exists' => 'Select a valid reviewer on the list.',
+            'approvedBy.exists' => 'Select a valid reviewer on the list.',
+            'checkOutDate.after_or_equal' => 'Invalid end date.',
+        ];
+    
     // VENUE HOOKS
         public function updatedSelectedVenue($ids)
         {
@@ -215,9 +249,87 @@ new class extends Component
             $this->calculateServiceGrandTotal();
         }
 
-        public function saveEventAsDraftAction(){
+    // MENU HOOKS
+        public function updatedSelectedFood($ids)
+        {
+
+            // 1. Get IDs already present in the table
+            $existingIds = array_column($this->selectedFoodRows, 'id');
+
+            // 2. Identify the IDs that are not in the table yet
+            $newIds = array_diff($ids, $existingIds);
+
+            // 3. Identify IDs that were unchecked (to remove them from table)
+            $removedIds = array_diff($existingIds, $ids);
+
+            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
+            if (!empty($removedIds)) {
+                $this->selectedFoodRows = array_values(array_filter($this->selectedFoodRows, function($row) use ($removedIds) {
+                    return !in_array($row['id'], $removedIds);
+                }));
+            }
+
+            // Handle Additions: Only query the database for the NEW IDs
+            if (!empty($newIds)) {
+                $items = BranchRecipe::whereIn('id', $newIds)->get();
+
+                foreach ($items as $item) {
+                    $this->selectedFoodRows[] = [
+                        'id'                    => $item->menu_id,
+                        'menu_image'            => $item->recipe?->menu_image,
+                        'menu_name'             => $item->recipe->menu_name ?? '',
+                        'category'              => $item->recipe->category->category_name ?? '',
+                        'price_id'              => $item->recipe->rate?->id ?? null,
+                        'rate'                  => $item->recipe->rate?->amount ?? 0,
+                        'quantity'              => 1,
+                        'sub_total'             => $item->recipe->rate?->amount ?? 0 * 1,
+                        'note'                  => '',
+                    ];
+                }
+            }
+            $this->calculateFoodGrandTotal();
+
+        }
+        public function calculateFoodGrandTotal()
+        {
+            $this->grand_totalFood = collect($this->selectedFoodRows)->sum('sub_total');
+        }
+        // Remove from selected service
+        public function removeFood($index)
+        {
+            unset($this->selectedFoodRows[$index]);
+            // Reset array keys to prevent index gaps
+            $this->selectedFoodRows = array_values($this->selectedFoodRows);
+
+            // Sync back to your original selection ID array if necessary
+                $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
+                $this->toast()->success('Success', 'Removed Successfully')->send();
+
+                $this->calculateGrandTotal();
+
+        }
+        // This runs automatically whenever any value in $selectedFoodRows changes
+        public function updatedSelectedFoodRows($value, $key)
+        {
+            // The $key looks like "0.quantity" = (index.property)
+            // We extract the index to update the correct row
+            $parts = explode('.', $key);
+            $index = $parts[0];
+
+            if (isset($parts[1]) && $parts[1] === 'quantity') {
+                $qty = (float) ($this->selectedFoodRows[$index]['quantity'] ?? 0);
+                $cost = (float) ($this->selectedFoodRows[$index]['rate'] ?? 0);
+
+                // Update the Sub-total for this row
+                $this->selectedFoodRows[$index]['sub_total'] = $qty * $cost;
+            }
+            $this->calculateFoodGrandTotal();
+        }
+    public function saveEventAsDraftAction()
+    {
+        $validated = $this->validate();
         $this->status = 'DRAFT';
-         $this->dialog()
+        $this->dialog()
         ->question('Save Event?', 'Are you sure to save this event as draft?')
         ->confirm(
             'Confirm',
@@ -228,6 +340,7 @@ new class extends Component
     }
 
     public function saveEventAsFinalAction(){
+        $validated = $this->validate();
         $this->status = 'FINAL';
         $this->dialog()
         ->question('Save Event?', 'Are you sure to save this event as final ?')
@@ -285,82 +398,7 @@ new class extends Component
 
     }
 
-    // Food HOOKS
-        public function updatedSelectedFood($ids)
-        {
-
-            // 1. Get IDs already present in the table
-            $existingIds = array_column($this->selectedFoodRows, 'id');
-
-            // 2. Identify the IDs that are not in the table yet
-            $newIds = array_diff($ids, $existingIds);
-
-            // 3. Identify IDs that were unchecked (to remove them from table)
-            $removedIds = array_diff($existingIds, $ids);
-
-            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
-            if (!empty($removedIds)) {
-                $this->selectedFoodRows = array_values(array_filter($this->selectedFoodRows, function($row) use ($removedIds) {
-                    return !in_array($row['id'], $removedIds);
-                }));
-            }
-
-            // Handle Additions: Only query the database for the NEW IDs
-            if (!empty($newIds)) {
-                $items = BranchRecipe::whereIn('id', $newIds)->get();
-
-                foreach ($items as $item) {
-                    $this->selectedFoodRows[] = [
-                        'id'                    => $item->menu_id,
-                        'menu_image'            => $item->recipe?->menu_image,
-                        'menu_name'             => $item->recipe->menu_name ?? '',
-                        'category'              => $item->recipe->category->category_name ?? '',
-                        'price_id'              => $item->rate?->id ?? null,
-                        'rate'                  => $item->recipe->rate?->amount ?? 0,
-                        'quantity'              => 1,
-                        'sub_total'             => $item->recipe->rate?->amount ?? 0 * 1,
-                        'note'                  => '',
-                    ];
-                }
-            }
-            $this->calculateFoodGrandTotal();
-
-        }
-        public function calculateFoodGrandTotal()
-        {
-            $this->grand_totalFood = collect($this->selectedFoodRows)->sum('sub_total');
-        }
-        // Remove from selected service
-        public function removeFood($index)
-        {
-            unset($this->selectedFoodRows[$index]);
-            // Reset array keys to prevent index gaps
-            $this->selectedFoodRows = array_values($this->selectedFoodRows);
-
-            // Sync back to your original selection ID array if necessary
-                $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
-                $this->toast()->success('Success', 'Removed Successfully')->send();
-
-                $this->calculateGrandTotal();
-
-        }
-        // This runs automatically whenever any value in $selectedFoodRows changes
-        public function updatedSelectedFoodRows($value, $key)
-        {
-            // The $key looks like "0.quantity" = (index.property)
-            // We extract the index to update the correct row
-            $parts = explode('.', $key);
-            $index = $parts[0];
-
-            if (isset($parts[1]) && $parts[1] === 'quantity') {
-                $qty = (float) ($this->selectedFoodRows[$index]['quantity'] ?? 0);
-                $cost = (float) ($this->selectedFoodRows[$index]['rate'] ?? 0);
-
-                // Update the Sub-total for this row
-                $this->selectedFoodRows[$index]['sub_total'] = $qty * $cost;
-            }
-            $this->calculateFoodGrandTotal();
-        }
+    
 
    public function with(): array
     {
@@ -574,7 +612,7 @@ new class extends Component
                                     @endinteract
                             
                                 </x-ts-table>
-                                @error('selectedVenueRows')
+                                @error('selectedVenueRows.*')
                                     <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
                                 @enderror
                             </x-ts-card>

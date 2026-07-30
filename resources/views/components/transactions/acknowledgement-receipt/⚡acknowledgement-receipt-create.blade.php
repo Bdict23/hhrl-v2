@@ -242,7 +242,7 @@ new class extends Component
                         <x-ts-select.styled searchable
                                             :request="route('api.get.branch-customers', ['branch_id' => auth()->user()->branch_id])"
                                             label="RECEIVED FROM (SOURCE)"
-                                            select="label:full_name|value:id|description:customer_address"
+                                            select="label:name|value:id|description:description"
                                             placeholder="Select source (customer)"
                                             wire:model.live="customerId"
                                             required>

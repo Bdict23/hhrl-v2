@@ -67,8 +67,8 @@ class BanquetEventService
                     'qty'           => $item['quantity'],
                     'price_id'      => $item['price_id'],
                     'total_amount'  => $data['venue_total_amount'],
-                    'start_date'    => $data['arrival_time'],
-                    'start_time'    => $data['start_date'],
+                    'start_date'    => $data['start_date'],
+                    'start_time'    => $data['arrival_time'],
                     'end_date'      => $data['end_date'],
                     'end_time'      => $data['departure_time'],
                 ];
@@ -88,7 +88,7 @@ class BanquetEventService
                     'menu_id'       => $item['id'],
                     'qty'           => $item['quantity'],
                     'price_id'      => $item['price_id'],
-                    'note'          => $item['price_id'],
+                    'note'          => $item['note'],
                     'total_amount'  => $data['menu_total_amount'],
                 ];
             }
