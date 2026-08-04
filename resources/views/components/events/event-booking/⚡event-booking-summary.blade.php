@@ -530,7 +530,7 @@ new class extends Component
         </x-ts-slide>
     </x-ts-tab>
     <x-ts-dial lg>
-            <x-ts-dial.items icon="plus" label="New Booking" href="{{ route('withdrawal.create')}}" navigate />
+            <x-ts-dial.items icon="plus" label="New Booking" href="{{ route('event-booking-create')}}" navigate />
             <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
     </x-ts-dial>
     <x-ts-back-to-top lg/>
