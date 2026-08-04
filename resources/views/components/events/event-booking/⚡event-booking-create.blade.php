@@ -5,6 +5,7 @@ use App\Models\DataManagement\Item;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 use App\Models\Business\Venue;
+use App\Models\Business\Customer;
 use App\Models\Business\Service;
 use App\Models\Business\BranchRecipe;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,7 +45,17 @@ new class extends Component
             $note,
             $status;
 
-
+        //customer varialble
+            public $customerName,
+            $customerMiddleName,
+            $customerLastName,
+            $customerSuffix,
+            $gender,
+            $birthDate,
+            $customerContact, 
+            $customerEmail, 
+            $customerAddress,
+            $customerFormModal = false;
     // venue variables
         public  $selectedVenue = [],
             $selectedVenueRows = [],
@@ -395,6 +406,59 @@ new class extends Component
 
     }
 
+    public function saveCustomerProfile()
+    {
+        $validatedData = $this->validate([
+            'customerName' => 'required|string|max:255',
+            'customerMiddleName' => 'nullable|string|max:255',
+            'customerLastName' => 'required|string|max:255',
+            'customerSuffix' => 'nullable|string|max:10',
+            'birthDate' => 'nullable|date',
+            'gender' => 'nullable|in:FEMALE,MALE,NEUTRAL',
+            'customerContact' => 'required|string|max:20',
+            'customerEmail' => 'nullable|email|max:255',
+            'customerAddress' => 'nullable|string|max:500',
+        ]);
+
+        // Create the customer
+        $customer = Customer::create([
+            'branch_id' => auth()->user()->branch_id,
+            'customer_fname' => $this->customerName,
+            'customer_mname' => $this->customerMiddleName,
+            'customer_lname' => $this->customerLastName,
+            'suffix' => $this->customerSuffix,
+            'gender' => $this->gender,
+            'birthday' => $this->birthDate,
+            'contact_no_1' => $this->customerContact,
+            'email' => $this->customerEmail,
+            'customer_address' => $this->customerAddress,
+        ]);
+
+        // Set the newly created customer as the selected customer
+        $this->customer = $customer->id;
+        $this->customerFormModal = false;
+        $this->toast()->success('Success', 'Customer profile created successfully!')->send();
+        $this->clearCustomerForm();
+
+        // Close the modal
+
+    }
+
+    public function clearCustomerForm()
+    {
+        $this->reset([
+            'customerName',
+            'customerMiddleName',
+            'customerLastName',
+            'customerSuffix',
+            'birthDate',
+            'gender',
+            'customerContact',
+            'customerEmail',
+            'customerAddress',
+        ]);
+    }
+
     
 
    public function with(): array
@@ -524,7 +588,7 @@ new class extends Component
                                                 wire:model="customer">
                                                 <x-slot:after>
                                                     <div class="px-2 mb-2 flex justify-center items-center">
-                                                        <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search }); $tsui.open.modal('create-customer-modal')">
+                                                        <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search });" wire:click="$toggle('customerFormModal')" >
                                                             <span x-html="`Register new customer <b>${search}</b>`"></span>
                                                         </x-ts-button>
                                                     </div>
@@ -905,7 +969,6 @@ new class extends Component
             </x-slot:footer>
         </x-ts-modal>
 
-
         {{-- ADD FOOD MODAL --}}
         <x-ts-modal id="modal-add-food" size="5xl">
             <x-ts-card class="p-4 max-h-200 overflow-y-auto">
@@ -981,10 +1044,8 @@ new class extends Component
             </x-slot:footer>
         </x-ts-modal>
 
-
-
         {{-- customer modal --}}
-        <x-ts-modal id="create-customer-modal" title="Start Your Journey: Create a New Profile" size="4xl" center>
+        <x-ts-modal id="create-customer-modal" title="Start Your Journey: Create a New Profile" size="4xl" center persistent wire="customerFormModal">
             <!-- Modal Header Icon / Subtitle -->
             <div class="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
@@ -1012,12 +1073,12 @@ new class extends Component
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <x-ts-input 
                                     label="First Name *" 
-                                    wire:model="firstName" 
+                                    wire:model="customerName" 
                                     placeholder="e.g. Jane" 
                                 />
                                 <x-ts-input 
                                     label="Last Name *" 
-                                    wire:model="lastName" 
+                                    wire:model="customerLastName" 
                                     placeholder="e.g. Doe" 
                                 />
                             </div>
@@ -1026,12 +1087,12 @@ new class extends Component
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <x-ts-input 
                                     label="Middle Initial" 
-                                    wire:model="middleName" 
+                                    wire:model="customerMiddleName" 
                                     placeholder="Optional" 
                                 />
                                 <x-ts-input 
                                     label="Suffix" 
-                                    wire:model="suffix" 
+                                    wire:model="customerSuffix" 
                                     placeholder="Jr., Sr., III" 
                                 />
                             </div>
@@ -1045,13 +1106,13 @@ new class extends Component
                         <x-ts-select.styled 
                             label="Gender Identity" 
                             wire:model="gender" 
-                            :options="['Female', 'Male', 'Non-Binary', 'Prefer not to say']" 
+                            :options="['FEMALE', 'MALE', 'NEUTRAL']" 
                             placeholder="Select gender"
                         />
 
                         <x-ts-date 
                             label="Date of Birth" 
-                            wire:model="dob" 
+                            wire:model="birthDate" 
                             placeholder="mm/dd/yyyy"
                         />
                     </x-ts-card>
@@ -1078,7 +1139,7 @@ new class extends Component
                             <!-- Phone Number -->
                             <x-ts-input 
                                 label="Preferred Phone Number *" 
-                                wire:model="phone" 
+                                wire:model="customerContact" 
                                 icon="phone" 
                                 placeholder="(555) 000-0000" 
                                 x-mask="(999) 999-9999"
@@ -1087,7 +1148,7 @@ new class extends Component
                             <!-- Address -->
                             <x-ts-textarea 
                                 label="Mailing Address" 
-                                wire:model="address" 
+                                wire:model="customerAddress" 
                                 placeholder="Enter full street address, city, state, zip" 
                                 rows="3"
                             />
@@ -1110,7 +1171,7 @@ new class extends Component
                         Cancel
                     </x-ts-button>
                     
-                    <x-ts-button color="primary" class="w-full sm:w-auto" wire:click="save">
+                    <x-ts-button color="primary" class="w-full sm:w-auto" wire:click="saveCustomerProfile" loading="saveCustomerProfile">
                         <x-ts-icon name="check-circle" class="mr-1 h-4 w-4" />
                         Create Customer Profile
                     </x-ts-button>
