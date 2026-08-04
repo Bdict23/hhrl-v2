@@ -1,13 +1,925 @@
 <?php
 
 use Livewire\Component;
+use App\Models\DataManagement\Item;
+use Livewire\WithPagination;
+use TallStackUi\Traits\Interactions;
+use App\Models\Business\Venue;
+use App\Models\Business\Service;
+use App\Models\Business\BranchRecipe;
+use Illuminate\Database\Eloquent\Builder;
+use App\Services\Event\BanquetEventService;
+use Carbon\Carbon;
+use App\Models\BanquetEvent\Event;
+
+
+
 
 new class extends Component
 {
-    //
+    use WithPagination;
+    use Interactions;
+
+    
+    public ?int $quantity = 5;
+    public ?string $foodType = 'Banquet';
+    public $foodCategoryID = null;
+
+    public ?string $search = null;
+    public array $sort = [
+            'column' => 'bal_qty',
+            'direction' => 'desc',
+        ];
+    
+    public $grantTotal, 
+            $eventName, 
+            $guestCount,
+            $customer,
+            $address,
+            $checkInDate,
+            $checkOutDate,
+            $arrivalTime,
+            $departureTime,
+            $reviewedBy,
+            $approvedBy,
+            $note,
+            $status,
+            $eventId,
+            $reference,
+            $event_id,
+            $event_status;
+
+
+    // venue variables
+        public  $selectedVenue = [],
+            $selectedVenueRows = [],
+            $grand_totalVenue = 0.00;
+    // service variables
+        public  $selectedService = [],
+            $selectedServiceRows = [],
+            $grand_totalService = 0.00;
+    // food variables
+        public  $selectedFood = [],
+            $selectedFoodRows = [],
+            $grand_totalFood = 0.00;
+
+    // VALIDATION
+        protected $rules = [
+            'eventName' => 'required',
+            'address' => 'required',
+            'guestCount' => 'required',
+            'customer' => 'required|exists:customers,id',
+            'note' => 'nullable|string',
+            'checkInDate' => 'required|date',
+            'checkOutDate' => 'required|date|after_or_equal:checkInDate',
+            'approvedBy' => 'required|exists:employees,id',
+            'reviewedBy' => 'required|exists:employees,id',
+            'selectedVenueRows.*.quantity' => 'nullable|numeric|min:1',
+            'selectedServiceRows.*.quantity' => 'nullable|numeric|min:1',
+            'selectedFoodRows.*.quantity' => 'nullable|numeric|min:1',
+
+        ];
+    protected $messages=[
+            'selectedVenueRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedServiceRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedFoodRows.*.quantity.min' => 'Quantity must be greater than 0.',
+            'selectedVenueRows.*.quantity.required' => 'Qty is required.',
+            'selectedServiceRows.*.quantity.required' => 'Qty is required.',
+            'selectedFoodRows.*.quantity.required' => 'Qty is required.',
+            'eventName.required' => 'Event name is required.',
+            'address.required' => 'Address is required.',
+            'guestCount.required' => 'Guest count is required.',
+            'customer.required' => 'Customer is required.',
+            'approvedBy.required' => 'Approver is required.',
+            'reviewedBy.required' => 'Reviewer is required.',
+            'reviewedBy.exists' => 'Select a valid reviewer on the list.',
+            'approvedBy.exists' => 'Select a valid reviewer on the list.',
+            'checkOutDate.after_or_equal' => 'Invalid end date.',
+        ];
+    
+    // VENUE HOOKS
+        public function updatedSelectedVenue($ids)
+        {
+
+            // 1. Get IDs already present in the table
+            $existingIds = array_column($this->selectedVenueRows, 'id');
+
+            // 2. Identify the IDs that are not in the table yet
+            $newIds = array_diff($ids, $existingIds);
+
+            // 3. Identify IDs that were unchecked (to remove them from table)
+            $removedIds = array_diff($existingIds, $ids);
+
+            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
+            if (!empty($removedIds)) {
+                $this->selectedVenueRows = array_values(array_filter($this->selectedVenueRows, function($row) use ($removedIds) {
+                    return !in_array($row['id'], $removedIds);
+                }));
+            }
+
+            // Handle Additions: Only query the database for the NEW IDs
+            if (!empty($newIds)) {
+                $items = Venue::whereIn('id', $newIds)
+                    ->get();
+
+                foreach ($items as $item) {
+                    $this->selectedVenueRows[] = [
+                        'id'                => $item->id,
+                        'venue_code'        => $item->venue_code,
+                        'venue_name'        => $item->venue_name,
+                        'description'       => $item->description ?? 'N/A',
+                        'capacity'          => (float) ($item->capacity ?? 0),
+                        'price_id'          => $item->rate?->id ?? null,
+                        'rate'              => $item->rate?->amount ?? 0,
+                        'sub_total'         => $item->rate?->amount ?? 0 * 1,
+                        'quantity'          => 1,
+                    ];
+                }
+            }
+            $this->calculateGrandTotal();
+
+        }
+        public function calculateGrandTotal()
+        {
+            $this->grand_totalVenue = collect($this->selectedVenueRows)->sum('sub_total');
+
+        }
+        // Remove from selected venue
+        public function removeVenue($index)
+        {
+            unset($this->selectedVenueRows[$index]);
+            // Reset array keys to prevent index gaps
+            $this->selectedVenueRows = array_values($this->selectedVenueRows);
+
+            // Sync back to your original selection ID array if necessary
+                $this->selectedVenue = collect($this->selectedVenueRows)->pluck('id')->toArray();
+                $this->toast()->success('Success', 'Removed Successfully')->send();
+
+                $this->calculateGrandTotal();
+
+        }
+        // This runs automatically whenever any value in $selectedVenueRows changes
+        public function updatedSelectedVenueRows($value, $key)
+        {
+            // The $key looks like "0.quantity" = (index.property)
+            // We extract the index to update the correct row
+            $parts = explode('.', $key);
+            $index = $parts[0];
+
+            if (isset($parts[1]) && $parts[1] === 'quantity') {
+                $qty = (float) ($this->selectedVenueRows[$index]['quantity'] ?? 0);
+                $cost = (float) ($this->selectedVenueRows[$index]['rate'] ?? 0);
+
+                // Update the Sub-total for this row
+                $this->selectedVenueRows[$index]['sub_total'] = $qty * $cost;
+            }
+            $this->calculateGrandTotal();
+        }
+
+    // SERVICE HOOKS
+        public function updatedSelectedService($ids)
+        {
+
+            // 1. Get IDs already present in the table
+            $existingIds = array_column($this->selectedServiceRows, 'id');
+
+            // 2. Identify the IDs that are not in the table yet
+            $newIds = array_diff($ids, $existingIds);
+
+            // 3. Identify IDs that were unchecked (to remove them from table)
+            $removedIds = array_diff($existingIds, $ids);
+
+            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
+            if (!empty($removedIds)) {
+                $this->selectedServiceRows = array_values(array_filter($this->selectedServiceRows, function($row) use ($removedIds) {
+                    return !in_array($row['id'], $removedIds);
+                }));
+            }
+
+            // Handle Additions: Only query the database for the NEW IDs
+            if (!empty($newIds)) {
+                $items = Service::whereIn('id', $newIds)
+                    ->get();
+
+                foreach ($items as $item) {
+                    $this->selectedServiceRows[] = [
+                        'id'                    => $item->id,
+                        'service_code'          => $item->service_code,
+                        'service_name'          => $item->service_name,
+                        'service_description'   => $item->service_description ?? '',
+                        'category'              => $item->category->category_name ?? '',
+                        'price_id'              => $item->rate?->id ?? null,
+                        'rate'                  => $item->rate?->amount ?? 0,
+                        'sub_total'             => $item->rate?->amount ?? 0 * 1,
+                        'quantity'               => 1,
+                    ];
+                }
+            }
+            $this->calculateServiceGrandTotal();
+
+        }
+        public function calculateServiceGrandTotal()
+        {
+            $this->grand_totalService = collect($this->selectedServiceRows)->sum('sub_total');
+        }
+        // Remove from selected service
+        public function removeService($index)
+        {
+            unset($this->selectedServiceRows[$index]);
+            // Reset array keys to prevent index gaps
+            $this->selectedServiceRows = array_values($this->selectedServiceRows);
+
+            // Sync back to your original selection ID array if necessary
+                $this->selectedService = collect($this->selectedServiceRows)->pluck('id')->toArray();
+                $this->toast()->success('Success', 'Removed Successfully')->send();
+
+                $this->calculateServiceGrandTotal();
+
+        }
+        // This runs automatically whenever any value in $selectedServiceRows changes
+        public function updatedSelectedServiceRows($value, $key)
+        {
+            // The $key looks like "0.quantity" = (index.property)
+            // We extract the index to update the correct row
+            $parts = explode('.', $key);
+            $index = $parts[0];
+
+            if (isset($parts[1]) && $parts[1] === 'quantity') {
+                $qty = (float) ($this->selectedServiceRows[$index]['quantity'] ?? 0);
+                $cost = (float) ($this->selectedServiceRows[$index]['rate'] ?? 0);
+
+                // Update the Sub-total for this row
+                $this->selectedServiceRows[$index]['sub_total'] = $qty * $cost;
+            }
+            $this->calculateServiceGrandTotal();
+        }
+
+    // MENU HOOKS
+        public function updatedSelectedFood($ids)
+        {
+
+            // 1. Get IDs already present in the table
+            $existingIds = array_column($this->selectedFoodRows, 'id');
+
+            // 2. Identify the IDs that are not in the table yet
+            $newIds = array_diff($ids, $existingIds);
+
+            // 3. Identify IDs that were unchecked (to remove them from table)
+            $removedIds = array_diff($existingIds, $ids);
+
+            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
+            if (!empty($removedIds)) {
+                $this->selectedFoodRows = array_values(array_filter($this->selectedFoodRows, function($row) use ($removedIds) {
+                    return !in_array($row['id'], $removedIds);
+                }));
+            }
+
+            // Handle Additions: Only query the database for the NEW IDs
+            if (!empty($newIds)) {
+                $items = BranchRecipe::whereIn('id', $newIds)->get();
+
+                foreach ($items as $item) {
+                    $this->selectedFoodRows[] = [
+                        'id'                    => $item->menu_id,
+                        'menu_image'            => $item->recipe?->menu_image,
+                        'menu_name'             => $item->recipe->menu_name ?? '',
+                        'category'              => $item->recipe->category->category_name ?? '',
+                        'price_id'              => $item->recipe->rate?->id ?? null,
+                        'rate'                  => $item->recipe->rate?->amount ?? 0,
+                        'quantity'              => 1,
+                        'sub_total'             => $item->recipe->rate?->amount ?? 0 * 1,
+                        'note'                  => '',
+                    ];
+                }
+            }
+            $this->calculateFoodGrandTotal();
+
+        }
+        public function calculateFoodGrandTotal()
+        {
+            $this->grand_totalFood = collect($this->selectedFoodRows)->sum('sub_total');
+        }
+        // Remove from selected service
+        public function removeFood($index)
+        {
+            unset($this->selectedFoodRows[$index]);
+            // Reset array keys to prevent index gaps
+            $this->selectedFoodRows = array_values($this->selectedFoodRows);
+
+            // Sync back to your original selection ID array if necessary
+                $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
+                $this->toast()->success('Success', 'Removed Successfully')->send();
+
+                $this->calculateGrandTotal();
+
+        }
+        // This runs automatically whenever any value in $selectedFoodRows changes
+        public function updatedSelectedFoodRows($value, $key)
+        {
+            // The $key looks like "0.quantity" = (index.property)
+            // We extract the index to update the correct row
+            $parts = explode('.', $key);
+            $index = $parts[0];
+
+            if (isset($parts[1]) && $parts[1] === 'quantity') {
+                $qty = (float) ($this->selectedFoodRows[$index]['quantity'] ?? 0);
+                $cost = (float) ($this->selectedFoodRows[$index]['rate'] ?? 0);
+
+                // Update the Sub-total for this row
+                $this->selectedFoodRows[$index]['sub_total'] = $qty * $cost;
+            }
+            $this->calculateFoodGrandTotal();
+        }
+    public function updateEventAsDraftAction()
+    {
+        $validated = $this->validate();
+        $this->status = 'DRAFT';
+        $this->dialog()
+        ->question('Update Event?', 'Are you sure to update this event as draft?')
+        ->confirm(
+            'Confirm',
+            'updateEvent', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function updateEventAsFinalAction(){
+        $validated = $this->validate();
+        $this->status = 'FINAL';
+        $this->dialog()
+        ->question('Update Event?', 'Are you sure to update this event as final ?')
+        ->confirm(
+            'Confirm',
+            'updateEvent', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function mount($id)
+    {
+        $this->event_id = $id;
+        $this->fetchData();
+    }
+    public function fetchData()
+    {
+        $event = Event::findOrFail($this->event_id);
+        if($event)
+        {
+            $this->reference = $event->reference;
+            $this->eventName = $event->event_name;
+            $this->guestCount = $event->guest_count;
+            $this->customer = $event->customer_id;
+            $this->address = $event->event_address;
+            $this->checkInDate = $event->start_date;
+            $this->checkOutDate = $event->end_date;
+            $this->arrivalTime = Carbon::parse($event->arrival_time)->format('h:i A');
+            $this->departureTime = Carbon::parse($event->departure_time)->format('h:i A');
+            $this->reviewedBy = $event->reviewer_id;
+            $this->approvedBy = $event->approver_id;
+            $this->note = $event->notes;
+            $this->grantTotal = $event->total_amount;
+            $this->event_status = $event->status;
+            if($event->venues)
+            {
+                foreach ($event->venues as $venue) {
+                   $this->selectedVenueRows[] = [
+                        'id'                => $venue->event_id,
+                        'venue_code'        => $venue->venue->venue_code,
+                        'venue_name'        => $venue->venue->venue_name,
+                        'description'       => $venue->venue->description ?? 'N/A',
+                        'capacity'          => (float) ($venue->venue->capacity ?? 0),
+                        'price_id'          => $venue->price_id ?? null,
+                        'rate'              => $venue->rate?->amount ?? 0,
+                        'sub_total'         => $venue->qty * $venue->rate?->amount ?? 0,
+                        'quantity'          => $venue->qty,
+                    ];
+                }
+            }
+            if($event->services){
+                foreach ($event->services as $service) {
+                   $this->selectedServiceRows[] = [
+                        'id'                    => $service->service_id,
+                        'service_code'          => $service->service->service_code,
+                        'service_name'          => $service->service->service_name,
+                        'service_description'   => $service->service->service_description ?? '',
+                        'category'              => $service->service->category->category_name ?? '',
+                        'price_id'              => $service->price_id ?? null,
+                        'rate'                  => $service->rate?->amount ?? 0,
+                        'sub_total'             => $service->qty * $service->rate?->amount ?? 0,
+                        'quantity'              => $service->qty,
+                    ];
+                }
+            }
+            if($event->menus){
+                foreach ($event->menus as $item) {
+                    $this->selectedFoodRows[] = [
+                        'id'                    => $item->menu_id,
+                        'menu_image'            => $item->recipe?->menu_image,
+                        'menu_name'             => $item->recipe->menu_name ?? '',
+                        'category'              => $item->recipe->category->category_name ?? '',
+                        'price_id'              => $item->recipe->rate?->id ?? null,
+                        'rate'                  => $item->rate?->amount ?? 0,
+                        'quantity'              => $item->qty,
+                        'sub_total'             => $item->qty * $item->rate?->amount ?? 0,
+                        'note'                  => $item->note ?? '',
+                    ];
+                }
+            }
+
+            $this->selectedVenue = collect($this->selectedVenueRows)->pluck('id')->toArray();
+            $this->selectedService = collect($this->selectedServiceRows)->pluck('id')->toArray();
+            $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
+
+            $this->calculateFoodGrandTotal();
+            $this->calculateServiceGrandTotal();
+            $this->calculateGrandTotal();
+        }
+        
+    }
+    public function updateEvent(BanquetEventService $service)
+    {
+        try {
+
+            // We structure it to match the $data array expected by the Service
+            $data = [
+                'event_id' => $this->event_id,
+                'branch_id' => Auth::user()->branch_id,
+                'event_name' => $this->eventName,
+                'guest_count' => $this->guestCount,
+                'customer_id' => $this->customer,
+                'event_address' => $this->address,
+                'start_date' => $this->checkInDate,
+                'end_date' => $this->checkOutDate,
+                'arrival_time' => Carbon::createFromFormat('h:i A', $this->arrivalTime )->format('H:i:s'),
+                'departure_time' => Carbon::createFromFormat('h:i A', $this->departureTime )->format('H:i:s'),
+                'reviewer_id' => $this->reviewedBy,
+                'approver_id' => $this->approvedBy,
+                'status' => $this->status,
+                'note' => $this->note,
+                'prepared_by'    => Auth::user()->emp_id,
+                'venues' => $this->selectedVenueRows, 
+                'services' => $this->selectedServiceRows, 
+                'menu' => $this->selectedFoodRows, 
+                'venue_total_amount' => $this->grand_totalVenue,
+                'service_total_amount' => $this->grand_totalService,
+                'menu_total_amount' => $this->grand_totalFood,
+            ];
+
+            
+            
+            // 4. Call the Service
+            $event = $service->updateEvent($data);
+
+            // 5. Success Feedback
+            $this->toast()->success('Success', "Event updated successfully!")->send();
+            $this->reset();
+            return redirect()->route('event-booking-summary');
+
+        } catch (\Exception $e) {
+            // Log the error if needed
+            \Log::error("Event Update Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while updating the event: ' . $e->getMessage())->send();
+        }
+
+    }
+
+    
+
+   public function with(): array
+    {
+        return [
+            'selectedVenueHeader' => [
+                ['index' => 'venue_code', 'label' => 'Code'],
+                ['index' => 'venue_name', 'label' => 'venue name'],
+                ['index' => 'capacity', 'label' => 'capacity' , 'sortable' => false],
+                ['index' => 'rate', 'label' => 'rate' , 'sortable' => false],
+                ['index' => 'quantity', 'label' => 'qty',  'sortable' => false],
+                ['index' => 'sub_total', 'label' => 'sub total',  'sortable' => false],
+            ],
+            'venueListHeader' => [
+                ['index' => 'venue_code', 'label' => 'Code'],
+                ['index' => 'venue_name', 'label' => 'venue name'],
+                ['index' => 'capacity', 'label' => 'capacity' , 'sortable' => false],
+                ['index' => 'rate', 'label' => 'rate' , 'sortable' => false],
+            ],
+            'venueRow' => Venue::query()
+                ->where('branch_id', auth()->user()->branch_id)
+                ->when($this->search, function (Builder $query) {
+                    return $query->where('venue_name', 'like', "%{$this->search}%");
+                })
+                ->where('status', 'active')
+                ->paginate($this->quantity)
+                ->withQueryString(),
+
+            'selectedServiceHeader' => [
+                ['index' => 'service_code', 'label' => 'Code'],
+                ['index' => 'service_name', 'label' => 'service name'],
+                ['index' => 'category', 'label' => 'category' , 'sortable' => false],
+                ['index' => 'rate', 'label' => 'rate' , 'sortable' => false],
+                ['index' => 'quantity', 'label' => 'Qty' , 'sortable' => false],
+                ['index' => 'sub_total', 'label' => 'Sub-total',  'sortable' => false],
+            ],
+            'serviceListHeader' => [
+                ['index' => 'service_code', 'label' => 'code'],
+                ['index' => 'service_name', 'label' => 'service name'],
+                ['index' => 'category', 'label' => 'category'],
+                ['index' => 'rate', 'label' => 'rate'],
+            ],
+            'serviceRow' => Service::query()
+                ->where('branch_id', auth()->user()->branch_id)
+                ->when($this->search, function (Builder $query) {
+                    return $query->where('service_name', 'like', "%{$this->search}%");
+                })
+                ->where('status', 'ACTIVE')
+                ->paginate($this->quantity)
+                ->withQueryString(),
+
+                // FOOD
+                'selectedFoodHeader' => [
+                ['index' => 'menu_image', 'label' => 'image'],
+                ['index' => 'menu_name', 'label' => 'name'],
+                ['index' => 'category', 'label' => 'category' , 'sortable' => false],
+                ['index' => 'rate', 'label' => 'rate' , 'sortable' => false],
+                ['index' => 'quantity', 'label' => 'Qty' , 'sortable' => false],
+                ['index' => 'sub_total', 'label' => 'Sub-total',  'sortable' => false],
+            ],
+            'foodListHeader' => [
+                ['index' => 'menu_image', 'label' => 'image' , 'sortable' => false],
+                ['index' => 'menu_name', 'label' => 'name' , 'sortable' => false],
+                ['index' => 'category', 'label' => 'category'],
+                ['index' => 'rate', 'label' => 'rate'],
+                ['index' => 'type', 'label' => 'type'],
+            ],
+            'foodRow' => BranchRecipe::query()
+                ->whereHas('activeBranchMenu')
+                ->whereHas('recipe', function ($query) {
+                    // Filter by type
+                    $query->where('recipe_type', $this->foodType);
+
+                    // Filter by category (FIXED)
+                    $query->when($this->foodCategoryID, function ($q) {
+                        $q->where('category_id', $this->foodCategoryID);
+                    });
+
+                    // Add search query if user entered search text (FIXED)
+                    $query->when($this->search, function ($q) {
+                        $q->where(function ($subQuery) {
+                            $subQuery->where('menu_name', 'like', '%' . $this->search . '%')
+                                    ->orWhere('menu_code', 'like', '%' . $this->search . '%');
+                        });
+                    });
+                })
+                ->orderBy(...array_values($this->sort))
+                ->paginate($this->quantity)
+                ->withQueryString()
+        ];
+    }
 };
 ?>
 
 <div>
-    {{-- Nothing worth having comes easy. - Theodore Roosevelt --}}
+    <div class="lg:flex lg:justify-between grid mb-4">
+        <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
+            ['label' => 'Events','link' => route('event-booking-summary'), 'icon' => 'calendar' ],
+            ['label' => 'Event Booking - view', 'icon' => 'list-bullet'],
+            ]"/>
+            
+            <h2>({{ $reference }})</h2>
+    </div>
+    <x-ts-card class="w-full">
+        <div class="mb-6 pb-4 border-b border-gray-100">
+            <h2 class="text-xl font-bold tracking-tight uppercase">BOOK EVENT</h2>
+        </div>
+
+        <!-- Centering Wrapper -->
+        <div class="flex justify-center w-full">
+            <!-- Constrain width so it spreads out nicely instead of shrinking -->
+            <div class="w-full max-w-7xl">
+                <x-ts-step selected="1" circles helpers navigate-previous>
+                    <x-ts-step.items step="1" title="Details">
+                        <div class="mb-8 mt-5">
+                            <x-ts-card header="EVENT" light color="primary" class="mb-4">
+                                <div class="grid grid-cols-2 gap-8">
+                                    <x-ts-input label="Event Name *" class="col-span-2" wire:model="eventName" readonly/>
+                                    <x-ts-input label="Address *" wire:model="address" readonly/>
+
+                                    <div class="col-span-2 grid grid-cols-2 gap-6">
+                                        <div class="grid col-span-1 gap-2">
+                                            <x-ts-number step="5" label="Guest Count / Pax. *" wire:model="guestCount" readonly/>
+                                            <x-ts-select.styled 
+                                                searchable 
+                                                :request="route('api.active.event-booking-customers',['branch_id' => auth()->user()->branch_id])" 
+                                                label="Customer *" 
+                                                readonly
+                                                select="label:name|value:id"
+                                                :placeholders="[
+                                                    'default' => 'Select Customer',
+                                                    ]"
+                                                wire:model="customer">
+                                                <x-slot:after>
+                                                    <div class="px-2 mb-2 flex justify-center items-center">
+                                                        <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search }); $tsui.open.modal('create-customer-modal')">
+                                                            <span x-html="`Register new customer <b>${search}</b>`"></span>
+                                                        </x-ts-button>
+                                                    </div>
+                                                </x-slot:after>
+                                            </x-ts-select.styled>
+                                            <x-ts-textarea maxlength="100" count label="Note" resize palceholder="(optional)" wire:model="note" maxlength="100" count readonly/>
+                                        </div>
+                                        <div class="grid col-span-1 grid-cols-2 gap-6">
+                                            <div class="col-span-1 gap-2 grid">
+                                                <x-ts-date format="DD [of] MMMM [of] YYYY" label="Check-in Date *" wire:model="checkInDate" readonly/>
+                                                <x-ts-time label="Arrival Time *" wire:model="arrivalTime" readonly/>
+                                                <x-ts-select.styled
+                                                    :request="route('api.active.event-booking-reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                                                    select="label:full_name|value:id|description:position"
+                                                    wire:model="reviewedBy"
+                                                    label="Reviewed By *"
+                                                    readonly
+                                                    :placeholders="[
+                                                    'default' => 'Select',
+                                                    'empty'   => 'No reviewers found',
+                                                    ]" />
+                                            </div>
+                                            <div class="col-span-1 gap-2 grid">
+                                                <x-ts-date format="DD [of] MMMM [of] YYYY" label="Check-out Date *" wire:model="checkOutDate" readonly/>
+                                                <x-ts-time label="Departure Time *" wire:model="departureTime" readonly/>
+                                                <x-ts-select.styled
+                                                    :request="route('api.active.event-booking-approvers', ['branch_id' => auth()->user()->branch_id])"
+                                                    wire:model="approvedBy"
+                                                    select="label:full_name|value:id|description:position"
+                                                    label="Approved By *"
+                                                    readonly
+                                                    :placeholders="[
+                                                        'default' => 'Select    ',
+                                                        'empty'   => 'No aapprovers found',
+                                                    ]"  />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </x-ts-card>
+                        </div>
+                    </x-ts-step.items>
+                    <x-ts-step.items step="2" title="Venue" >
+                        <div class="mb-8 mt-5">
+                            <x-ts-card header="VENUE" light color="primary" class="mb-4">
+                                <x-ts-table :headers="$selectedVenueHeader" :rows="$selectedVenueRows" striped expandable>
+                                    <x-slot:footer>
+
+                                        <div class="flex justify-between mt-4">
+                                            <span class="text-xl font-bold">
+                                                ₱ {{ number_format($grand_totalVenue,2) }}
+                                            </span>
+                                        </div>
+                                    </x-slot:footer>
+                                    @interact('column_rate', $row)
+                                        ₱ {{ number_format($row['rate'], 2) }}
+                                    @endinteract
+                                    @interact('column_quantity', $row)
+                                    <x-ts-number sm
+                                        wire:model.live.debounce.500ms="selectedVenueRows.{{ $loop->index }}.quantity" readonly/>
+                                    @endinteract
+                                    @interact('column_sub_total', $row)
+                                    ₱ {{ number_format($row['sub_total'], 2) }}
+                                    @endinteract
+                            
+                                    @interact('sub_table', $row)
+                                        <x-ts-table :headers="[
+                                            ['index' => 'description', 'label' => 'description'],
+                                        ]"
+                                        :rows="[[
+                                            'description'       => $row['description'],
+                                        ]]" />
+                                    @endinteract
+                            
+                                </x-ts-table>
+                                @error('selectedVenueRows.*')
+                                    <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                                @enderror
+                            </x-ts-card>
+                        </div>
+                    </x-ts-step.items>
+                    <x-ts-step.items step="3" title="Services" >
+                        <div class="mb-8 mt-5">
+                            <x-ts-card header="SERVCES" light color="primary" class="mb-4">
+                                <x-ts-table :headers="$selectedServiceHeader" :rows="$selectedServiceRows" striped expandable>
+                                    <x-slot:footer>
+                                        
+                                    <div class="flex justify-between mt-4">
+                                        <span class="text-xl font-bold">
+                                            ₱ {{ number_format($grand_totalService,2) }}
+                                        </span>
+                                        </div>
+                                    </x-slot:footer>
+                                    @interact('column_rate', $row)
+                                        ₱ {{ number_format($row['rate'], 2) }}
+                                    @endinteract
+                                     @interact('column_category', $row)
+                                         {{ $row['category']}}
+                                    @endinteract
+                                    @interact('column_quantity', $row)
+                                    <x-ts-number sm
+                                        wire:model.live.debounce.500ms="selectedServiceRows.{{ $loop->index }}.quantity" readonly/>
+                                    @endinteract
+                                    @interact('column_sub_total', $row)
+                                    ₱ {{ number_format($row['sub_total'], 2) }}
+                                    @endinteract
+                            
+                                    @interact('sub_table', $row)
+                                        <x-ts-table :headers="[
+                                            ['index' => 'description', 'label' => 'description'],
+                                        ]"
+                                        :rows="[[
+                                            'description'       => $row['service_description'],
+                                        ]]" />
+                                    @endinteract
+                            
+                                </x-ts-table>
+                                @error('selectedServiceRows')
+                                    <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                                @enderror
+                            </x-ts-card>
+                        </div>
+                    </x-ts-step.items>
+                    <x-ts-step.items step="4" title="Food" >
+                        <div class="mb-8 mt-5">
+                            <x-ts-card header="FOOD" light color="primary" class="mb-4">
+                                <x-ts-table :headers="$selectedFoodHeader" :rows="$selectedFoodRows" striped expandable>
+                                    <x-slot:footer>
+                                        <div class="flex justify-between mt-4">
+                                            <span class="text-xl font-bold">
+                                                ₱ {{ number_format($grand_totalFood,2) }}
+                                            </span>
+                                        </div>
+                                    </x-slot:footer>
+                                    @interact('column_menu_image', $row)
+                                        <x-ts-avatar image="{{ asset('storage/'.$row['menu_image']) }}" md text="AIR" square />
+                                    @endinteract
+                                    @interact('column_menu_name',$row)
+                                        {{ $row['menu_name'] }}
+                                    @endinteract 
+                                    @interact('column_category',$row)
+                                        {{ $row['category']}}
+                                    @endinteract
+                                    @interact('column_rate',$row)
+                                        ₱ {{ number_format($row['rate'], 2) }}
+                                    @endinteract
+                                    @interact('column_quantity', $row)
+                                    <x-ts-number sm wire:model.live.debounce.500ms="selectedFoodRows.{{ $loop->index }}.quantity" readonly/>
+                                    @endinteract
+                                    @interact('column_sub_total', $row)
+                                    ₱ {{ number_format($row['sub_total'], 2) }}
+                                    @endinteract
+                                    @interact('column_action', $row)
+                                        <x-ts-button
+                                                color="rose"
+                                                outline
+                                                wire:click="removeFood({{ $loop->index }})"
+                                                loading="removeFood({{ $loop->index }})">
+                            
+                                                <x-ts-icon name="trash"
+                                                    wire:loading.remove
+                                                    wire:target="removeFood({{ $loop->index }})"
+                                                    class="w-5 h-5" />
+                                            </x-ts-button>
+                                    @endinteract
+                                    @interact('sub_table', $row)
+                                        <x-ts-table :headers="[
+                                            ['index'       => 'description', 'label' => 'add note'],
+                                        ]"
+                                        :rows="[[
+                                            'description' => $row['note'],
+                                        ]]">
+                                            @interact('column_description', $row)
+                                                    <x-ts-textarea maxlength="100" count wire:model="selectedFoodRows.{{ $loop->index }}.note" resize placeholder="Add note here.."/>
+                                            @endinteract
+                                        </x-ts-table>
+                                    @endinteract
+                            
+                                </x-ts-table>
+                                @error('selectedFoodRows')
+                                    <x-ts-alert title="Error" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                                @enderror
+                            </x-ts-card>
+                        </div>
+                    </x-ts-step.items>
+                    <x-ts-step.items step="5" title="Summary" >
+                       <div class="mb-8 mt-5">
+                            <x-ts-card light color="primary" class="mb-4">
+                                <x-slot:header>
+                                    <span class="font-bold">SUMMARY</span>
+                                </x-slot:header>
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div class="col-span-2">
+                                        <x-ts-input label="Event Name *" class="col-span-2" wire:model="eventName" readonly/>
+                                    </div>
+                                    <div class="grid gap-4 grid-cols-2">
+                                        <div class="col-span-2">
+                                            <x-ts-input label="Guest count" wire:model="guestCount" readonly/>
+                                        </div>
+                                        <div class="col-span-2">
+                                            <x-ts-select.styled 
+                                                searchable 
+                                                :request="route('api.active.event-booking-customers',['branch_id' => auth()->user()->branch_id])" 
+                                                label="Customer *" 
+                                                select="label:name|value:id"
+                                                wire:model="customer" readonly>
+                                                <x-slot:after>
+                                                    <div class="px-2 mb-2 flex justify-center items-center">
+                                                        <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search }); $tsui.open.modal('create-customer-modal')">
+                                                            <span x-html="`Register new customer <b>${search}</b>`"></span>
+                                                        </x-ts-button>
+                                                    </div>
+                                                </x-slot:after>
+                                            </x-ts-select.styled>
+                                        </div>
+                                        <div class="col-span-2">
+                                            <x-ts-input label="Address" wire:model="address" readonly/>
+                                        </div>
+                                        <div class="w-full grid gap-2 p-3 col-span-2">                        
+                                            <div class="w-full  rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans ">
+                                                <!-- Card Header -->
+                                                <h3 class="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200/80">
+                                                    Summary
+                                                </h3>
+
+                                                <!-- Breakdown Rows -->
+                                                <div class="space-y-2 text-sm text-slate-600">
+                                                    <div class="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                                    <span>Menu Total:</span>
+                                                    <span class="font-medium text-slate-800">₱ {{ number_format($grand_totalFood,2)}}</span>
+                                                    </div>
+
+                                                    <div class="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                                    <span>Services &amp; Misc Total:</span>
+                                                    <span class="font-medium text-slate-800">₱ {{number_format($grand_totalService,2)}}</span>
+                                                    </div>
+
+                                                    <div class="flex justify-between items-center py-1 border-b border-slate-200/80">
+                                                    <span>Venue Total:</span>
+                                                    <span class="font-medium text-slate-800">₱ {{number_format($grand_totalVenue,2)}}</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Grand Total -->
+                                                <div class="flex justify-between items-center mt-4 pt-1">
+                                                    <span class="text-base font-extrabold tracking-wider text-slate-900 uppercase">
+                                                    Grand Total:
+                                                    </span>
+                                                    <span class="text-xl font-extrabold text-emerald-600">
+                                                        ₱ {{ number_format($grand_totalFood + $grand_totalService + $grand_totalVenue,2) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="grid gap-2 grid-cols-2">
+                                        <div class="grid gap-2">
+                                            <x-ts-date readonly format="DD [of] MMMM [of] YYYY" label="Check-in Date *" wire:model="checkInDate"/>
+                                            <x-ts-input label="Arrival Time *" wire:model="arrivalTime" readonly/>
+                                            <x-ts-select.styled
+                                                        :request="route('api.active.withdrawal-reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                                                        select="label:fullName|value:id|description:position"
+                                                        wire:model="reviewedBy"
+                                                        label="Reviewed By *"
+                                                        :placeholders="[
+                                                        'default' => 'No selected reviewer',
+                                                        'empty'   => 'No reviewers found',
+                                                        ]" readonly/>
+                                        </div>
+                                        <div class="grid gap-2">
+                                            <x-ts-date readonly format="DD [of] MMMM [of] YYYY" label="Check-out Date *" wire:model="checkOutDate"/>
+                                            <x-ts-input label="Departure Time *" wire:model="departureTime" readonly/>
+                                            <x-ts-select.styled
+                                                        :request="route('api.active.withdrawal-approvers', ['branch_id' => auth()->user()->branch_id])"
+                                                        wire:model="approvedBy"
+                                                        select="label:fullName|value:id|description:position"
+                                                        label="Approved By"
+                                                        :placeholders="[
+                                                            'default' => 'No selected approver    ',
+                                                            'empty'   => 'No aapprovers found',
+                                                        ]"  readonly/>
+                                        </div>
+                                       <div class="col-span-2">
+                                         <x-ts-textarea maxlength="100" count label="Note" resize palceholder="(optional)" readonly wire:model="note"/>
+                                       </div>
+                                       <div class="col-span-2 h-fit flex justify-end gap-2">
+                                            
+                                            @if($event_status == 'PENDING')
+                                                <x-ts-button text="Edit" :route="route('event-booking-edit', $event_id)"/>
+                                            @else
+                                                <x-ts-button text="Edit" disabled/>
+                                            @endif
+                                       </div>
+                                    </div>
+                                </div>
+                            </x-ts-card>
+                       </div>
+                    </x-ts-step.items>
+                </x-ts-step>
+            </div>
+        </div>
+
+    </x-ts-card>
 </div>

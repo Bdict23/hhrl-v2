@@ -5,11 +5,17 @@ use Livewire\WithPagination;
 use App\Models\Inventory\PurchaseOrder;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\BanquetEvent\Event;
+use TallStackUi\Traits\Interactions;
+use App\Services\Event\BanquetEventService;
+
+
 
 
 new class extends Component
 {
     use WithPagination;
+    use Interactions;
+
 
     public ?int $quantity = 10;
     public ?string $search = null;
@@ -17,6 +23,7 @@ new class extends Component
     public ?array $dates = null;
     public $activeEvents = [];
     public bool $viewSlide = false;
+    public $confirmedEventId = null;
 
     public $grand_total = 0,
             $eventName,
@@ -90,6 +97,59 @@ new class extends Component
             }
             
         }
+    }
+
+    public function confirmEventAction($eventId, $reference)
+    {
+        $this->confirmedEventId = $eventId;
+        $this->dialog()
+        ->question('Confirm Event?', "Are you sure to confirm '$reference' event ?")
+        ->confirm(
+            'Confirm',
+            'confirmEvent', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function confirmEvent(BanquetEventService $service)
+    {
+        try {
+        if ($this->confirmedEventId) {
+            $event = $service->confirmEvent($this->confirmedEventId);
+            $this->toast()->success('Success', "Event '{$event->reference}' has been confirmed successfully.")->send();
+            $this->confirmedEventId = null; // Reset the confirmed event ID after confirmation
+        }
+         } catch (\Exception $e) {
+             \Log::error("Event Update Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while confirming the event: ' . $e->getMessage())->send();
+         }
+    }
+
+    public function rollbackEventAction($eventId, $reference)
+    {
+        $this->confirmedEventId = $eventId;
+        $this->dialog()
+        ->question('Rollback Event?', "Are you sure to rollback '$reference' event ?")
+        ->confirm(
+            'Rollback',
+            'rollbackEvent', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+
+    public function rollbackEvent(BanquetEventService $service)
+    {
+    try {
+        if ($this->confirmedEventId) {
+            $event = $service->rollbackEvent($this->confirmedEventId);
+            $this->toast()->success('Success', "Event '{$event->reference}' has been rolled back successfully.")->send();
+            $this->confirmedEventId = null; // Reset the confirmed event ID after confirmation
+        }
+         } catch (\Exception $e) {
+             \Log::error("Event Rollback Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while rolling back the event: ' . $e->getMessage())->send();
+         }
     }
 
     
@@ -222,12 +282,16 @@ new class extends Component
                     
                     @interact('column_action', $row)
                     <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                        @if ($row->withdrawal_status == 'PREPARING')
-                            <a href="{{ route('withdrawal.edit', ['id' => $row->id]) }}">
+                        @if ($row->status == 'PENDING')
+                            <a href="{{ route('event-booking-edit', ['id' => $row->id]) }}">
                                 <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                             </a>
+                            <x-ts-dropdown.items text="Confirm" icon="check-badge" wire:click="confirmEventAction({{ $row->id }}, '{{ $row->reference }}')" />
                         @endif
-                        <a href="{{ route('withdrawal.view', ['id' => $row->id]) }}">
+                        @if( $row->status == 'CONFIRMED')
+                            <x-ts-dropdown.items text="Rollback" icon="arrow-path" wire:click="rollbackEventAction({{ $row->id }}, '{{ $row->reference }}')" />
+                        @endif
+                        <a href="{{ route('event-booking-view', ['id' => $row->id]) }}">
                             <x-ts-dropdown.items text="View" separator icon="eye" />
                         </a>
                         <a>
@@ -370,7 +434,10 @@ new class extends Component
                                 {{$row->venue?->venue_name}}
                             @endinteract
                             @interact('column_price_id', $row)
-                                ₱ {{number_format($row->price->amount, 2 )}}
+                                ₱ {{number_format($row->rate->amount ?? 0, 2 )}}
+                            @endinteract
+                            @interact('column_total_amount', $row)
+                                ₱ {{number_format($row->total_amount ?? 0, 2)}}
                             @endinteract
                         </x-ts-table>
                     </x-ts-tab.items>

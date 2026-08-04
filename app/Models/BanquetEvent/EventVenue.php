@@ -33,7 +33,7 @@ class EventVenue extends Model
         return $this->belongsTo(Venue::class, 'venue_id');
     }
 
-    public function price()
+    public function rate()
     {
         return $this->belongsTo(Price::class, 'price_id');
     }

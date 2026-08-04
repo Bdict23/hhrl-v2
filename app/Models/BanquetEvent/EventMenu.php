@@ -29,6 +29,10 @@ class EventMenu extends Model
     {
         return $this->belongsTo(Price::class, 'price_id');
     }
+    public function rate()
+    {
+        return $this->belongsTo(Price::class, 'price_id');
+    }
 
     public function discounts()
     {

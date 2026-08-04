@@ -71,16 +71,13 @@ new class extends Component
             'reviewedBy' => 'required|exists:employees,id',
             'selectedVenueRows.*.quantity' => 'nullable|numeric|min:1',
             'selectedServiceRows.*.quantity' => 'nullable|numeric|min:1',
-            'selectedFoodRows.*.quantity' => 'nullable|numeric|min:1',
 
         ];
     protected $messages=[
             'selectedVenueRows.*.quantity.min' => 'Quantity must be greater than 0.',
             'selectedServiceRows.*.quantity.min' => 'Quantity must be greater than 0.',
-            'selectedFoodRows.*.quantity.min' => 'Quantity must be greater than 0.',
             'selectedVenueRows.*.quantity.required' => 'Qty is required.',
             'selectedServiceRows.*.quantity.required' => 'Qty is required.',
-            'selectedFoodRows.*.quantity.required' => 'Qty is required.',
             'eventName.required' => 'Event name is required.',
             'address.required' => 'Address is required.',
             'guestCount.required' => 'Guest count is required.',
@@ -511,7 +508,7 @@ new class extends Component
                             <x-ts-card header="EVENT" light color="primary" class="mb-4">
                                 <div class="grid grid-cols-2 gap-8">
                                     <x-ts-input label="Event Name *" class="col-span-2" wire:model="eventName"/>
-                                    <x-ts-input label="Address" wire:model="address" />
+                                    <x-ts-input label="Address *" wire:model="address" />
 
                                     <div class="col-span-2 grid grid-cols-2 gap-6">
                                         <div class="grid col-span-1 gap-2">
@@ -521,6 +518,9 @@ new class extends Component
                                                 :request="route('api.active.event-booking-customers',['branch_id' => auth()->user()->branch_id])" 
                                                 label="Customer *" 
                                                 select="label:name|value:id"
+                                                :placeholders="[
+                                                    'default' => 'Select Customer',
+                                                    ]"
                                                 wire:model="customer">
                                                 <x-slot:after>
                                                     <div class="px-2 mb-2 flex justify-center items-center">
@@ -537,8 +537,8 @@ new class extends Component
                                                 <x-ts-date format="DD [of] MMMM [of] YYYY" label="Check-in Date *" wire:model="checkInDate"/>
                                                 <x-ts-time label="Arrival Time *" wire:model="arrivalTime"/>
                                                 <x-ts-select.styled
-                                                    :request="route('api.active.withdrawal-reviewers', ['branch_id' => auth()->user()->branch_id ])"
-                                                    select="label:full_name|value:id|description:customer_address"
+                                                    :request="route('api.active.event-booking-reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                                                    select="label:full_name|value:id|description:position"
                                                     wire:model="reviewedBy"
                                                     label="Reviewed By *"
                                                     :placeholders="[
@@ -550,10 +550,10 @@ new class extends Component
                                                 <x-ts-date format="DD [of] MMMM [of] YYYY" label="Check-out Date *" wire:model="checkOutDate"/>
                                                 <x-ts-time label="Departure Time *" wire:model="departureTime"/>
                                                 <x-ts-select.styled
-                                                    :request="route('api.active.withdrawal-approvers', ['branch_id' => auth()->user()->branch_id])"
+                                                    :request="route('api.active.event-booking-approvers', ['branch_id' => auth()->user()->branch_id])"
                                                     wire:model="approvedBy"
-                                                    select="label:fullName|value:id|description:position"
-                                                    label="Approved By"
+                                                    select="label:full_name|value:id|description:position"
+                                                    label="Approved By *"
                                                     :placeholders="[
                                                         'default' => 'Select    ',
                                                         'empty'   => 'No aapprovers found',
