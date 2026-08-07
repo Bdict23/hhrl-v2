@@ -114,3 +114,6 @@ Route::middleware('auth:sanctum')->get('/get-cash-advance-approvers', [EmployeeC
 Route::middleware('auth:sanctum')->get('/event-liquidation/active-event', [BanquetEventApiController::class, 'activeEvent'])->name('api.event-liquidation.active.event');
 Route::middleware('auth:sanctum')->get('/event-liquidation/active-reviewers', [EventLiquidationApiController::class, 'activeReviewers'])->name('api.liquidate-event.active.reviewers');
 Route::middleware('auth:sanctum')->get('/event-liquidation/active-approvers', [EventLiquidationApiController::class, 'activeApprovers'])->name('api.liquidate-event.active.approvers');
+
+// EVENT PROCUREMENT
+Route::middleware('auth:sanctum')->get('/event-procurement/active-event', [BanquetEventApiController::class, 'forProcumentEvent'])->name('api.event-procurement.active.event');

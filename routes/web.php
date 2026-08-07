@@ -10,6 +10,7 @@ use Livewire\Volt\Volt;
 
 
 
+
 Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
@@ -35,6 +36,10 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/events/validation-summary', 'events.event-liquidation.event-liquidation-validation-summary-tab')->name('event-liquidation.validation-summary');
     Volt::route('/events/validation/review-show/{id}', 'events.event-liquidation.event-liquidation-validation-review-show')->name('event-liquidation.validation.review-show');
     Volt::route('/events/validation/approval-show/{id}', 'events.event-liquidation.event-liquidation-validation-approval-show')->name('event-liquidation.validation.approval-show');
+
+    // EVENT BUDGET
+    Volt::route('/events-budget/summary', 'events.event-budget.event-budget-summary')->name('event-budget-summary');
+    Volt::route('/events-budget/create', 'events.event-budget.event-budget-create')->name('event-budget-create');
 
 
     // INVENTORY SELECTION

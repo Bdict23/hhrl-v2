@@ -2,6 +2,8 @@
 
 namespace App\Models\BanquetEvent;
 
+use App\Models\Business\Employee;
+
 use Illuminate\Database\Eloquent\Model;
 
 class BanquetProcurement extends Model
@@ -23,4 +25,13 @@ class BanquetProcurement extends Model
         'status',
         'services_included',
     ];
+
+    public function preparedBy()
+    {
+        return $this->belongsTo(Employee::class, 'created_by');
+    }
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id');
+    }
 }

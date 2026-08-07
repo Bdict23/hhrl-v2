@@ -77,4 +77,24 @@ class BanquetEventApiController extends Controller
             });
         return response()->json($reviewers);
     }
+
+    public $branchId = null;
+    public function forProcumentEvent(Request $request)
+    {
+
+        $branch_id = $request->query('branch_id');
+        $this->branchId = $branch_id;
+        $events = Event::query()
+            ->where('branch_id', $branch_id)
+            ->where('status', 'CONFIRMED')
+            ->where('liquidation_status', 'PENDING')
+            ->whereDoesntHave('budgetAllocation', function ($query) {
+                $query->where('branch_id', $this->branchId)
+                    ->whereIn('status', ['PENDING', 'PREPARING', 'APPROVED']);
+            })
+            ->get();
+        $this->branchId = null;
+
+        return response()->json($events);
+    }
 }

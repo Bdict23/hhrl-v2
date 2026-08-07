@@ -400,8 +400,8 @@ new class extends Component
                         'service_description'   => $service->service->service_description ?? '',
                         'category'              => $service->service->category->category_name ?? '',
                         'price_id'              => $service->price_id ?? null,
-                        'rate'                  => $service->rate?->amount ?? 0,
-                        'sub_total'             => $service->qty * $service->rate?->amount ?? 0 ,
+                        'rate'                  => $service->price?->amount ?? 0,
+                        'sub_total'             => $service->qty * $service->price?->amount ?? 0 ,
                         'quantity'              => $service->qty,
                     ];
                 }

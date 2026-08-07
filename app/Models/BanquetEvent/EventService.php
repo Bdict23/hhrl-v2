@@ -5,6 +5,7 @@ namespace App\Models\BanquetEvent;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\Price;
 use App\Models\Business\Service;
+use Illuminate\Support\Facades\Auth;
 
 
 class EventService extends Model
@@ -18,22 +19,22 @@ class EventService extends Model
         'qty',
     ];
 
-    // public function event()
-    // {
-    //     return $this->belongsTo(Event::class, 'event_id');
-    // }
     public function service()
     {
         return $this->belongsTo(Service::class, 'service_id');
     }
+
+    // external service
     public function price()
     {
         return $this->belongsTo(Price::class, 'price_id');
     }
-    // public function cost()
-    // {
-    //     return $this->hasOne(Price::class, 'service_id','service_id')
-    //         ->where('branch_id', auth()->user()->branch_id)
-    //         ->where('price_type', 'COST')->latest('created_at');
-    // }
+
+    // internal service
+    public function cost()
+    {
+        return $this->hasOne(Price::class, 'service_id', 'service_id')
+            ->where('branch_id', Auth::user()->branch_id)
+            ->where('price_type', 'COST')->latest('created_at');
+    }
 }
