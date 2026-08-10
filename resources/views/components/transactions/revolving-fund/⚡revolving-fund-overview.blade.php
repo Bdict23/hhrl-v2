@@ -306,7 +306,7 @@ new class extends Component {
                     @endif
                     @endinteract
                     @interact('column_balance', $row)
-                    @if ($row->pettyCashVoucher?->status == 'DRAFT')
+                    @if ($row->pettyCashVoucher?->status == 'DRAFT' || $row->pettyCashVoucher?->status == 'CANCELLED' )
                         ₱ --.--
                     @elseif($row->cashReturn?->status == 'DRAFT')
                         ₱ --.--

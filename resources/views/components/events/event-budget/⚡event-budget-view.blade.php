@@ -37,13 +37,49 @@ new class extends Component
     $approvedBy,
     $allocatedBudget,
     $budgetPercentage,
-    $addToGross = false,
-    $eventArrivalTime; 
+    $addToGross = false, 
+    $eventArrivalTime,
+    $reference,
+    $eventReference,
+    $budgetId; 
 
+    public function mount($id)
+    {
+        $this->budgetId = $id;
+        $this->fetchData(app(BanquetProcurementService::class));
+    }
+    public function fetchData(BanquetProcurementService $service)
+    {
+        try {
+            $budget = $service->viewBudget($this->budgetId);
+            if($budget)
+            {
+                $this->reference = $budget->reference_number ?? '';
+                $this->eventId = $budget->event_id;
+                $this->showEvent($budget->event_id);
+                $this->allocatedBudget = $budget->suggested_amount;
+                $this->reviewedBy = $budget->noted_by;
+                $this->approvedBy = $budget->approved_by;
+                $this->notes = $budget->notes;
+                $this->addToGross = $budget->services_included;
+                if ($this->addToGross) {
+                    $this->serviceTotal = collect($this->servicesList)->sum('total');
+                    $this->totalGrossOrder = $this->menuTotal + $this->serviceTotal;
+                }else {
+                    $this->serviceTotal = 0.00;
+                    $this->totalGrossOrder = $this->menuTotal;
+                }
+                $this->updatedAllocatedBudget();
 
+            }
+        } catch (\Exception $th) {
+            \Log::error("Viewing data Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while retrieving: ' . $e->getMessage())->send();
+        }
+    }
     public function updatedAddToGross($areOn)
     {
-        
+        // dd($areOn);
         if ($areOn && $this->eventId) {
             $this->serviceTotal = collect($this->servicesList)->sum('total');
             $this->totalGrossOrder = $this->menuTotal + $this->serviceTotal;
@@ -53,11 +89,12 @@ new class extends Component
         }
         $this->updatedAllocatedBudget();
     }
-    public function updatedEventId($id)
+    public function showEvent($id)
     {
         if($id)
             {
                 $event = Event::findOrFail($id);
+                $this->eventReference = $event->reference;
                 $this->addToGross = false;
                 $this->customerName = $event->customer->full_name;
                 $this->eventStartDate = Carbon::parse($event->start_date)->format('M. d, Y');
@@ -142,10 +179,10 @@ new class extends Component
         $this->status = "DRAFT";
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Save event budget?', 'Are you sure to save this event budget as draft ?')
+        ->question('Update event budget?', 'Are you sure to save this event budget as draft ?')
         ->confirm(
             'Confirm',
-            'store', //pass a functio to call
+            'saveChanges', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
@@ -160,19 +197,18 @@ new class extends Component
         ->question('Save event budget?', 'Are you sure to save this event budget as final?')
         ->confirm(
             'Confirm',
-            'store', //pass a functio to call
+            'saveChanges', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function store(BanquetProcurementService $service)
+    public function saveChanges(BanquetProcurementService $service)
     {
         try {
             // 3. Prepare the data for the Service
             // We structure it to match the $data array expected by the Service
             $data = [
-                'branch_id'                 => Auth::user()->branch_id,
-                'event_id'                  => $this->eventId,
+                'id'                        => $this->budgetId,
                 'prepared_by'               => auth()->user()->emp_id,
                 'status'                    => $this->status,
                 'notes'                     => $this->notes,
@@ -184,7 +220,7 @@ new class extends Component
             ];
 
             // 4. Call the Service
-            $po = $service->createEventBudget($data);
+            $po = $service->updateEventBudget($data);
 
             // 5. Success Feedback
             $this->reset();
@@ -220,8 +256,9 @@ new class extends Component
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
                               ['label' => 'Event', 'link' => route('event-budget-summary'), 'icon' => 'archive-box' ],
                               ['label' => 'Event budget Summary', 'link' => route('event-budget-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Create Event budget', 'icon' => 'pencil-square'],
+                              ['label' => 'Edit Event budget', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
+                  <h3>{{ $reference }}</h3>
     </div>
 
     <div class="grid gap-4 mb-10">
@@ -230,17 +267,7 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-3 w-full">
                 <div class="grid gap-3 p-2">
-                    <x-ts-select.styled
-                        :request="route('api.event-procurement.active.event', ['branch_id' => Auth::user()->branch_id])"
-                        label="BANQUET EVENT"
-                        wire:model.live='eventId'
-                        select="label:reference|value:id|description:event_name"
-                        :placeholders="[
-                            'default' => 'Select event',
-                            'search'  => 'Search event',
-                            'empty'   => 'No active event found',
-                        ]"
-                    />
+                    <x-ts-input label="BANQUET EVENT" wire:model="eventReference" readonly/>
 
                     <x-ts-input   label="CUSTOMER" wire:model="customerName" readonly/>
                 </div>
@@ -325,7 +352,7 @@ new class extends Component
                                     <div class="font-semibold text-3xl"><span>{{ number_format(collect($this->servicesList)->sum('total'), 2) }}</span></div>
                                     <x-slot:right>
                                         <div class="mr-10 p-2">
-                                            <x-ts-toggle label="Add to Gross Amount" wire:model.live="addToGross"/>
+                                            <x-ts-toggle label="Add to Gross Amount" wire:model.live="addToGross" readonly/>
                                         </div>
                                     </x-slot:right>
                                 </x-ts-stats>
@@ -341,8 +368,8 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3 col-span-1">
                     <div class="grid grid-cols-2 gap-4 w-full">
-                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" :readonly="!$eventId"/>
-                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" :readonly="!$eventId" wire./>
+                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" readonly/>
+                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" readonly/>
                     </div>
                     <div class="w-full  rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans col-span-2">
                         <!-- Card Header -->
@@ -377,7 +404,7 @@ new class extends Component
                 </div>
                 <div class="grid gap-2 p-3">
                     <div class="h-full mt-5 col-span-1">
-                        <x-ts-textarea label="Notes" resize maxlength="300" count placeholder="Add note here..." wire:model="notes"/>
+                        <x-ts-textarea label="Notes" resize maxlength="150" count placeholder="Add note here..." wire:model="notes" readonly/>
                     </div>
                     <div class="col-span-2 grid gap-2 grid-cols-2">
                         <x-ts-select.styled
@@ -388,7 +415,7 @@ new class extends Component
                         :placeholders="[
                         'default' => 'Select',
                         'empty'   => 'No reviewers found',
-                        ]" ... required/>
+                        ]"  readonly/>
 
                         <x-ts-select.styled
                             :request="route('api.liquidate-event.active.approvers', ['branch_id' => auth()->user()->branch_id])"
@@ -398,7 +425,7 @@ new class extends Component
                             :placeholders="[
                                 'default' => 'Select    ',
                                 'empty'   => 'No aapprovers found',
-                            ]" required />
+                            ]" readonly />
                     </div>
                         <div class="mt-3">
                         <x-ts-step selected="1" circles>

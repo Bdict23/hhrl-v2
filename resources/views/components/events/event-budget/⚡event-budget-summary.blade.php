@@ -112,12 +112,12 @@ new class extends Component
             @endinteract
             @interact('column_action', $row)
             <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                @if ($row->status == 'DRAFT')
-                    <a href="{{ route('event-liquidation-edit', ['id' => $row->id]) }}">
+                @if ($row->status == 'PREPARING')
+                    <a href="{{ route('event-budget-edit', ['id' => $row->id]) }}">
                         <x-ts-dropdown.items text="Edit" icon="pencil-square" />
                     </a>
                 @endif
-                <a href="{{ route('event-liquidation-view', ['id' => $row->id]) }}">
+                <a href="{{ route('event-budget-view', ['id' => $row->id]) }}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
                 </a>
                 <a>

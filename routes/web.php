@@ -40,6 +40,8 @@ Route::middleware(['auth'])->group(function () {
     // EVENT BUDGET
     Volt::route('/events-budget/summary', 'events.event-budget.event-budget-summary')->name('event-budget-summary');
     Volt::route('/events-budget/create', 'events.event-budget.event-budget-create')->name('event-budget-create');
+    Volt::route('/events-budget/edit/{id}', 'events.event-budget.event-budget-edit')->name('event-budget-edit');
+    Volt::route('/events-budget/view/{id}', 'events.event-budget.event-budget-view')->name('event-budget-view');
 
 
     // INVENTORY SELECTION

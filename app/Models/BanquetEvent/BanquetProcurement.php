@@ -20,6 +20,7 @@ class BanquetProcurement extends Model
         'branch_id',
         'updated_by',
         'notes',
+        'noted_by',
         'create_at',
         'updated_at',
         'status',

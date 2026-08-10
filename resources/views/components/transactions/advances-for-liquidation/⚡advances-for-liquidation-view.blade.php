@@ -286,9 +286,11 @@ new class extends Component {
                 @endif
             @endinteract
             @interact('column_balance', $row)
-                @if ($row->pettyCashVoucher?->status == 'DRAFT')
+                @if ($row->pettyCashVoucher?->status == 'DRAFT' || $row->pettyCashVoucher?->status == 'CANCELLED' )
                     ₱ --.--
-                @elseif($row->cashReturn?->status == 'DRAFT')
+                @elseif($row->cashReturn?->status == 'DRAFT' || $row->cashReturn?->status == 'CANCELLED')
+                    ₱ --.--
+                @elseif($row->reimbursement?->status == 'DRAFT' || $row->reimbursement?->status == 'CANCELLED' || $row->reimbursement?->status == 'FOR APPROVAL' || $row->reimbursement?->status == 'REJECTED')
                     ₱ --.--
                 @else
                     ₱ {{ NUMBER_FORMAT($row->balance, 2) }}
