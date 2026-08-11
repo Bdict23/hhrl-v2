@@ -6,55 +6,23 @@ use App\Models\Inventory\PurchaseOrder;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\BanquetEvent\BanquetProcurement;
 use Illuminate\Support\Facades\Auth;
-use App\Services\Event\BanquetProcurementService;
-use TallStackUi\Traits\Interactions;
-
-
 
 
 
 new class extends Component
 {
     use WithPagination;
-    use Interactions;
-
 
     public ?int $quantity = 10;
     public ?string $search = null;
-    public ?string $status = null;
     public ?array $dates = null;
-    public $budgetId = null;
 
     public array $sort = [
             'column' => 'created_at',
             'direction' => 'desc',
         ];
 
-
-    public function rollbackAction($id)
-        {
-            $this->budgetId = $id;
-        $this->dialog()
-        ->question('Save event budget?', 'Are you sure to save this event budget as final?')
-        ->confirm(
-            'Confirm',
-            'applyRollback', //pass a functio to call
-            )
-        ->cancel('Cancel')
-        ->send();
-        }
-    public function applyRollback(BanquetProcurementService $service)
-    {
-        try{
-        $rollback = $service->applyRollback($this->budgetId);
-        $this->budgetId = null;
-        $this->toast()->success('Success', "BEB reference {$rollback->reference_number} rolled back successfully!")->send();
-        }catch(\Exception $e)
-        {
-            \Log::error("BEB rollback Failed: " . $e->getMessage());
-            $this->toast()->error('Error', 'Something went wrong while rolling back BEB: ' . $e->getMessage())->send();
-        }
-    }
+    
     public function with(): array
     {
 
@@ -63,7 +31,7 @@ new class extends Component
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'reference_number', 'label' => 'reference', 'sortable' => false],
                 ['index' => 'event_name', 'label' => 'event', 'sortable' => false],
-                ['index' => 'suggested_amount', 'label' => 'Budget' , 'sortable' => false],
+                ['index' => 'suggested_amount', 'label' => 'Request Budget' , 'sortable' => false],
                 ['index' => 'prepared_by', 'label' => 'prepared by',  'sortable' => false],
                 ['index' => 'created_at', 'label' => 'created date',  'sortable' => false],
                 ['index' => 'action', 'label' => 'action'],
@@ -71,17 +39,16 @@ new class extends Component
             ],
             'rows' => BanquetProcurement::query()
                 ->when($this->search, function (Builder $query) {
-                    return  $query->where('reference_number', 'like', "%{$this->search}%");
+                    return  $query->where('reference', 'like', "%{$this->search}%");
                 })
                 ->when($this->dates, function (Builder $query) {
                     if (is_array($this->dates) && count($this->dates) === 2 && !empty($this->dates[0]) && !empty($this->dates[1])) {
                         return $query->whereBetween('created_at', $this->dates);
                     }
                 })
-                ->when($this->status, function (Builder $query) {
-                    return $query->where('status', $this->status);
-                })
+                ->where('status', 'PENDING')
                 ->where('branch_id', Auth::user()->branch_id)
+                ->where('approved_by', Auth::user()->emp_id)
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()
@@ -92,22 +59,13 @@ new class extends Component
 
 <div>
     <div class="lg:flex lg:justify-between grid mb-4">
-            <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                          ['label' => 'Event','link' => route('event-budget-summary'), 'icon' => 'calendar' ],
-                          ['label' => 'Event budget summary', 'icon' => 'list-bullet'],
-              ]"  />
-                <div class="lg:flex gap-3 grid grid-cols-3">
-                    <x-ts-select.native wire:model.live="status"
-                            placeholder="All Statuses"
-                            :options="[
-                            ['name' => 'All', 'id' => null],
-                            ['name' => 'DRAFT', 'id' => 'PREPARING'],
-                            ['name' => 'FOR APPROVAL', 'id' => 'PENDING'],
-                            ['name' => 'APPROVED', 'id' => 'APPROVED'],
-                            ['name' => 'REJECTED', 'id' => 'REJECTED'],
-                    ]" select="label:name|value:id" />
-                    <x-ts-date wire:model.live="dates" range placeholder="Date range" />
-                </div>
+        <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
+                        ['label' => 'Event','link' => route('event-budget.validation-summary'), 'icon' => 'calendar' ],
+                        ['label' => 'Budget approval summary', 'icon' => 'list-bullet'],
+            ]"  />
+        <div class="lg:flex gap-3 grid grid-cols-3">
+            <x-ts-date wire:model.live="dates" range placeholder="Date range" />
+        </div>
     </div>
 
     <div>
@@ -145,26 +103,12 @@ new class extends Component
             @endinteract
             @interact('column_action', $row)
             <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                @if ($row->status == 'PREPARING')
-                    <a href="{{ route('event-budget-edit', ['id' => $row->id]) }}">
-                        <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                    </a>
-                @else
-                    <x-ts-dropdown.items text="Rollback" separator icon="arrow-path" wire:click="rollbackAction({{$row->id}})"/>
-                @endif
-                <a href="{{ route('event-budget-view', ['id' => $row->id]) }}">
+                <a href="{{ route('event-budget-validation-approval-view', ['id' => $row->id]) }}">
                     <x-ts-dropdown.items text="View" separator icon="eye" />
-                </a>
-                <a>
-                    <x-ts-dropdown.items text="Cancel" color="rose" separator icon="x-mark" />
                 </a>
             </x-ts-dropdown>
         @endinteract
         </x-ts-table>
     </div>
-    <x-ts-dial lg>
-            <x-ts-dial.items icon="plus" label="New Budget" href="{{ route('event-budget-create')}}" navigate />
-            <x-ts-dial.items icon="printer" label="Print Preview" href="/posts/1" navigate-hover />
-        </x-ts-dial>
     <x-ts-back-to-top lg/>
 </div>

@@ -158,6 +158,10 @@ Route::middleware(['auth'])->group(function () {
     volt::route('/withdrawal/validation-summary', 'inventory.withdrawal.withdrawal-validation-summary')->name('withdrawal.validation-summary');
     volt::route('/withdrawal/validation-review-view/{id}', 'inventory.withdrawal.withdrawal-validation-review-show')->name('withdrawal.validation.review-show');
     volt::route('/withdrawal/validation-approval-view/{id}', 'inventory.withdrawal.withdrawal-validation-approval-show')->name('withdrawal.validation.approval-show');
+
+    //EVENT BUDGET
+    volt::route('/event-budget/validation-summary', 'events.event-budget.event-budget-validation-summary')->name('event-budget.validation-summary');
+    volt::route('/event-budget/validation-approval-view/{id}', 'events.event-budget.event-budget-validation-approval-view')->name('event-budget-validation-approval-view');
 });
 
 require __DIR__ . '/auth.php';

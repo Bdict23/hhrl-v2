@@ -6,15 +6,18 @@ use App\Models\BanquetEvent\Event;
 use App\Models\BanquetEvent\BanquetProcurement;
 use App\Models\Business\Branch;
 use Illuminate\Support\Facades\DB;
+use Exception;
+use App\Exceptions\ClosedEventRollbackException;
 
 
-
-class BanquetProcurementService
+class BanquetProcurementService extends Exception
 {
 
     protected $procurement;
     protected $event;
     protected $branch;
+    protected $message = 'Cannot rollback budget for an event that is already closed.';
+    protected $code = 422;
 
     public function __construct(BanquetProcurement $procurement, Event $event, Branch $branch,)
     {
@@ -68,8 +71,43 @@ class BanquetProcurementService
         });
     }
 
+    public function validateAction(array $data): BanquetProcurement
+    {
+        return  DB::transaction(function () use ($data) {
+            $budget =  $this->procurement->findOrFail($data['id']);
+            $status = '';
+            if ($data['status'] == 'APPROVED') {
+                $status = 'APPROVED';
+            } elseif ($data['status'] == 'REJECT') {
+                $status = 'REJECTED';
+            } else {
+                $status = 'PREPARING';
+            }
+            $budget->update([
+                'status'            => $status,
+            ]);
+
+            return $budget;
+        });
+    }
+
     public function viewBudget(int $budgetId): BanquetProcurement
     {
         return $this->procurement->findOrFail($budgetId);
+    }
+    public function applyRollback(int $budgetId): BanquetProcurement
+    {
+        return DB::transaction(function () use ($budgetId) {
+            // Eager load event to prevent N+1 and lock for update if concurrent edits happen
+            $budget = BanquetProcurement::with('event')
+                ->lockForUpdate()
+                ->findOrFail($budgetId);
+
+            if ($budget->event && $budget->event->status === 'CLOSED') {
+                throw new ClosedEventRollbackException();
+            }
+            $budget->update(['status' => 'PREPARING']);
+            return $budget;
+        });
     }
 }

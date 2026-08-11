@@ -381,8 +381,8 @@ new class extends Component
                     </div>
                     <div class="col-span-2 grid gap-2 grid-cols-2">
                         <x-ts-select.styled
-                        :request="route('api.liquidate-event.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
-                        select="label:fullName|value:id|description:position"
+                        :request="route('api.event-budget.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                        select="label:full_name|value:id|description:position"
                         wire:model="reviewedBy"
                         label="REVIEWED BY"
                         :placeholders="[
@@ -391,9 +391,9 @@ new class extends Component
                         ]" ... required/>
 
                         <x-ts-select.styled
-                            :request="route('api.liquidate-event.active.approvers', ['branch_id' => auth()->user()->branch_id])"
+                            :request="route('api.event-budget.active.approvers', ['branch_id' => auth()->user()->branch_id])"
                             wire:model="approvedBy"
-                            select="label:fullName|value:id|description:position"
+                            select="label:full_name|value:id|description:position"
                             label="APPROVED BY"
                             :placeholders="[
                                 'default' => 'Select    ',

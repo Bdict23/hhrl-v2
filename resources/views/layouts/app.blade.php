@@ -304,7 +304,7 @@
                             </x-ts-side-bar.item>
 
 
-                            <x-ts-side-bar.item text="Event Budget (BEB)">
+                            <x-ts-side-bar.item text="Event Budget (BEB)" :route="route('event-budget.validation-summary')">
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>

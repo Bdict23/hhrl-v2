@@ -41,7 +41,8 @@ new class extends Component
     $eventArrivalTime,
     $reference,
     $eventReference,
-    $budgetId; 
+    $budgetId,
+    $step; 
 
     public function mount($id)
     {
@@ -70,6 +71,17 @@ new class extends Component
                     $this->totalGrossOrder = $this->menuTotal;
                 }
                 $this->updatedAllocatedBudget();
+
+                $currentStep = $budget->status;
+                if($currentStep == 'PREPARING'){
+                    $this->step = '1';
+                }elseif($currentStep == 'PENDING'){
+                    $this->step = '2';
+                }elseif($currentStep == 'APPROVED'){
+                    $this->step = '3';
+                }else{
+                    $this->step = '2';
+                }
 
             }
         } catch (\Exception $th) {
@@ -367,11 +379,8 @@ new class extends Component
         <x-ts-card>
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3 col-span-1">
-                    <div class="grid grid-cols-2 gap-4 w-full">
-                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" :readonly="!$eventId"/>
-                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" :readonly="!$eventId" wire./>
-                    </div>
-                    <div class="w-full  rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans col-span-2">
+                    {{-- financial summary --}}
+                    <div class="rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans">
                         <!-- Card Header -->
                         <h3 class="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200/80">
                             Financial Summary
@@ -401,75 +410,65 @@ new class extends Component
                             </span>
                         </div>
                     </div>
-                </div>
-                <div class="grid gap-2 p-3">
-                    <div class="h-full mt-5 col-span-1">
-                        <x-ts-textarea label="Notes" resize maxlength="150" count placeholder="Add note here..." wire:model="notes"/>
-                    </div>
-                    <div class="col-span-2 grid gap-2 grid-cols-2">
-                        <x-ts-select.styled
-                        :request="route('api.liquidate-event.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
-                        select="label:fullName|value:id|description:position"
-                        wire:model="reviewedBy"
-                        label="REVIEWED BY"
-                        :placeholders="[
-                        'default' => 'Select',
-                        'empty'   => 'No reviewers found',
-                        ]" ... required/>
-
-                        <x-ts-select.styled
-                            :request="route('api.liquidate-event.active.approvers', ['branch_id' => auth()->user()->branch_id])"
-                            wire:model="approvedBy"
-                            select="label:fullName|value:id|description:position"
-                            label="APPROVED BY"
-                            :placeholders="[
-                                'default' => 'Select    ',
-                                'empty'   => 'No aapprovers found',
-                            ]" required />
-                    </div>
-                        <div class="mt-3">
-                        <x-ts-step selected="1" circles>
-                            <x-ts-step.items step="1"
-                                        title="Create Liquidation"
-                                        description="Step 1">
-                            </x-ts-tep.items>
-                            <x-ts-step.items step="2"
-                                        title="Review"
-                                        description="Step 2">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="3"
-                                        completed
-                                        title="Settlement"
-                                        description="Step 3">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="4"
-                                        completed
-                                        title="Approved"
-                                        description="Step 4">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="5"
-                                        completed
-                                        title="Completed"
-                                        description="Step 6">
-                                        <b>Event Liquidated!</b>
-                            </x-ts-step.items>
+                    <div class="mt-3">
+                        <x-ts-step wire:model="step" circles>
+                                <x-ts-step.items step="1"
+                                            title="Create event budget"
+                                            description="Step 1">
+                                </x-ts-tep.items>
+                                <x-ts-step.items step="2"
+                                            title="Approval"
+                                            description="Step 4">
+                                </x-ts-step.items>
+                                <x-ts-step.items step="3"
+                                            completed
+                                            title="Completed"
+                                            description="Step 3">
+                                        <b>Budget Created!</b>
+                                </x-ts-step.items>
                         </x-ts-step>
                     </div>
                 </div>
-            </div>
-            <x-slot:footer>
-                <div class="flex justify-end">
-                    <x-ts-dropdown>
-                        <x-slot:action>
-                            <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
-                        </x-slot:action>
-                        <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
-                            wire:click="saveAsDraftAction()" />
-                        <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
-                            wire:click="saveAsFinalAction()" />
-                    </x-ts-dropdown>
+                <div class="grid gap-2 p-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" :readonly="!$eventId"/>
+                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" :readonly="!$eventId" wire./>
+                    </div>
+                    <x-ts-textarea label="Notes" resize maxlength="150" count placeholder="Add note here..." wire:model="notes"/>
+                    <div class="grid gap-2">
+                        <x-ts-select.styled
+                            :request="route('api.event-budget.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
+                            select="label:full_name|value:id|description:position"
+                            wire:model="reviewedBy"
+                            label="REVIEWED BY"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No reviewers found',
+                            ]" />
+
+                        <x-ts-select.styled
+                            :request="route('api.event-budget.active.approvers', ['branch_id' => auth()->user()->branch_id])"
+                            wire:model="approvedBy"
+                            select="label:full_name|value:id|description:position"
+                            label="APPROVED BY"
+                            :placeholders="[
+                                'default' => 'Select',
+                                'empty'   => 'No aapprovers found',
+                            ]"  />
+                    </div>
+                    <div class="flex justify-end">
+                        <x-ts-dropdown>
+                            <x-slot:action>
+                                <x-ts-button x-on:click="show = !show" md icon="chevron-down" position="right">SAVE AS</x-ts-button>
+                            </x-slot:action>
+                            <x-ts-dropdown.items outline icon="archive-box-arrow-down" text="DRAFT"
+                                wire:click="saveAsDraftAction()" />
+                            <x-ts-dropdown.items icon="clipboard-document-check" text="FINAL" separator
+                                wire:click="saveAsFinalAction()" />
+                        </x-ts-dropdown>
+                    </div>
                 </div>
-            </x-slot:footer>
+            </div>
         </x-ts-card>
     </div>
 

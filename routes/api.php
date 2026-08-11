@@ -19,6 +19,7 @@ use App\Models\Transaction\AdvancesForLiquidation;
 use App\Http\Controllers\Api\Business\EmployeeApiController;
 use App\Http\Controllers\Api\Transaction\EmployeeCashAdvanceApiController;
 use App\Http\Controllers\Api\Event\EventLiquidationApiController;
+use App\Http\Controllers\Api\Event\EventBudgetApiController;
 use App\Http\Controllers\Api\Inventory\ReceivingApiController;
 
 
@@ -117,3 +118,5 @@ Route::middleware('auth:sanctum')->get('/event-liquidation/active-approvers', [E
 
 // EVENT PROCUREMENT
 Route::middleware('auth:sanctum')->get('/event-procurement/active-event', [BanquetEventApiController::class, 'forProcumentEvent'])->name('api.event-procurement.active.event');
+Route::middleware('auth:sanctum')->get('/event-budget/active-reviewers', [EventBudgetApiController::class, 'activeReviewers'])->name('api.event-budget.active.reviewers');
+Route::middleware('auth:sanctum')->get('/event-budget/active-approvers', [EventBudgetApiController::class, 'activeApprovers'])->name('api.event-budget.active.approvers');

@@ -186,57 +186,67 @@ new class extends Component
         ];
     }
 
-    public function saveAsDraftAction(): void
+    public function rejectAction(): void
     {
 
         // 1. Validate the UI State
         $this->validationRule();
 
-        $this->status = "DRAFT";
+        $this->status = "REJECT";
         // 2. show confirmation dialog
         $this->dialog()
-        ->question('Update event budget?', 'Are you sure to save this event budget as draft ?')
+        ->question('Reject event budget?', 'Are you sure to reject this event budget?')
         ->confirm(
             'Confirm',
-            'saveChanges', //pass a functio to call
+            'applyAction', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function saveAsFinalAction(): void
+    public function reviseAction(): void
+    {
+
+        // 1. Validate the UI State
+        $this->validationRule();
+
+        $this->status = "REVISE";
+        // 2. show confirmation dialog
+        $this->dialog()
+        ->question('Revise event budget?', 'Are you sure to revise this event budget?')
+        ->confirm(
+            'Confirm',
+            'applyAction', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function approveAction(): void
     {
         // 1. Validate the UI State
         $this->validationRule();
-        $this->status = "FINAL";
+        $this->status = "APPROVED";
         // 2. show confirmation dialog
          $this->dialog()
-        ->question('Save event budget?', 'Are you sure to save this event budget as final?')
+        ->question('Save event budget?', 'Are you sure to approve this event budget?')
         ->confirm(
             'Confirm',
-            'saveChanges', //pass a functio to call
+            'applyAction', //pass a functio to call
             )
         ->cancel('Cancel')
         ->send();
     }
-    public function saveChanges(BanquetProcurementService $service)
+    public function applyAction(BanquetProcurementService $service)
     {
         try {
             // 3. Prepare the data for the Service
             // We structure it to match the $data array expected by the Service
             $data = [
                 'id'                        => $this->budgetId,
-                'prepared_by'               => auth()->user()->emp_id,
                 'status'                    => $this->status,
-                'notes'                     => $this->notes,
-                'suggested_amount'          => str_replace(',','',$this->allocatedBudget),
-                'reviewed_by'               => $this->reviewedBy,
-                'approved_by'               => $this->approvedBy,
-                'notes'                     => $this->notes,
-                'services_included'         => $this->addToGross,
             ];
 
             // 4. Call the Service
-            $po = $service->updateEventBudget($data);
+            $po = $service->validateAction($data);
 
             // 5. Success Feedback
             $this->reset();
@@ -244,7 +254,7 @@ new class extends Component
             ->success('Success!', "Event budget {$po->reference} created successfully!")
             ->flash() 
             ->send();
-            return redirect()->route('event-budget-summary');
+            return redirect()->route('event-budget.validation-summary');
 
 
         } catch (\Exception $e) {
@@ -270,9 +280,9 @@ new class extends Component
 <div>
     <div class="flex justify-between">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                              ['label' => 'Event', 'link' => route('event-budget-summary'), 'icon' => 'calendar' ],
-                              ['label' => 'Event budget Summary', 'link' => route('event-budget-summary'), 'icon' => 'list-bullet'],
-                              ['label' => 'Edit Event budget', 'icon' => 'pencil-square'],
+                              ['label' => 'Event', 'link' => route('event-budget-summary'), 'icon' => 'archive-box' ],
+                              ['label' => 'Event Summary', 'link' => route('event-budget-summary'), 'icon' => 'list-bullet'],
+                              ['label' => 'Event budget approval', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
                   <h2>{{ $reference }}</h2>
     </div>
@@ -368,7 +378,7 @@ new class extends Component
                                     <div class="font-semibold text-3xl"><span>{{ number_format(collect($this->servicesList)->sum('total'), 2) }}</span></div>
                                     <x-slot:right>
                                         <div class="mr-10 p-2">
-                                            <x-ts-toggle label="Add to Gross Amount" wire:model.live="addToGross" disabled/>
+                                            <x-ts-toggle label="Add to Gross Amount" wire:model.live="addToGross" readonly/>
                                         </div>
                                     </x-slot:right>
                                 </x-ts-stats>
@@ -460,13 +470,9 @@ new class extends Component
                             ]" readonly />
                     </div>
                     <div class=" justify-end flex gap-3">
-                        @if($status == 'PREPARING')
-                            <x-ts-button icon="pencil-square" class="underline"  flat  wire:click="edit()">Edit</x-ts-button>
-                        @else
-                            <x-ts-button icon="pencil-square" class="underline"  flat  disabled>Edit</x-ts-button>
-                        @endif
-                            <x-ts-button icon="printer" class="underline"    disabled>Print</x-ts-button>
-
+                            <x-ts-button icon="x-mark" class="underline" color="red"  flat   wire:click="rejectAction()" loading="rejectAction()">Reject</x-ts-button>
+                            <x-ts-button icon="arrow-path" class="underline" color="blue"  outline   wire:click="reviseAction()" loading="reviseAction()">Revise</x-ts-button>
+                            <x-ts-button icon="check" class="underline"   outline  wire:click="approveAction()" loading="approveAction()">Approve</x-ts-button>
                     </div>
                 </div>
             </div>
