@@ -57,4 +57,8 @@ class AdvancesForLiquidation extends Model
     {
         return $this->belongsTo(Employee::class, 'approved_by');
     }
+    public function additionalFund()
+    {
+        return $this->hasMany(AdditionalFund::class, 'advances_liquidation_id');
+    }
 }

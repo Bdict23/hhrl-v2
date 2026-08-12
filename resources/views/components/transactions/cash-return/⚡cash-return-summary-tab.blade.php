@@ -42,7 +42,7 @@ new class extends Component {
             'ecaCrsHeader' => [
                 ['index' => 'status', 'label' => 'Status', 'sortable' => false], 
                 ['index' => 'reference', 'label' => 'Reference'], 
-                ['index' => 'advances_liquidation_id', 'label' => 'AFL-REF', 'sortable' => false], 
+                ['index' => 'advances_liquidation_id', 'label' => 'ECA-REF', 'sortable' => false], 
                 ['index' => 'prepared_by', 'label' => 'Prepared By', 'sortable' => false], 
                 ['index' => 'amount_returned', 'label' => 'Return Amount', 'sortable' => false], 
                 ['index' => 'created_at', 'label' => 'Returned Date'], 

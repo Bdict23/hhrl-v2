@@ -218,7 +218,7 @@ new class extends Component
 <div>
     <div class="flex justify-between">
         <x-ts-breadcrumbs separator="icon:chevron-right" :items="[
-                              ['label' => 'Event', 'link' => route('event-budget-summary'), 'icon' => 'archive-box' ],
+                              ['label' => 'Event', 'link' => route('event-budget-summary'), 'icon' => 'calendar' ],
                               ['label' => 'Event budget Summary', 'link' => route('event-budget-summary'), 'icon' => 'list-bullet'],
                               ['label' => 'Create Event budget', 'icon' => 'pencil-square'],
                   ]"  class="mb-3"/>
@@ -339,12 +339,8 @@ new class extends Component
         {{-- FORM 2 --}}
         <x-ts-card>
             <div class="grid grid-cols-2">
-                <div class="grid gap-2 p-3 col-span-1">
-                    <div class="grid grid-cols-2 gap-4 w-full">
-                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" :readonly="!$eventId"/>
-                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" :readonly="!$eventId" wire./>
-                    </div>
-                    <div class="w-full  rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans col-span-2">
+                <div class="grid gap-2 p-3">
+                    <div class="w-full  rounded-xl bg-slate-100/70 p-5 shadow-sm border border-slate-200/60 font-sans">
                         <!-- Card Header -->
                         <h3 class="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200/80">
                             Financial Summary
@@ -374,12 +370,32 @@ new class extends Component
                             </span>
                         </div>
                     </div>
-                </div>
-                <div class="grid gap-2 p-3">
-                    <div class="h-full mt-5 col-span-1">
-                        <x-ts-textarea label="Notes" resize maxlength="300" count placeholder="Add note here..." wire:model="notes"/>
+                    <div class="mt-3">
+                        <x-ts-step selected="1" circles>
+                                <x-ts-step.items step="1"
+                                            title="Create event budget"
+                                            description="Step 1">
+                                </x-ts-tep.items>
+                                <x-ts-step.items step="2"
+                                            title="Approval"
+                                            description="Step 4">
+                                </x-ts-step.items>
+                                <x-ts-step.items step="3"
+                                            completed
+                                            title="Completed"
+                                            description="Step 3">
+                                        <b>Budget Created!</b>
+                                </x-ts-step.items>
+                        </x-ts-step>
                     </div>
-                    <div class="col-span-2 grid gap-2 grid-cols-2">
+                </div>
+                <div class="grid gap-2">
+                    <div class="grid grid-cols-2 gap-3">
+                        <x-ts-currency mutate  symbol label="ALLOCATED BUDGET" wire:model.live="allocatedBudget" :readonly="!$eventId"/>
+                        <x-ts-number label="BUDGET PERCENTAGE" wire:model.live.debounce.750ms="budgetPercentage" :readonly="!$eventId" wire./>
+                    </div>
+                    <x-ts-textarea label="Notes" resize maxlength="300" count placeholder="Add note here..." wire:model="notes"/>
+                    <div class="grid gap-2 grid-cols-2">
                         <x-ts-select.styled
                         :request="route('api.event-budget.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"
                         select="label:full_name|value:id|description:position"
@@ -399,35 +415,7 @@ new class extends Component
                                 'default' => 'Select    ',
                                 'empty'   => 'No aapprovers found',
                             ]" required />
-                    </div>
-                        <div class="mt-3">
-                        <x-ts-step selected="1" circles>
-                            <x-ts-step.items step="1"
-                                        title="Create Liquidation"
-                                        description="Step 1">
-                            </x-ts-tep.items>
-                            <x-ts-step.items step="2"
-                                        title="Review"
-                                        description="Step 2">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="3"
-                                        completed
-                                        title="Settlement"
-                                        description="Step 3">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="4"
-                                        completed
-                                        title="Approved"
-                                        description="Step 4">
-                            </x-ts-step.items>
-                            <x-ts-step.items step="5"
-                                        completed
-                                        title="Completed"
-                                        description="Step 6">
-                                        <b>Event Liquidated!</b>
-                            </x-ts-step.items>
-                        </x-ts-step>
-                    </div>
+                    </div> 
                 </div>
             </div>
             <x-slot:footer>

@@ -22,7 +22,11 @@ new class extends Component {
     public $reference;
     public $balance;
     public $data;
-    public $expenditurePercentage;
+    public $expenditurePercentage,
+    $addFundModal;
+
+    // add fund variables
+    public $amountToAdd,$remarks;
 
     public ?int $quantity = 100;
     public array $sort = [
@@ -131,6 +135,43 @@ new class extends Component {
         $this->approvedById = null;
     }
 
+    public function addFundAction()
+    {
+        $this->addFundModal = false;
+         $this->dialog()
+        ->question('Save and add this AFL fund?', 'Are you sure you want to add this fund to AFL?')
+        ->confirm(
+            'Confirm',
+            'addFund', //pass a functio to call
+            )
+        ->cancel('Cancel')
+        ->send();
+    }
+    public function addFund(AdvancesForLiquidationService $service)
+    {
+        try {
+           $addFundData = 
+           [
+                'branch_id'     => auth()->user()->branch_id,
+                'afl_id'        => $this->aflId,
+                'amount'        => $this->amountToAdd,
+                'remarks'       => $this->remarks,
+                'prepared_by'   => auth()->user()->emp_id,
+           ];
+
+        $apply = $service->addFund($addFundData);
+        $this->toast()->success('Success', "AFL {$apply->reference} added fund successfully!")->send();
+        $this->reset([
+            'remarks',
+            'amountToAdd',
+        ]);
+        $this->fetchData();
+        } catch (\Exception $e) {
+             \Log::error("PO Creation Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
+        }
+    }
+
     public function with(): array
     {
         return [
@@ -181,12 +222,13 @@ new class extends Component {
                 </h1>
             </div>
             <div class=" border-gray-100 flex justify-end items-center space-x-3">
+                <x-ts-button icon="printer" disabled outline>Print</x-ts-button>
+                <x-ts-button icon="banknotes" wire:click="$toggle('addFundModal')" color="cyan">Add Fund</x-ts-button>
                 @if ($isDraft)
                     <x-ts-button light icon="pencil-square" :href="route('afl.edit', ['id' => $aflId])">Edit</x-ts-button>
                 @else
                     <x-ts-button light icon="pencil-square" disabled>Edit</x-ts-button>
                 @endif
-                <x-ts-button icon="printer" disabled>Print</x-ts-button>
             </div>
         </div>
 
@@ -276,6 +318,16 @@ new class extends Component {
                             @endif
                         </x-slot:right>
                     </x-ts-button>
+                    @elseif($row->description == 'ADDITIONAL FUND')
+                    <x-ts-button class="font-mono" flat>{{ $row->additionalFund->reference }}
+                        <x-slot:right>
+                            @if ($row->additionalFund->status == 'FINAL')
+                                <x-ts-badge color="green" text="{{ $row->additionalFund->status }}" round light xs />
+                            @else
+                                <x-ts-badge color="red" text="{{ $row->additionalFund->status }}" round light xs />
+                            @endif
+                        </x-slot:right>
+                    </x-ts-button>
                 @endif
             @endinteract
             @interact('column_amount', $row)
@@ -291,6 +343,8 @@ new class extends Component {
                 @elseif($row->cashReturn?->status == 'DRAFT' || $row->cashReturn?->status == 'CANCELLED')
                     ₱ --.--
                 @elseif($row->reimbursement?->status == 'DRAFT' || $row->reimbursement?->status == 'CANCELLED' || $row->reimbursement?->status == 'FOR APPROVAL' || $row->reimbursement?->status == 'REJECTED')
+                    ₱ --.--
+                @elseif($row->additionalFund?->status == 'CANCELLED')
                     ₱ --.--
                 @else
                     ₱ {{ NUMBER_FORMAT($row->balance, 2) }}
@@ -334,6 +388,21 @@ new class extends Component {
 
                     @endphp
                     <x-ts-table :headers="$headers" :rows="$rows" />
+                @elseif ($row->description == 'ADDITIONAL FUND')
+                    @php
+                        $headers = [
+                            ['index' => 'remarks', 'label' => 'remarks'],
+                            ['index' => 'preparedBy', 'label' => 'prepared by'],
+                        ];
+                        $rows = [
+                            [
+                                'remarks' => $row->additionalFund->remarks,
+                                'preparedBy' => $row->additionalFund->preparedBy?->full_name,
+                            ],
+                        ];
+
+                    @endphp
+                    <x-ts-table :headers="$headers" :rows="$rows" />
                 @elseif($row->description == 'CASH RETURN')
                     @php
                         $headers = [
@@ -371,6 +440,25 @@ new class extends Component {
             @endinteract
         </x-ts-table>
     </div>
+
+    <x-ts-modal title="Add Fund" wire="addFundModal">
+        <x-ts-card>
+            <div class="grid p-2 gap-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <x-ts-input label="REFERENCE" placeholder="<AUTO>" readonly />
+                    <x-ts-input label="AFL REFERENCE" readonly wire:model="reference"/>
+                </div>
+                <x-ts-currency decimal clearable symbol currency wire:model="amountToAdd"/>
+                <x-ts-textarea label="Remarks"  resize maxlength="100" count wire:model="remarks"/>
+            </div>
+            <x-slot:footer>
+                <div class="flex justify-end gap-3">
+                    <x-ts-button flat wire:click="$toggle('addFundModal')">Cancel</x-ts-button>
+                    <x-ts-button  wire:click="addFundAction()" loading="addFundAction()">Save</x-ts-button>
+                </div>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
 
     <x-ts-loading delay="short" />
     <x-ts-back-to-top lg />

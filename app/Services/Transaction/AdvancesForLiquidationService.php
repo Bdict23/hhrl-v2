@@ -5,7 +5,10 @@ namespace App\Services\Transaction;
 use App\Models\Business\Branch;
 use Illuminate\Support\Facades\DB;
 use App\Models\Transaction\AdvancesForLiquidation;
+use App\Models\Transaction\AdditionalFund;
 use App\Models\Transaction\AdvancesForLiquidationSnapshot;
+use App\Exceptions\InvalidAdtlAmountException;
+use Illuminate\Support\Facades\Auth;
 
 
 
@@ -15,13 +18,17 @@ class AdvancesForLiquidationService
 {
 
     protected $advanceLiquidation;
+    protected $advanceLiquidationSnapshot;
     protected $branch;
     private $aflId;
+    protected $additionalFund;
 
-    public function __construct(AdvancesForLiquidation $advanceLiquidation, Branch $branch)
+    public function __construct(AdvancesForLiquidation $advanceLiquidation, Branch $branch, AdditionalFund  $additionalFund, AdvancesForLiquidationSnapshot $snapshot)
     {
         $this->advanceLiquidation = $advanceLiquidation;
         $this->branch = $branch;
+        $this->additionalFund = $additionalFund;
+        $this->advanceLiquidationSnapshot = $snapshot;
     }
 
     public function create(array $data): AdvancesForLiquidation
@@ -99,7 +106,6 @@ class AdvancesForLiquidationService
         });
     }
 
-
     public static function currentBalance(int $id)
     {
         $detailData = AdvancesForLiquidationSnapshot::where('advance_liquidation_id', $id)->get();
@@ -129,5 +135,40 @@ class AdvancesForLiquidationService
             ->get()->isEmpty() ? false : true;
 
         return $openPcv || $openCrs;
+    }
+
+    public function addFund(array $data): AdditionalFund
+    {
+        return DB::transaction(function () use ($data) {
+            $branchId = $data['branch_id'];
+            $branch = $this->branch->findOrFail($branchId);
+            $branchCode = $branch->branch_code;
+            $currentYear = now()->year;
+            $yearlyCount = $this->advanceLiquidation
+                ->where('branch_id', $branchId)
+                ->whereYear('created_at', $currentYear)
+                ->count() + 1;
+            $balance = $this->currentBalance($data['afl_id']);
+
+            $reference = 'ADL-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            $additional = $this->additionalFund->create([
+                'reference'                 => $reference,
+                'advances_liquidation_id'   => $data['afl_id'],
+                'amount'                    => $data['amount'],
+                'prepared_by'               => $data['prepared_by'],
+                'remarks'                   => $data['remarks'],
+            ]);
+            $this->advanceLiquidationSnapshot->create([
+                'advance_liquidation_id' => $data['afl_id'],
+                'status' => 'FINAL',
+                'description' => 'ADDITIONAL FUND',
+                'type' => 'IN',
+                'branch_id' => $data['branch_id'],
+                'amount' => $data['amount'],
+                'adtl_fund_id' => $additional->id,
+                'balance' => $balance + $data['amount'],
+            ]);
+            return $additional;
+        });
     }
 }

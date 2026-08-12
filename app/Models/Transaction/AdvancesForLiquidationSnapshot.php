@@ -20,6 +20,7 @@ class AdvancesForLiquidationSnapshot extends Model
         'created_at',
         'updated_at',
         'reimbursement_id',
+        'adtl_fund_id',
     ];
 
     public function advanceLiquidation()
@@ -37,5 +38,9 @@ class AdvancesForLiquidationSnapshot extends Model
     public function reimbursement()
     {
         return $this->belongsTo(Reimbursement::class, 'reimbursement_id');
+    }
+    public function additionalFund()
+    {
+        return $this->belongsTo(AdditionalFund::class, 'adtl_fund_id');
     }
 }
