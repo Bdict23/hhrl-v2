@@ -23,7 +23,8 @@ new class extends Component {
     public $balance;
     public $data;
     public $expenditurePercentage,
-    $addFundModal;
+    $addFundModal,
+    $canAddFund;
 
     // add fund variables
     public $amountToAdd,$remarks;
@@ -58,6 +59,7 @@ new class extends Component {
         $this->eventId = $data->event_id;
         $this->status = $data->status;
         $this->isDraft = $data->status == 'DRAFT' ? true : false;
+        $this->canAddFund =  $data->status == 'OPEN' ? true : false;
         $this->reference = $data->reference;
         $this->balance = AdvancesForLiquidationService::currentBalance($this->aflId);
         $expence = $this->receivedAmount - $this->balance;
@@ -135,6 +137,13 @@ new class extends Component {
         $this->approvedById = null;
     }
 
+    public function canAddFund(): boolean
+    {
+        if ($this->status == 'OPEN') {
+            return true;
+        }
+
+    }
     public function addFundAction()
     {
         $this->addFundModal = false;
@@ -223,7 +232,7 @@ new class extends Component {
             </div>
             <div class=" border-gray-100 flex justify-end items-center space-x-3">
                 <x-ts-button icon="printer" disabled outline>Print</x-ts-button>
-                <x-ts-button icon="banknotes" wire:click="$toggle('addFundModal')" color="cyan">Add Fund</x-ts-button>
+                <x-ts-button icon="banknotes" wire:click="$toggle('addFundModal')" color="cyan" :disabled="!$canAddFund">Add Fund</x-ts-button>
                 @if ($isDraft)
                     <x-ts-button light icon="pencil-square" :href="route('afl.edit', ['id' => $aflId])">Edit</x-ts-button>
                 @else

@@ -168,6 +168,12 @@ class AdvancesForLiquidationService
                 'adtl_fund_id' => $additional->id,
                 'balance' => $balance + $data['amount'],
             ]);
+            $bal = round((float) $balance + (float) $data['amount'], 2);
+
+            if ($bal == 0.00) {
+                $ar = $this->advanceLiquidation->findOrFail($data['afl_id']);
+                $ar->update(['status' => 'CLOSED']);
+            }
             return $additional;
         });
     }
