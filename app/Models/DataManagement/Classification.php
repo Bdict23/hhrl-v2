@@ -8,7 +8,6 @@ class Classification extends Model
 {
     protected $table = 'classifications';
     protected $fillable = [
-        'name',
         'classification_name',
         'classification_description',
         'category_id',
@@ -16,8 +15,8 @@ class Classification extends Model
         'company_id'
     ];
 
-    public function sub_classification()
+    public function classificationParent()
     {
-        return $this->hasMany(Classification::class, 'class_parent');
+        return $this->belongsTo(Classification::class, 'class_parent');
     }
 }

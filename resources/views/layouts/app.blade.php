@@ -66,7 +66,7 @@
         </x-slot:header>
         <x-slot:menu>
             @persist('side-bar')
-                <x-ts-side-bar smart collapsible>
+                <x-ts-side-bar smart collapsible >
                     <x-slot:brand>
                         <div class="my-4 flex items-center justify-center">
                             <img src="{{ asset('assets/images/1772440510.png') }}" width="80" height="80" />
@@ -359,7 +359,7 @@
                     </x-ts-side-bar.item>
 
                     <!-- Data Management -->
-                    <x-ts-side-bar.item text="Data Management" icon="server-stack" />
+                    <x-ts-side-bar.item text="Data Management" icon="server-stack"  :route="route('data-management.tab')"/>
 
                     <!-- Role Management -->
                     <x-ts-side-bar.item text="Role Management" icon="shield-check" />

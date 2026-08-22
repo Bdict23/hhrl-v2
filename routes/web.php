@@ -162,6 +162,9 @@ Route::middleware(['auth'])->group(function () {
     //EVENT BUDGET
     volt::route('/event-budget/validation-summary', 'events.event-budget.event-budget-validation-summary')->name('event-budget.validation-summary');
     volt::route('/event-budget/validation-approval-view/{id}', 'events.event-budget.event-budget-validation-approval-view')->name('event-budget-validation-approval-view');
+
+    // DATE MANAGEMENT
+    volt::route('/data-management/data-management-tab', 'data-management.data-management-tab')->name('data-management.tab');
 });
 
 require __DIR__ . '/auth.php';
