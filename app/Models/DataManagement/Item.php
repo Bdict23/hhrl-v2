@@ -23,6 +23,9 @@ class Item extends Model
         'uom_id',
         'orderpoint',
         'created_by',
+        'optimal_stock',
+        'measurement_type',
+        'is_forsale',
     ];
 
     public function unit()

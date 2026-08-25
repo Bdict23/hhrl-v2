@@ -5,6 +5,10 @@ use Livewire\WithPagination;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Illuminate\Database\Eloquent\Builder;
+use TallStackUi\Traits\Interactions;
+use App\Models\Settings\SystemParameter;
+use Illuminate\Validation\Rule;
+
 
 
 use App\Models\DataManagement\Item;
@@ -12,10 +16,13 @@ use App\Models\DataManagement\Brand;
 use App\Models\DataManagement\Category;
 use App\Models\DataManagement\Classification;
 use App\Models\DataManagement\UnitOfMeasure;
+use App\Services\DataManagement\ItemService; 
+
 
 new class extends Component
 {
     use WithPagination;
+    use Interactions;
 
     //items declarations
     public ?int $quantity = 8;
@@ -30,14 +37,116 @@ new class extends Component
     public  $brandStatus = null;
     public array $sort = ['column' => 'created_at', 'direction' => 'desc',];
 
-    
+    // MODAL
+    public $addItemModal = false,$editItemModal=false;
+
+    // ITEM REGISTRATION DECLARATION
+    public $itemCode,$itemName,$itemBarcode,$itemCost,$itemOrderPoint,$optimalStock,$itemCategory,$itemBrand,$itemClass,$itemSubClass,$measureType,$measureValue,$measureSymbol,$isForSale=false;
+
+    public function saveItemAction()
+    {
+        $this->validate([
+            'itemCode'       => 'required|unique:items,item_code',
+            'itemName'       => 'required',
+            'itemOrderPoint' => 'required|numeric',
+            'itemCategory'   => 'required|exists:categories,id',
+            'itemBrand'      => 'nullable|exists:brands,id',
+            'itemClass'      => 'required|exists:classifications,id',
+            'itemSubClass'   => 'nullable|exists:classifications,id',
+            'measureType'    => 'required|exists:system_parameters,id',
+            'measureSymbol'  => 'required',
+            'measureValue'   => [
+                Rule::requiredIf(fn () => !$this->isUnitType()),
+                'nullable',
+                'numeric',
+            ],
+        ]);
+        $this->addItemModal = false;
+         $this->dialog()
+        ->question('Save Item?', 'Are you sure to save this item?')
+        ->confirm(
+            'Confirm',
+            'storeItem', //pass a functio to call
+            )
+        ->cancel('Cancel', 'cancelledItemRegister')
+        ->send();
+    }
+    public function cancelledItemRegister(): void
+    {
+        $this->addItemModal = true;
+    }
+
+    public function storeItem( ItemService $service)
+    {
+        try {
+            $payload = [
+                'item_code'         => $this->itemCode,
+                'item_description'  => $this->itemName,
+                'item_barcode'      => $this->itemBarcode,
+                'company_id'        => auth()->user()->branch->company_id,
+                'classification_id' => $this->itemClass,
+                'sub_class_id'      => $this->itemSubClass,
+                'brand_id'          => $this->itemBrand,
+                'category_id'       => $this->itemCategory,
+                'orderpoint'        => $this->itemOrderPoint,
+                'optimal_stock'     => $this->optimalStock,
+                'measure_type_id'   => $this->measureType,
+                'measure_value'     => $this->measureValue,
+                'measure_symbol'    => $this->measureSymbol,
+                'is_forsale'        => $this->isForSale,
+                'created_by'        =>  auth()->user()->emp_id,
+                'item_cost'         => $this->itemCost,
+                'branch_id'         => auth()->user()->branch_id,
+
+            ];
+            $item = $service->createItem($payload);
+            $this->reset([
+                'itemCode',
+                'itemName',
+                'itemBarcode',
+                'itemClass',
+                'itemSubClass',
+                'itemBrand',
+                'itemCategory',
+                'itemOrderPoint',
+                'optimalStock',
+                'measureType',
+                'measureValue',
+                'itemCost',
+                'isForSale']);
+            $this->toast()->success('Success', "Item {$item->item_description} created successfully!")->send();
+
+        } catch (\Exception $e) {
+            $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
+        }
+    }
+
+    public function changeItemStatus(int $id)
+    {
+        try {
+             $service = app(ItemService::class);
+        $data = $service->changeItemStatus((int)$id);
+        $this->toast()->success(
+                        'Item Status changed',
+                        "Item status successfully changed."
+                    )->send();
+
+        } catch (\Throwable $e) {
+           $this->toast()
+                ->error('Action Failed', 'An error occurred while changing status: ' . $e->getMessage())
+                ->send();
+        }
+       
+    }
+
+
     #[Computed]
     public function itemRows(): LengthAwarePaginator
     {
         if($this->mainTab == 'Items')
         {
             return Item::query()
-                ->with(['brand','classification','subClassification','category'])
+                ->with(['brand','classification','subClassification','category','unit','cost'])
                 ->when($this->search, function (Builder $query) {
                     return  $query->where('item_description', 'like', "%{$this->search}%");
                 })
@@ -161,6 +270,24 @@ new class extends Component
         }
     }
 
+    #[Computed]
+    public function isUnitType(): bool
+    {
+        if (!$this->measureType) {
+            return false;
+        }
+
+        return SystemParameter::where('id', $this->measureType)
+            ->where('name', 'UNIT')
+            ->exists();
+    }
+
+    public function updatedMeasureType($value): void
+    {
+        if ($this->isUnitType) {
+            $this->measureValue = null;
+        }
+    }
 
 public function with(): array
     {
@@ -171,10 +298,10 @@ public function with(): array
                 ['index' => 'item_code', 'label' => 'item code', 'sortable' => false],
                 ['index' => 'item_description', 'label' => 'description', 'sortable' => false],
                 ['index' => 'uom_id', 'label' => 'unit' , 'sortable' => false],
-                ['index' => 'measurement_type', 'label' => 'measured by' , 'sortable' => false],
                 ['index' => 'optimal_stock', 'label' => 'optimal stock',  'sortable' => false],
                 ['index' => 'orderpoint', 'label' => 're-order target',  'sortable' => false],
                 ['index' => 'is_forsale', 'label' => 'for sale',  'sortable' => false],
+                ['index' => 'cost', 'label' => 'cost',  'sortable' => false],
                 ['index' => 'created_at', 'label' => 'created date'],
                 ['index' => 'action', 'label' => 'action'],
 
@@ -273,17 +400,33 @@ public function with(): array
                             @endif
                         </div>
                     @endinteract
+                    @interact('column_uom_id',$row)
+                        {{$row->unit?->unit_symbol}}
+                    @endinteract
+                    @interact('column_cost',$row)
+                       ₱ {{$row->cost?->amount ?? '0.00'}}
+                    @endinteract
+                    @interact('column_is_forsale',$row)
+                         <div class="flex items-center gap-2">
+                            @if($row->is_forsale == 1)
+                                <x-ts-badge text="Yes" color="fuchsia" outline/>
+                            @elseif($row->is_forsale == 0)
+                                <x-ts-badge text="No" color="cyan" outline/>
+                            @endif
+                        </div>
+                    @endinteract
                     @interact('column_created_at', $row)
                         {{ ($row->created_at)->format('M. d, Y')}}
                     @endinteract
                     @interact('column_action', $row)
                         <x-ts-dropdown icon="ellipsis-vertical" static lg>
                             <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                            @if($row->item_status == 'ACTIVE')
-                                <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                            @else
-                                <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                            @endif
+                            <x-ts-dropdown.items 
+                                :text="$row->item_status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
+                                :icon="$row->item_status == 'ACTIVE' ? 'x-mark' : 'check'" 
+                                separator 
+                                wire:click="changeItemStatus({{ $row->id }})" 
+                            />
                         </x-ts-dropdown>
                     @endinteract
                     @interact('sub_table', $row)
@@ -309,13 +452,13 @@ public function with(): array
                     @endinteract
                 </x-ts-table>
                 <x-ts-dial>
-                    <x-ts-dial.items icon="pencil" label="Edit" />
+                    <x-ts-dial.items icon="plus" label="Add Item"  wire:click="$toggle('addItemModal')"/>
                     <x-ts-dial.items icon="share" label="Share" />
                     <x-ts-dial.items icon="trash" label="Delete" />
                 </x-ts-dial>
             </x-ts-tab.items>
             <x-ts-tab.items tab="Item Properties">
-                <x-ts-tab wire:model.live="itemPropTab" shadowless bordered>
+                <x-ts-tab wire:model.live="itemPropTab" shadowless >
                     <x-ts-tab.items tab="Categories">
                         <div class="flex mb-3">
                             <x-ts-select.native wire:model.live="categoryStatus"
@@ -535,4 +678,281 @@ public function with(): array
             </x-ts-tab.items>
         </x-ts-tab>
     </div>
+
+    {{-- ADD ITEM MODAL --}}
+    <x-ts-modal title="ADD ITEM" size="4xl" wire="addItemModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid grid-cols-2 gap-3">
+                <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/>
+                <x-ts-input label="Name *" wire:model="itemName"/>
+                <x-ts-input label="Barcode Value" wire:model="itemBarcode"/>
+                <x-ts-currency decimal label="Cost" clearable currency wire:model="itemCost"/>
+                <x-ts-number label="Re-order Point *" wire:model="itemOrderPoint"/>
+                <x-ts-number label="Optimal stock" hint="Default: (No limit)" wire:model="optimalStock"/>
+                {{-- category --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.categories', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemCategory"
+                    label="Category *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No categoies found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Category <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- brand --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.brand', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemBrand"
+                    label="Brand"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No brand found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Brand <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- classification --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemClass"
+                    label="Classification *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- sub-class --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.subclassification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemSubClass"
+                    label="Sub-classification"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No Sub-classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`add new sub-class <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                <div class="grid grid-cols-3 col-span-2 gap-3">
+                    <div wire:key="{{$measureType}}" class="grid col-span-2 grid-cols-2 gap-3">
+                        <x-ts-select.styled 
+                            label="Measured type *"
+                            placeholder="Select"
+                            wire:model.live="measureType"
+                            hint="You can choose weight, unit ,volume or length"
+                            :request="route('api.item.measuredType')"
+                            select="value:id" 
+                        />
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureType])"
+                            select="label:label|value:label|description:description"
+                            :disabled="!$measureType"
+                            wire:model="measureSymbol"
+                            label="Symbol *"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No symbol found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                        <span x-html="`Add new Symbol <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
+                    </div>
+                    <x-ts-number 
+                        :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
+                        :disabled="$this->isUnitType || !$measureType" 
+                        wire:model="measureValue"
+                    />
+                </div>
+               <div class="col-span-2">
+                <x-ts-checkbox.group wire:model="isForSale" list :options="[ ['label' => 'Available for sale', 'value' => 'newsletter']]" />
+               </div>
+
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat>Cancel</x-ts-button>
+                <x-ts-button wire:click="saveItemAction">Save</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
+        {{-- ADD ITEM MODAL --}}
+    <x-ts-modal title="EDIT ITEM" size="4xl" wire="editItemModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid grid-cols-2 gap-3">
+                <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/>
+                <x-ts-input label="Name *" wire:model="itemName"/>
+                <x-ts-input label="Barcode Value" wire:model="itemBarcode"/>
+                <x-ts-currency decimal label="Cost" clearable currency wire:model="itemCost"/>
+                <x-ts-number label="Re-order Point *" wire:model="itemOrderPoint"/>
+                <x-ts-number label="Optimal stock" hint="Default: (No limit)" wire:model="optimalStock"/>
+                {{-- category --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.categories', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemCategory"
+                    label="Category *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No categoies found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Category <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- brand --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.brand', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemBrand"
+                    label="Brand"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No brand found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Brand <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- classification --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemClass"
+                    label="Classification *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                {{-- sub-class --}}
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.subclassification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="itemSubClass"
+                    label="Sub-classification"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No Sub-classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                <span x-html="`add new sub-class <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+
+                <div class="grid grid-cols-3 col-span-2 gap-3">
+                    <div wire:key="{{$measureType}}" class="grid col-span-2 grid-cols-2 gap-3">
+                        <x-ts-select.styled 
+                            label="Measured type *"
+                            placeholder="Select"
+                            wire:model.live="measureType"
+                            hint="You can choose weight, unit ,volume or length"
+                            :request="route('api.item.measuredType')"
+                            select="value:id" 
+                        />
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureType])"
+                            select="label:label|value:label|description:description"
+                            :disabled="!$measureType"
+                            wire:model="measureSymbol"
+                            label="Symbol *"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No symbol found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                        <span x-html="`Add new Symbol <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
+                    </div>
+                    <x-ts-number 
+                        :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
+                        :disabled="$this->isUnitType || !$measureType" 
+                        wire:model="measureValue"
+                    />
+                </div>
+               <div class="col-span-2">
+                <x-ts-checkbox.group wire:model="isForSale" list :options="[ ['label' => 'Available for sale', 'value' => 'newsletter']]" />
+               </div>
+
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat>Cancel</x-ts-button>
+                <x-ts-button wire:click="saveItemAction">Save</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
 </div>

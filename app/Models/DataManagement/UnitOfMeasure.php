@@ -12,6 +12,11 @@ class UnitOfMeasure extends Model
         'unit_symbol',
         'company_id',
         'status',
+        'measure_type_id',
+        'measure_value',
+        'measure_symbol',
+        'created_by',
+        'updated_by',
+        'unit_description',
     ];
-
 }
