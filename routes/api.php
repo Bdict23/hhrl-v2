@@ -128,6 +128,6 @@ Route::middleware('auth:sanctum')->get('/event-budget/active-approvers', [EventB
 Route::middleware('auth:sanctum')->get('/item/active-categories', [ItemApiController::class, 'activeItemCategory'])->name('api.item.active.categories');
 Route::middleware('auth:sanctum')->get('/item/active-brand', [ItemApiController::class, 'activeItemBrand'])->name('api.item.active.brand');
 Route::middleware('auth:sanctum')->get('/item/active-classification', [ItemApiController::class, 'activeItemClassification'])->name('api.item.active.classification');
-Route::middleware('auth:sanctum')->get('/item/active-subclassification', [ItemApiController::class, 'activeItemSubClassification'])->name('api.item.active.subclassification');
+Route::middleware('auth:sanctum')->get('/item/parent-class-subclassification', [ItemApiController::class, 'parentSubClassifications'])->name('api.item.active.subclassification');
 Route::middleware('auth:sanctum')->get('/item/measured-type', [ItemApiController::class, 'measuredType'])->name('api.item.measuredType');
 Route::middleware('auth:sanctum')->get('/item/measured-symbol', [ItemApiController::class, 'measuredSymbol'])->name('api.item.measuredSymbol');

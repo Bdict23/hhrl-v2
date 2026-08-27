@@ -60,12 +60,11 @@ class ItemApiController extends Controller
         return response()->json($result);
     }
 
-    public function activeItemSubClassification(Request $request)
+    public function parentSubClassifications(Request $request)
     {
-        $company_id = $request->query('company_id');
-        $result = Classification::where('company_id', $company_id)
-            ->where('status', 'ACTIVE')
-            ->where('class_parent', 'IS NOT', null)
+        $paren_class_id = $request->query('parent_id');
+        $result = Classification::where('status', 'ACTIVE')
+            ->where('class_parent', $paren_class_id)
             ->get()->map(function ($subClass) {
                 return [
                     'id' => $subClass->id,

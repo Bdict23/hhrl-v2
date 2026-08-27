@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 
 
 
+
 use App\Models\DataManagement\Item;
 use App\Models\DataManagement\Brand;
 use App\Models\DataManagement\Category;
@@ -38,11 +39,72 @@ new class extends Component
     public array $sort = ['column' => 'created_at', 'direction' => 'desc',];
 
     // MODAL
-    public $addItemModal = false,$editItemModal=false;
+    public 
+        $addItemModal = false,
+        $editItemModal=false,
+        $addItemCategoryModal=false,
+        $editItemCategoryModal=false,
+        $addItemClassificationModal=false,
+        $editItemClassificationModal=false,
+        $addItemBrandModal,
+        $editItemBrandModal,
+        $addItemSubClassModal,
+        $editItemSubClassModal;
 
     // ITEM REGISTRATION DECLARATION
-    public $itemCode,$itemName,$itemBarcode,$itemCost,$itemOrderPoint,$optimalStock,$itemCategory,$itemBrand,$itemClass,$itemSubClass,$measureType,$measureValue,$measureSymbol,$isForSale=false;
+        public 
+            $itemCode,
+            $itemName,
+            $itemBarcode,
+            $itemCost,
+            $itemOrderPoint,
+            $optimalStock,
+            $itemCategory,
+            $itemBrand,
+            $itemClass,
+            $itemSubClass,
+            $measureType,
+            $measureValue,
+            $measureSymbol,
+            $isForSale=false;
+        
+    // ITEM UPDATE DECLARATION
+        public 
+            $itemCodeEdit,
+            $itemNameEdit,
+            $itemBarcodeEdit,
+            $itemCostEdit,
+            $itemOrderPointEdit,
+            $optimalStockEdit,
+            $itemCategoryEdit,
+            $itemBrandEdit,
+            $itemClassEdit,
+            $itemSubClassEdit,
+            $measureTypeEdit,
+            $measureValueEdit,
+            $measureSymbolEdit,
+            $item_id,
+            $isForSaleEdit=false;
 
+    // CATEGORY REGISTRATION FORM
+        public $addCategoryName,$addCategoryDescription;
+    // UPDATE CATEGORY FORM
+        public $editCategoryName,$editCategoryDescription,$category_id;
+    // CLASSIFICATION REGISTRATION
+        public $addClassificationName,$addClassificationDescription;
+    // UPDATE CLASSIFICATION
+        public $editClassificationName,$editClassificationDescription,$classification_id;
+    
+    // SUBCLASSIFICATION REGISTRATION
+        public $addSubClassName,$addSubClassDescription,$addClassParent_id;
+    // UPDATE SUBCLASSIFICATION
+        public $editSubClassName,$editSubClassDescription,$SubClass_id,$editClassParent_id;
+    
+    // BRAND REGISTRATION
+        public $addBrandName,$addBrandDescription;
+    // UPDATE BRAND
+        public $editBrandName,$editBrandDescription,$brand_id;
+    //
     public function saveItemAction()
     {
         $this->validate([
@@ -71,11 +133,43 @@ new class extends Component
         ->cancel('Cancel', 'cancelledItemRegister')
         ->send();
     }
+
+    public function updateItemAction()
+    {
+      $this->validate([
+            'itemCodeEdit'       => 'required|unique:items,item_code,'. $this->item_id,
+            'itemNameEdit'       => 'required',
+            'itemOrderPointEdit' => 'required|numeric',
+            'itemCategoryEdit'   => 'required|exists:categories,id',
+            'itemBrandEdit'      => 'nullable|exists:brands,id',
+            'itemClassEdit'      => 'required|exists:classifications,id',
+            'itemSubClassEdit'   => 'nullable|exists:classifications,id',
+            'measureTypeEdit'    => 'required|exists:system_parameters,id',
+            'measureSymbolEdit'  => 'required',
+            'measureValueEdit'   => [
+                Rule::requiredIf(fn () => !$this->isUnitType()),
+                'nullable',
+                'numeric',
+            ],
+        ]);
+        $this->editItemModal = false;
+         $this->dialog()
+        ->question('Update Item?', 'Are you sure to update this item?')
+        ->confirm(
+            'Confirm',
+            'updateItem', //pass a functio to call
+            )
+        ->cancel('Cancel', 'cancelledItemRegister')
+        ->send();  
+    }
+
+    // RE-SHOW MODAL
     public function cancelledItemRegister(): void
     {
         $this->addItemModal = true;
     }
 
+    //APPLY ACTION AND SAVE TO DATABASE
     public function storeItem( ItemService $service)
     {
         try {
@@ -117,10 +211,150 @@ new class extends Component
             $this->toast()->success('Success', "Item {$item->item_description} created successfully!")->send();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error', 'Something went wrong while saving: ' . $e->getMessage())->send();
+            $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+
         }
     }
 
+    //APPLY ACTION TO UPDATE ITEM
+     public function updateItem( ItemService $service)
+    {
+        try {
+            $payload = [
+                'item_code'         => $this->itemCodeEdit,
+                'item_description'  => $this->itemNameEdit,
+                'item_barcode'      => $this->itemBarcodeEdit,
+                'company_id'        => auth()->user()->branch->company_id,
+                'classification_id' => $this->itemClassEdit,
+                'sub_class_id'      => $this->itemSubClassEdit,
+                'brand_id'          => $this->itemBrandEdit,
+                'category_id'       => $this->itemCategoryEdit,
+                'orderpoint'        => $this->itemOrderPointEdit,
+                'optimal_stock'     => $this->optimalStockEdit,
+                'measure_type_id'   => $this->measureTypeEdit,
+                'measure_value'     => $this->measureValueEdit,
+                'measure_symbol'    => $this->measureSymbolEdit,
+                'is_forsale'        => $this->isForSaleEdit,
+                'created_by'        =>  auth()->user()->emp_id,
+                'item_cost'         => $this->itemCostEdit,
+                'branch_id'         => auth()->user()->branch_id,
+                'item_id'           => $this->item_id,
+
+            ];
+            $item = $service->updateItem($payload);
+            $this->reset([
+                'itemCodeEdit',
+                'itemNameEdit',
+                'itemBarcodeEdit',
+                'itemClassEdit',
+                'itemSubClassEdit',
+                'itemBrandEdit',
+                'itemCategoryEdit',
+                'itemOrderPointEdit',
+                'optimalStockEdit',
+                'measureTypeEdit',
+                'measureValueEdit',
+                'itemCostEdit',
+                'item_id',
+                'isForSaleEdit']);
+            $this->toast()->success('Success', "Item {$item->item_description} updated successfully!")->send();
+
+        } catch (\Exception $e) {
+            $this->toast()->error('Error', 'Something went wrong while updating: ' . $e->getMessage())->send();
+        }
+    }
+    public function updateCategory()
+    {
+        $this->validate([
+                'editCategoryName' => 'required|string|max:50',
+                'editCategoryDescription' => 'nullable|string|max:50',
+            ]);
+            try {
+                $service = app(ItemService::class);
+                $payload = [
+                    'category_name' => $this->editCategoryName,
+                    'category_description' => $this->editCategoryDescription,
+                    'updated_by' => auth()->user()->emp_id,
+                    'id' => $this->category_id,
+                ];
+                $service->updateCategory($payload);
+                $this->editItemCategoryModal = false;
+                $this->toast()->success('Success', "Category updated successfully!")->send();
+                $this->reset(['editCategoryName','editCategoryDescription','category_id']);
+            } catch (\Throwable $th) {
+                $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+            }
+    }
+    public function updateClassification()
+    {
+        $this->validate([
+                'editClassificationName' => 'required|string|max:50',
+                'editClassificationDescription' => 'nullable|string|max:50',
+            ]);
+            try {
+                $service = app(ItemService::class);
+                $payload = [
+                    'classification_name' => $this->editClassificationName,
+                    'classification_description' => $this->editClassificationDescription,
+                    'updated_by' => auth()->user()->emp_id,
+                    'id' => $this->classification_id,
+                ];
+                $service->updateClassification($payload);
+                $this->editItemClassificationModal = false;
+                $this->toast()->success('Success', "Classification updated successfully!")->send();
+                $this->reset(['editClassificationName','editClassificationDescription','classification_id']);
+            } catch (\Throwable $e) {
+                $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+            }
+    }
+    public function updateSubClass()
+    {
+        $this->validate([
+                'editClassParent_id' => 'required|exists:classifications,id',
+                'editSubClassName' => 'required|string|max:50',
+                'editSubClassDescription' => 'nullable|string|max:50',
+            ]);
+            try {
+                $service = app(ItemService::class);
+                $payload = [
+                    'class_parent' => $this->editClassParent_id,
+                    'classification_name' => $this->editSubClassName,
+                    'classification_description' => $this->editSubClassDescription,
+                    'updated_by' => auth()->user()->emp_id,
+                    'id' => $this->SubClass_id,
+                ];
+                $service->updateSubClass($payload);
+                $this->editItemSubClassModal = false;
+                $this->toast()->success('Success', "Sub-Class updated successfully!")->send();
+                $this->reset(['editSubClassName','editBrandDescription','SubClass_id','editClassParent_id']);
+            } catch (\Throwable $e) {
+                $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+            }
+    }
+    public function updateBrand()
+    {
+        $this->validate([
+                'editBrandName' => 'required|string|max:50',
+                'editBrandDescription' => 'nullable|string|max:50',
+            ]);
+            try {
+                $service = app(ItemService::class);
+                $payload = [
+                    'brand_name' => $this->editBrandName,
+                    'brand_description' => $this->editBrandDescription,
+                    'updated_by' => auth()->user()->emp_id,
+                    'id' => $this->brand_id,
+                ];
+                $service->updateBrand($payload);
+                $this->editItemBrandModal = false;
+                $this->toast()->success('Success', "Brand updated successfully!")->send();
+                $this->reset(['editBrandName','editBrandDescription','brand_id']);
+            } catch (\Throwable $e) {
+                $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+            }
+    }
+
+    //SET ITEM TO ACTIVE OR INACTIVE
     public function changeItemStatus(int $id)
     {
         try {
@@ -138,149 +372,395 @@ new class extends Component
         }
        
     }
-
-
-    #[Computed]
-    public function itemRows(): LengthAwarePaginator
+    public function changeCategoryStatus(int $id)
     {
-        if($this->mainTab == 'Items')
+        try {
+            $service = app(ItemService::class);
+            $data = $service->changeCategoryStatus((int)$id);
+            $this->toast()->success(
+                        'Category Status changed',
+                        "Category status successfully changed."
+                    )->send();
+        } catch (\Throwable $e) {
+           $this->toast()
+                ->error('Action Failed', 'An error occurred while changing status: ' . $e->getMessage())
+                ->send();
+        }
+       
+    }
+    public function changeClassificationStatus(int $id)
+    {
+        try {
+            $service = app(ItemService::class);
+            $data = $service->changeClassificationStatus((int)$id);
+            $this->toast()->success(
+                        'Classification Status changed',
+                        "Classification status successfully changed."
+                    )->send();
+        } catch (\Throwable $e) {
+           $this->toast()
+                ->error('Action Failed', 'An error occurred while changing status: ' . $e->getMessage())
+                ->send();
+        }
+       
+    }
+
+    public function changeSubClassificationStatus(int $id)
+    {
+        try {
+            $service = app(ItemService::class);
+            $data = $service->changeSubClassificationStatus((int)$id);
+            $this->toast()->success(
+                        'Sub-Classification Status changed',
+                        "Sub-Classification status successfully changed."
+                    )->send();
+        } catch (\Throwable $e) {
+           $this->toast()
+                ->error('Action Failed', 'An error occurred while changing status: ' . $e->getMessage())
+                ->send();
+        }
+       
+    }
+
+    public function changeBrandStatus(int $id)
+    {
+        try {
+            $service = app(ItemService::class);
+            $data = $service->changeBrandStatus((int)$id);
+            $this->toast()->success(
+                        'Brand Status changed',
+                        "Brand status successfully changed."
+                    )->send();
+        } catch (\Throwable $e) {
+           $this->toast()
+                ->error('Action Failed', 'An error occurred while changing status: ' . $e->getMessage())
+                ->send();
+        }
+       
+    }
+
+    // ADD NEW CATEGORY
+    public function storeCategory()
+    {
+        // 1. Validated data ensures only sanitized inputs are passed
+        $validated = $this->validate([
+            'addCategoryName'        => ['required', 'string', 'max:50'],
+            'addCategoryDescription' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        try {
+            // 2. Cache current user reference to reduce repetitive magic calls
+            $user = auth()->user();
+            $service = app(ItemService::class);
+
+            $data = $service->addNewCategory([
+                'category_name'        => $validated['addCategoryName'],
+                'category_description' => $validated['addCategoryDescription'],
+                'category_type'        => 'ITEM',
+                'company_id'           => $user->branch?->company_id,
+                'created_by'           => $user->emp_id,
+            ]);
+
+            // 3. UI State Assignments
+            if ($this->mainTab === 'Items') {
+                if ($this->addItemModal) {
+                    $this->itemCategory = $data->id;
+                } elseif ($this->editItemModal) {
+                    $this->itemCategoryEdit = $data->id;
+                }
+                 $this->banner()
+                ->success("Category '{$data->category_name}' created successfully!")
+                ->close()
+                ->leave(seconds: 3)
+                ->send();
+                }else{
+                        $this->toast()->success('Success', "Category created successfully!")->send();
+                }
+
+            // 4. Reset properties and send notification
+            $this->reset(['addCategoryName', 'addCategoryDescription']);
+            
+           
+
+        } catch (\Throwable $e) {
+            // 5. Log the actual exception for developers; show a generic error to the user
+            logger()->error('Failed to store category: ' . $e->getMessage(), ['exception' => $e]);
+
+            $this->banner()
+                ->error('Something went wrong while saving the category. Please try again.')
+                ->send();
+        } finally {
+            // 6. Ensure the modal closes regardless of success or failure
+            $this->addItemCategoryModal = false;
+        }
+    }
+    // ADD NEW CLASSIFICATION
+    public function storeClassification()
+    {
+        $this->validate([
+                'addClassificationName' => 'required|string|max:50',
+                'addClassificationDescription' => 'nullable|string|max:50',
+            ]);
+        try {
+            $user = auth()->user();
+            $service = app(ItemService::class);
+            $payload = [
+                'classification_name'         => $this->addClassificationName,
+                'classification_description'  => $this->addClassificationDescription,
+                'company_id'                  => $user->branch->company_id,
+                'created_by'                  =>  $user->emp_id,
+            ];
+            $data = $service->addNewClassification($payload);
+            if($this->mainTab == 'Items')
+            {
+                if($this->addItemModal)
+                {$this->itemClass = $data->id;}
+                elseif($this->editItemModal) {$this->itemClassEdit = $data->id;}
+                $this->banner() 
+                ->success('Classification created successfully!')
+                ->close()
+                ->leave(seconds: 3)
+                ->send();
+            }else{
+                $this->toast()->success('Success', "Classification created successfully!")->send();
+            }
+            $this->reset(['addClassificationName', 'addClassificationDescription']);
+
+            $this->addItemClassificationModal = false;
+        } catch (\Throwable $e) {
+            logger()->error('Failed to store category: ' . $e->getMessage(), ['exception' => $e]);
+            $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+        }
+    }
+
+    // ADD NEW SUBCLASSIFICATION
+    public function storeSubClass()
+    {
+        $this->validate([
+                'addClassParent_id' => 'required|exists:classifications,id',
+                'addSubClassName' => 'required|string|max:50',
+                'addSubClassDescription' => 'nullable|string|max:50',
+            ]);
+        try {
+            $user = auth()->user();
+            $service = app(ItemService::class);
+            $payload = [
+                'class_parent'                => $this->addClassParent_id,
+                'classification_name'         => $this->addSubClassName,
+                'classification_description'  => $this->addSubClassDescription,
+                'company_id'                  => $user->branch->company_id,
+                'created_by'                  =>  $user->emp_id,
+            ];
+            $data = $service->addNewSubClass($payload);
+            if($this->mainTab == 'Items')
+            {
+                if($this->addItemModal)
+                {$this->itemSubClass = $data->id;}
+                elseif($this->editItemModal) {$this->itemSubClassEdit = $data->id;}
+                $this->banner() 
+                ->success('Sub-Classification created successfully!')
+                ->close()
+                ->leave(seconds: 3)
+                ->send();
+            }else{
+                $this->toast()->success('Success', "Sub-Classification created successfully!")->send();
+            }
+            $this->reset(['addClassParent_id', 'addSubClassName','addSubClassDescription']);
+
+        } catch (\Throwable $e) {
+            logger()->error('Failed to store Sub-Classification: ' . $e->getMessage(), ['exception' => $e]);
+            $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+        }finally{
+            $this->addItemSubClassModal = false;
+        }
+    }
+
+    // ADD NEW BRAND
+    public function storeBrand()
+    {
+        $this->validate([
+                'addBrandName' => 'required|string|max:50',
+                'addBrandDescription' => 'nullable|string|max:50',
+            ]);
+        try {
+            $user = auth()->user();
+            $service = app(ItemService::class);
+            $payload = [
+                'brand_name'         => $this->addBrandName,
+                'brand_description'  => $this->addBrandDescription,
+                'company_id'         => $user->branch->company_id,
+                'created_by'         =>  $user->emp_id,
+            ];
+            $data = $service->addNewBrand($payload);
+            if($this->mainTab == 'Items')
+            {
+                if($this->addItemModal)
+                {$this->itemBrand = $data->id;}
+                elseif($this->editItemModal) {$this->itemBrandEdit = $data->id;}
+                $this->banner() 
+                ->success('Brand created successfully!')
+                ->close()
+                ->leave(seconds: 3)
+                ->send();
+            }else{
+                $this->toast()->success('Success', "Brand created successfully!")->send();
+            }
+            $this->reset(['addBrandName', 'addBrandDescription']);
+
+        } catch (\Throwable $e) {
+            logger()->error('Failed to store brand: ' . $e->getMessage(), ['exception' => $e]);
+            $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+        }finally{
+            $this->addItemBrandModal = false;
+        }
+    }
+
+    //COMPUTED
+        #[Computed]
+        public function itemRows(): LengthAwarePaginator
         {
-            return Item::query()
-                ->with(['brand','classification','subClassification','category','unit','cost'])
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('item_description', 'like', "%{$this->search}%");
-                })
-                ->when($this->itemStatus, function (Builder $query) {
-                    return $query->where('item_status', $this->itemStatus);
-                })
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
+            if($this->mainTab == 'Items')
+            {
+                return Item::query()
+                    ->with(['brand','classification','subClassification','category','unit','cost'])
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('item_description', 'like', "%{$this->search}%");
+                    })
+                    ->when($this->itemStatus, function (Builder $query) {
+                        return $query->where('item_status', $this->itemStatus);
+                    })
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
+                    return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
+        }
+
+        #[Computed]
+        public function categoriesRows(): LengthAwarePaginator
+        {
+            if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Categories' )
+            {
+                return Category::query()
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('category_name', 'like', "%{$this->search}%");
+                    })
+                    ->when($this->categoryStatus, function (Builder $query) {
+                        return $query->where('status', $this->categoryStatus);
+                    })
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->where('category_type', 'ITEM')
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
                 return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
         }
-    }
 
-    #[Computed]
-    public function categoriesRows(): LengthAwarePaginator
-    {
-        if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Categories' )
+        #[Computed]
+        public function classificationRows(): LengthAwarePaginator
         {
-            return Category::query()
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('category_name', 'like', "%{$this->search}%");
-                })
-                ->when($this->categoryStatus, function (Builder $query) {
-                    return $query->where('status', $this->categoryStatus);
-                })
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
-            return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Classification'  )
+            {
+                return Classification::query()
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('classification_name', 'like', "%{$this->search}%");
+                    })
+                    ->when($this->classificationStatus, function (Builder $query) {
+                        return $query->where('status', $this->classificationStatus);
+                    })
+                    ->where('class_parent',  null)
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
+                return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
         }
-    }
 
-    #[Computed]
-    public function classificationRows(): LengthAwarePaginator
-    {
-        if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Classification'  )
+        #[Computed]
+        public function subClassificationRows(): LengthAwarePaginator
         {
-            return Classification::query()
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('classification_name', 'like', "%{$this->search}%");
-                })
-                ->when($this->classificationStatus, function (Builder $query) {
-                    return $query->where('status', $this->classificationStatus);
-                })
-                ->where('class_parent',  null)
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
-            return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Sub-classification'  )
+            {
+                return Classification::query()
+                    ->with(['classificationParent'])
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('classification_name', 'like', "%{$this->search}%");
+                    })
+                    ->where('class_parent', 'IS NOT', null)
+                    ->when($this->subClassStatus, function (Builder $query) {
+                        return $query->where('status', $this->subClassStatus);
+                    })
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
+                return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
         }
-    }
 
-    #[Computed]
-    public function subClassificationRows(): LengthAwarePaginator
-    {
-        if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Sub-classification'  )
+        #[Computed]
+        public function unitMeasureRows(): LengthAwarePaginator
         {
-            return Classification::query()
-                ->with(['classificationParent'])
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('classification_name', 'like', "%{$this->search}%");
-                })
-                ->where('class_parent', 'IS NOT', null)
-                ->when($this->subClassStatus, function (Builder $query) {
-                    return $query->where('status', $this->subClassStatus);
-                })
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
-            return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Unit Measure'  )
+            {
+                return UnitOfMeasure::query()
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('unit_name', 'like', "%{$this->search}%")->orWhere('unit_symbol', 'like',"%{$this->search}%");
+                    })
+                    ->when($this->unitMeasureStatus, function (Builder $query) {
+                        return $query->where('status', $this->unitMeasureStatus);
+                    })
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
+                return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
         }
-    }
 
-    #[Computed]
-    public function unitMeasureRows(): LengthAwarePaginator
-    {
-        if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Unit Measure'  )
+        #[Computed]
+        public function brandRows(): LengthAwarePaginator
         {
-            return UnitOfMeasure::query()
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('unit_name', 'like', "%{$this->search}%")->orWhere('unit_symbol', 'like',"%{$this->search}%");
-                })
-                ->when($this->unitMeasureStatus, function (Builder $query) {
-                    return $query->where('status', $this->unitMeasureStatus);
-                })
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
-            return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Brands'  )
+            {
+                return Brand::query()
+                    ->when($this->search, function (Builder $query) {
+                        return  $query->where('brand_name', 'like', "%{$this->search}%");
+                    })
+                    ->when($this->brandStatus, function (Builder $query) {
+                        return $query->where('status', $this->brandStatus);
+                    })
+                    ->where('company_id', Auth::user()->branch->company_id)
+                    ->orderBy(...array_values($this->sort))
+                    ->paginate($this->quantity)
+                    ->withQueryString();
+            }else{
+                return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
+            }
         }
-    }
 
-    #[Computed]
-    public function brandRows(): LengthAwarePaginator
-    {
-        if($this->mainTab == 'Item Properties' && $this->itemPropTab == 'Brands'  )
+        #[Computed]
+        public function isUnitType(): bool
         {
-            return Brand::query()
-                ->when($this->search, function (Builder $query) {
-                    return  $query->where('brand_name', 'like', "%{$this->search}%");
-                })
-                ->when($this->brandStatus, function (Builder $query) {
-                    return $query->where('status', $this->brandStatus);
-                })
-                ->where('company_id', Auth::user()->branch->company_id)
-                ->orderBy(...array_values($this->sort))
-                ->paginate($this->quantity)
-                ->withQueryString();
-        }else{
-            return new LengthAwarePaginator([], 0, $this->quantity ?? 10);
-        }
-    }
+            $typeId = $this->measureType ?: $this->measureTypeEdit;
 
-    #[Computed]
-    public function isUnitType(): bool
-    {
-        if (!$this->measureType) {
-            return false;
-        }
+            if (!$typeId) {
+                return false;
+            }
 
-        return SystemParameter::where('id', $this->measureType)
-            ->where('name', 'UNIT')
-            ->exists();
-    }
+            return SystemParameter::where('id', $typeId)
+                ->where('name', 'UNIT')
+                ->exists();
+        }
+    // END OF COMPUTED
 
     public function updatedMeasureType($value): void
     {
@@ -288,6 +768,88 @@ new class extends Component
             $this->measureValue = null;
         }
     }
+        public function updatedMeasureTypeEdit($value): void
+    {
+        if ($this->isUnitType) {
+            $this->measureValueEdit = null;
+        }
+    }
+
+    //EDIT ACTION
+        public function editItem(int $id)
+        {
+            $item = Item::with('unit')->findOrFail($id);
+            $this->item_id = $id;
+            if($item)
+            {
+                $this->itemCodeEdit = $item->item_code;
+                $this->itemNameEdit = $item->item_description;
+                $this->itemBarcodeEdit = $item->item_barcode;
+                $this->itemClassEdit = $item->classification_id;
+                $this->itemSubClassEdit = $item->sub_class_id;
+                $this->itemBrandEdit = $item->brand_id;
+                $this->itemCategoryEdit = $item->category_id;
+                $this->itemOrderPointEdit = $item->orderpoint;
+                $this->optimalStockEdit = $item->optimal_stock;
+                $this->isForSaleEdit = $item->is_forsale;
+
+                $this->measureTypeEdit = $item->unit->measure_type_id;
+                $this->measureSymbolEdit = $item->unit->measure_symbol;
+                $this->measureValueEdit= $item->unit->measure_value == 0.00 ? null : $item->unit->measure_value;
+                $this->editItemModal = true;
+
+            }
+
+        }
+        public function editCategory(int $id)
+        {
+            $cat = Category::findOrFail($id);
+            $this->category_id = $id;
+            if($cat)
+            {
+                $this->editCategoryName = $cat->category_name;
+                $this->editCategoryDescription = $cat->category_description;
+                $this->editItemCategoryModal = true;
+            }
+
+        }
+        public function editClassification(int $id)
+        {
+            $cat = Classification::findOrFail($id);
+            $this->classification_id = $id;
+            if($cat)
+            {
+                $this->editClassificationName = $cat->classification_name;
+                $this->editClassificationDescription = $cat->classification_description;
+                $this->editItemClassificationModal = true;
+            }
+
+        }
+        public function editSubClass(int $id)
+        {
+            $cat = Classification::findOrFail($id);
+            $this->SubClass_id = $id;
+            if($cat)
+            {
+                $this->editClassParent_id = $cat->class_parent;
+                $this->editSubClassName = $cat->classification_name;
+                $this->editSubClassDescription = $cat->classification_description;
+                $this->editItemSubClassModal = true;
+            }
+
+        }
+        public function editBrand(int $id)
+        {
+            $cat = Brand::findOrFail($id);
+            $this->brand_id = $id;
+            if($cat)
+            {
+                $this->editBrandName = $cat->brand_name;
+                $this->editBrandDescription = $cat->brand_description;
+                $this->editItemBrandModal = true;
+            }
+
+        }
 
 public function with(): array
     {
@@ -310,7 +872,6 @@ public function with(): array
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'category_name', 'label' => 'category name', 'sortable' => false],
                 ['index' => 'category_description', 'label' => 'description', 'sortable' => false],
-                ['index' => 'category_type', 'label' => 'type' , 'sortable' => false],
                 ['index' => 'created_at', 'label' => 'created date'],
                 ['index' => 'action', 'label' => 'action'],
 
@@ -404,7 +965,7 @@ public function with(): array
                         {{$row->unit?->unit_symbol}}
                     @endinteract
                     @interact('column_cost',$row)
-                       ₱ {{$row->cost?->amount ?? '0.00'}}
+                       ₱ {{number_format($row->cost?->amount,2)}}
                     @endinteract
                     @interact('column_is_forsale',$row)
                          <div class="flex items-center gap-2">
@@ -420,7 +981,7 @@ public function with(): array
                     @endinteract
                     @interact('column_action', $row)
                         <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                            <x-ts-dropdown.items text="Edit" icon="pencil-square" />
+                            <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editItem({{$row->id}})"/>
                             <x-ts-dropdown.items 
                                 :text="$row->item_status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
                                 :icon="$row->item_status == 'ACTIVE' ? 'x-mark' : 'check'" 
@@ -453,8 +1014,6 @@ public function with(): array
                 </x-ts-table>
                 <x-ts-dial>
                     <x-ts-dial.items icon="plus" label="Add Item"  wire:click="$toggle('addItemModal')"/>
-                    <x-ts-dial.items icon="share" label="Share" />
-                    <x-ts-dial.items icon="trash" label="Delete" />
                 </x-ts-dial>
             </x-ts-tab.items>
             <x-ts-tab.items tab="Item Properties">
@@ -484,19 +1043,18 @@ public function with(): array
                             @endinteract
                             @interact('column_action', $row)
                                 <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                                    @else
-                                        <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                                    @endif
+                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editCategory({{$row->id}})"/>
+                                        <x-ts-dropdown.items 
+                                            :text="$row->status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
+                                            :icon="$row->status == 'ACTIVE' ? 'x-mark' : 'check'" 
+                                            separator 
+                                            wire:click="changeCategoryStatus({{ $row->id }})" 
+                                        />
                                 </x-ts-dropdown>
                             @endinteract
                         </x-ts-table>
                         <x-ts-dial>
-                            <x-ts-dial.items icon="pencil" label="Edit" />
-                            <x-ts-dial.items icon="share" label="Share" />
-                            <x-ts-dial.items icon="trash" label="Delete" />
+                            <x-ts-dial.items icon="plus" label="Add Cegory" wire:click="$toggle('addItemCategoryModal')"/>
                         </x-ts-dial>
                     </x-ts-tab.items>
                     <x-ts-tab.items tab="Classification">
@@ -524,19 +1082,18 @@ public function with(): array
                             @endinteract
                             @interact('column_action', $row)
                                 <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                                    @else
-                                        <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                                    @endif
+                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editClassification({{$row->id}})"/>
+                                        <x-ts-dropdown.items 
+                                            :text="$row->status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
+                                            :icon="$row->status == 'ACTIVE' ? 'x-mark' : 'check'" 
+                                            separator 
+                                            wire:click="changeClassificationStatus({{ $row->id }})" 
+                                        />
                                 </x-ts-dropdown>
                             @endinteract
                         </x-ts-table>
                         <x-ts-dial>
-                            <x-ts-dial.items icon="pencil" label="Edit" />
-                            <x-ts-dial.items icon="share" label="Share" />
-                            <x-ts-dial.items icon="trash" label="Delete" />
+                            <x-ts-dial.items icon="plus" label="Add Classification" wire:click="$toggle('addItemClassificationModal')"/>
                         </x-ts-dial>
                     </x-ts-tab.items>
                     <x-ts-tab.items tab="Sub-classification">
@@ -567,59 +1124,18 @@ public function with(): array
                             @endinteract
                             @interact('column_action', $row)
                                 <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                                    @else
-                                        <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                                    @endif
+                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editSubClass({{$row->id}})"/>
+                                    <x-ts-dropdown.items 
+                                            :text="$row->status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
+                                            :icon="$row->status == 'ACTIVE' ? 'x-mark' : 'check'" 
+                                            separator 
+                                            wire:click="changeSubClassificationStatus({{ $row->id }})" 
+                                        />
                                 </x-ts-dropdown>
                             @endinteract
                         </x-ts-table>
                         <x-ts-dial>
-                            <x-ts-dial.items icon="pencil" label="Edit" />
-                            <x-ts-dial.items icon="share" label="Share" />
-                            <x-ts-dial.items icon="trash" label="Delete" />
-                        </x-ts-dial>
-                    </x-ts-tab.items>
-                    <x-ts-tab.items tab="Unit Measure">
-                        <div class="flex mb-3">
-                            <x-ts-select.native wire:model.live="unitMeasureStatus"
-                                    placeholder="All"
-                                    :options="[
-                                    ['name' => 'All', 'id' => null],
-                                    ['name' => 'ACTIVE', 'id' => 'ACTIVE'],
-                                    ['name' => 'INACTIVE', 'id' => 'INACTIVE'],
-                            ]" select="label:name|value:id" />
-                        </div>
-                        <x-ts-table :headers="$unitMeasureHeaders" :rows="$this->unitMeasureRows" :$sort paginate persistent loading filter>
-                            @interact('column_status', $row)
-                                <div class="flex items-center gap-2">
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-badge :text="$row->status" color="green" />
-                                    @elseif($row->status == 'INACTIVE')
-                                        <x-ts-badge :text="$row->status" color="red" />
-                                    @endif
-                                </div>
-                            @endinteract
-                            @interact('column_created_at', $row)
-                                {{ ($row->created_at)->format('M. d, Y')}}
-                            @endinteract
-                            @interact('column_action', $row)
-                                <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                                    @else
-                                        <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                                    @endif
-                                </x-ts-dropdown>
-                            @endinteract
-                        </x-ts-table>
-                        <x-ts-dial>
-                            <x-ts-dial.items icon="pencil" label="Edit" />
-                            <x-ts-dial.items icon="share" label="Share" />
-                            <x-ts-dial.items icon="trash" label="Delete" />
+                            <x-ts-dial.items icon="plus" label="Add Sub-Classification" wire:click="$toggle('addItemSubClassModal')" />
                         </x-ts-dial>
                     </x-ts-tab.items>
                     <x-ts-tab.items tab="Brands">
@@ -647,40 +1163,40 @@ public function with(): array
                             @endinteract
                             @interact('column_action', $row)
                                 <x-ts-dropdown icon="ellipsis-vertical" static lg>
-                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" />
-                                    @if($row->status == 'ACTIVE')
-                                        <x-ts-dropdown.items text="Set INACTIVE" separator icon="x-circle" />
-                                    @else
-                                        <x-ts-dropdown.items text="Set ACTIVE"  separator icon="check-circle" />
-                                    @endif
+                                    <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editBrand({{$row->id}})"/>
+                                    <x-ts-dropdown.items 
+                                            :text="$row->status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
+                                            :icon="$row->status == 'ACTIVE' ? 'x-mark' : 'check'" 
+                                            separator 
+                                            wire:click="changeBrandStatus({{ $row->id }})" 
+                                        />
                                 </x-ts-dropdown>
                             @endinteract
                         </x-ts-table>
                         <x-ts-dial>
-                            <x-ts-dial.items icon="pencil" label="Edit" />
-                            <x-ts-dial.items icon="share" label="Share" />
-                            <x-ts-dial.items icon="trash" label="Delete" />
+                            <x-ts-dial.items icon="plus" label="Add Brand" wire:click="$toggle('addItemBrandModal')"/>
                         </x-ts-dial>
                     </x-ts-tab.items>
                     <x-ts-tab.items tab="Unit Conversions">
-                        Business
+                        Not yet available
                     </x-ts-tab.items>
                 </x-ts-tab>
             </x-ts-tab.items>
             <x-ts-tab.items tab="Rooms">
-                Rooms
+                Not yet available
             </x-ts-tab.items>
             <x-ts-tab.items tab="Restaurant">
-                Restaurant
+                Not yet available
             </x-ts-tab.items>
             <x-ts-tab.items tab="Business">
-                Business
+                Not yet available
             </x-ts-tab.items>
         </x-ts-tab>
     </div>
 
     {{-- ADD ITEM MODAL --}}
     <x-ts-modal title="ADD ITEM" size="4xl" wire="addItemModal" persistent center>
+        <x-ts-banner wire close /> 
         <x-ts-card shadowless loading>
             <div class="grid grid-cols-2 gap-3">
                 <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/>
@@ -702,7 +1218,7 @@ public function with(): array
                     ]" required>
                     <x-slot:after>
                         <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemCategoryModal')">
                                 <span x-html="`Add new Category <b>${search}</b>`"></span>
                             </x-ts-button>
                         </div>
@@ -722,53 +1238,55 @@ public function with(): array
                     ]" required>
                     <x-slot:after>
                         <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemBrandModal')">
                                 <span x-html="`Add new Brand <b>${search}</b>`"></span>
                             </x-ts-button>
                         </div>
                     </x-slot:after>
                 </x-ts-select.styled>
 
-                {{-- classification --}}
-                <x-ts-select.styled
-                    indicator="spinner.bars"
-                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
-                    select="label:label|value:id|description:description"
-                    wire:model="itemClass"
-                    label="Classification *"
-                    :placeholders="[
-                    'default' => 'Select',
-                    'empty'   => 'No classification found',
-                    ]" required>
-                    <x-slot:after>
-                        <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
-                            </x-ts-button>
-                        </div>
-                    </x-slot:after>
-                </x-ts-select.styled>
-
-                {{-- sub-class --}}
-                <x-ts-select.styled
-                    indicator="spinner.bars"
-                    :request="route('api.item.active.subclassification', ['company_id' => auth()->user()->branch->company_id ])"
-                    select="label:label|value:id|description:description"
-                    wire:model="itemSubClass"
-                    label="Sub-classification"
-                    :placeholders="[
-                    'default' => 'Select',
-                    'empty'   => 'No Sub-classification found',
-                    ]" required>
-                    <x-slot:after>
-                        <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                <span x-html="`add new sub-class <b>${search}</b>`"></span>
-                            </x-ts-button>
-                        </div>
-                    </x-slot:after>
-                </x-ts-select.styled>
-
+                <div wire:key="{{$itemClass}}" class="grid grid-cols-2 col-span-2 gap-3">
+                    {{-- classification --}}
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                            select="label:label|value:id|description:description"
+                            wire:model.live="itemClass"
+                            label="Classification *"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No classification found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemClassificationModal')">
+                                        <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
+                    
+                    {{-- sub-class --}}
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.active.subclassification', ['parent_id' =>  $itemClass])"
+                            select="label:label|value:id|description:description"
+                            wire:model="itemSubClass"
+                            label="Sub-classification"
+                            :disabled="!$itemClass"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No Sub-classification found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemSubClassModal')">
+                                        <span x-html="`add new sub-class <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
+                </div>
                 <div class="grid grid-cols-3 col-span-2 gap-3">
                     <div wire:key="{{$measureType}}" class="grid col-span-2 grid-cols-2 gap-3">
                         <x-ts-select.styled 
@@ -789,15 +1307,7 @@ public function with(): array
                             :placeholders="[
                             'default' => 'Select',
                             'empty'   => 'No symbol found',
-                            ]" required>
-                            <x-slot:after>
-                                <div class="px-2 mb-2 flex justify-center items-center">
-                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                        <span x-html="`Add new Symbol <b>${search}</b>`"></span>
-                                    </x-ts-button>
-                                </div>
-                            </x-slot:after>
-                        </x-ts-select.styled>
+                            ]" required/>
                     </div>
                     <x-ts-number 
                         :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
@@ -811,28 +1321,30 @@ public function with(): array
 
             </div>
             <x-slot:footer >
-                <x-ts-button flat>Cancel</x-ts-button>
+                <x-ts-button flat wire:click="$toggle('addItemModal')">Cancel</x-ts-button>
                 <x-ts-button wire:click="saveItemAction">Save</x-ts-button>
             </x-slot:footer>
         </x-ts-card>
     </x-ts-modal>
 
-        {{-- ADD ITEM MODAL --}}
+    {{-- EDIT ITEM MODAL --}}
     <x-ts-modal title="EDIT ITEM" size="4xl" wire="editItemModal" persistent center>
+        <x-ts-banner wire close /> 
         <x-ts-card shadowless loading>
             <div class="grid grid-cols-2 gap-3">
-                <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/>
-                <x-ts-input label="Name *" wire:model="itemName"/>
-                <x-ts-input label="Barcode Value" wire:model="itemBarcode"/>
-                <x-ts-currency decimal label="Cost" clearable currency wire:model="itemCost"/>
-                <x-ts-number label="Re-order Point *" wire:model="itemOrderPoint"/>
-                <x-ts-number label="Optimal stock" hint="Default: (No limit)" wire:model="optimalStock"/>
+                <x-ts-input label="SKU / Item Code *" wire:model="itemCodeEdit"/>
+                <x-ts-input label="Name *" wire:model="itemNameEdit"/>
+                <div class="col-span-2">
+                    <x-ts-input label="Barcode Value" wire:model="itemBarcodeEdit"/>
+                </div>
+                <x-ts-number label="Re-order Point *" wire:model="itemOrderPointEdit"/>
+                <x-ts-number label="Optimal stock" hint="Default: (No limit)" wire:model="optimalStockEdit"/>
                 {{-- category --}}
                 <x-ts-select.styled
                     indicator="spinner.bars"
                     :request="route('api.item.active.categories', ['company_id' => auth()->user()->branch->company_id ])"
                     select="label:label|value:id|description:description"
-                    wire:model="itemCategory"
+                    wire:model="itemCategoryEdit"
                     label="Category *"
                     :placeholders="[
                     'default' => 'Select',
@@ -840,7 +1352,7 @@ public function with(): array
                     ]" required>
                     <x-slot:after>
                         <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemCategoryModal')">
                                 <span x-html="`Add new Category <b>${search}</b>`"></span>
                             </x-ts-button>
                         </div>
@@ -852,7 +1364,7 @@ public function with(): array
                     indicator="spinner.bars"
                     :request="route('api.item.active.brand', ['company_id' => auth()->user()->branch->company_id ])"
                     select="label:label|value:id|description:description"
-                    wire:model="itemBrand"
+                    wire:model="itemBrandEdit"
                     label="Brand"
                     :placeholders="[
                     'default' => 'Select',
@@ -860,97 +1372,241 @@ public function with(): array
                     ]" required>
                     <x-slot:after>
                         <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemBrandModal')">
                                 <span x-html="`Add new Brand <b>${search}</b>`"></span>
                             </x-ts-button>
                         </div>
                     </x-slot:after>
                 </x-ts-select.styled>
+                
+                <div wire:key="{{$itemClassEdit}}" class="grid grid-cols-2 col-span-2 gap-3">
+                    {{-- classification --}}
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                            select="label:label|value:id|description:description"
+                            wire:model.live="itemClassEdit"
+                            label="Classification *"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No classification found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemClassificationModal')">
+                                        <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
 
-                {{-- classification --}}
-                <x-ts-select.styled
-                    indicator="spinner.bars"
-                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
-                    select="label:label|value:id|description:description"
-                    wire:model="itemClass"
-                    label="Classification *"
-                    :placeholders="[
-                    'default' => 'Select',
-                    'empty'   => 'No classification found',
-                    ]" required>
-                    <x-slot:after>
-                        <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
-                            </x-ts-button>
-                        </div>
-                    </x-slot:after>
-                </x-ts-select.styled>
-
-                {{-- sub-class --}}
-                <x-ts-select.styled
-                    indicator="spinner.bars"
-                    :request="route('api.item.active.subclassification', ['company_id' => auth()->user()->branch->company_id ])"
-                    select="label:label|value:id|description:description"
-                    wire:model="itemSubClass"
-                    label="Sub-classification"
-                    :placeholders="[
-                    'default' => 'Select',
-                    'empty'   => 'No Sub-classification found',
-                    ]" required>
-                    <x-slot:after>
-                        <div class="px-2 mb-2 flex justify-center items-center">
-                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                <span x-html="`add new sub-class <b>${search}</b>`"></span>
-                            </x-ts-button>
-                        </div>
-                    </x-slot:after>
-                </x-ts-select.styled>
-
+                    {{-- sub-class --}}
+                        <x-ts-select.styled
+                            indicator="spinner.bars"
+                            :request="route('api.item.active.subclassification', ['parent_id' =>  $itemClassEdit])"
+                            select="label:label|value:id|description:description"
+                            wire:model="itemSubClassEdit"
+                            :disabled="!$itemClassEdit"
+                            label="Sub-classification"
+                            :placeholders="[
+                            'default' => 'Select',
+                            'empty'   => 'No Sub-classification found',
+                            ]" required>
+                            <x-slot:after>
+                                <div class="px-2 mb-2 flex justify-center items-center">
+                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
+                                        <span x-html="`add new sub-class <b>${search}</b>`"></span>
+                                    </x-ts-button>
+                                </div>
+                            </x-slot:after>
+                        </x-ts-select.styled>
+                </div>
                 <div class="grid grid-cols-3 col-span-2 gap-3">
-                    <div wire:key="{{$measureType}}" class="grid col-span-2 grid-cols-2 gap-3">
+                    <div wire:key="{{$measureTypeEdit}}" class="grid col-span-2 grid-cols-2 gap-3">
                         <x-ts-select.styled 
                             label="Measured type *"
                             placeholder="Select"
-                            wire:model.live="measureType"
+                            wire:model.live="measureTypeEdit"
                             hint="You can choose weight, unit ,volume or length"
                             :request="route('api.item.measuredType')"
                             select="value:id" 
                         />
                         <x-ts-select.styled
                             indicator="spinner.bars"
-                            :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureType])"
+                            :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureTypeEdit])"
                             select="label:label|value:label|description:description"
-                            :disabled="!$measureType"
-                            wire:model="measureSymbol"
+                            :disabled="!$measureTypeEdit"
+                            wire:model="measureSymbolEdit"
                             label="Symbol *"
                             :placeholders="[
                             'default' => 'Select',
                             'empty'   => 'No symbol found',
-                            ]" required>
-                            <x-slot:after>
-                                <div class="px-2 mb-2 flex justify-center items-center">
-                                    <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })">
-                                        <span x-html="`Add new Symbol <b>${search}</b>`"></span>
-                                    </x-ts-button>
-                                </div>
-                            </x-slot:after>
-                        </x-ts-select.styled>
+                            ]" required/>
                     </div>
                     <x-ts-number 
                         :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
                         :disabled="$this->isUnitType || !$measureType" 
-                        wire:model="measureValue"
+                        wire:model="measureValueEdit"
                     />
                 </div>
                <div class="col-span-2">
-                <x-ts-checkbox.group wire:model="isForSale" list :options="[ ['label' => 'Available for sale', 'value' => 'newsletter']]" />
+                <x-ts-checkbox.group wire:model="isForSaleEdit" list :options="[ ['label' => 'Available for sale', 'value' => 'newsletter']]" />
                </div>
 
             </div>
             <x-slot:footer >
-                <x-ts-button flat>Cancel</x-ts-button>
-                <x-ts-button wire:click="saveItemAction">Save</x-ts-button>
+                <x-ts-button flat wire:click="$toggle('editItemModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="updateItemAction">UPDATE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
+
+    {{-- ADD CATEGORY MODAL --}}
+    <x-ts-modal title="ADD ITEM CATEGORY" size="4xl" wire="addItemCategoryModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Category name *" wire:model="addCategoryName"/>
+                <x-ts-textarea maxlength="50" count label="Category Description" hint="Insert the description" wire:model="addCategoryDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('addItemCategoryModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="storeCategory">SAVE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+    {{-- EDIT CATEGORY MODAL --}}
+    <x-ts-modal title="EDIT ITEM CATEGORY" size="4xl" wire="editItemCategoryModal" persistent center>
+        <x-ts-banner wire close /> 
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Category name *" wire:model="editCategoryName"/>
+                <x-ts-textarea maxlength="50" count label="Category Description" hint="Insert the description" wire:model="editCategoryDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('editItemCategoryModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="updateCategory">UPDATE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
+     {{-- ADD CLASSIFICATION MODAL --}}
+    <x-ts-modal title="ADD ITEM CLASSIFICATION" size="4xl" wire="addItemClassificationModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Classification name *" wire:model="addClassificationName"/>
+                <x-ts-textarea maxlength="50" count label="Classification Description" hint="Insert the description" wire:model="addClassificationDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('addItemClassificationModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="storeClassification">SAVE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+    {{-- EDIT CLASSIFICATION MODAL --}}
+    <x-ts-modal title="EDIT ITEM CLASSIFICATION" size="4xl" wire="editItemClassificationModal" persistent center>
+        <x-ts-banner wire close /> 
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Classification name *" wire:model="editClassificationName"/>
+                <x-ts-textarea maxlength="50" count label="Classification Description" hint="Insert the description" wire:model="editClassificationDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('editItemClassificationModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="updateClassification">UPDATE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
+     {{-- ADD SUBCLASSIFICATION MODAL --}}
+    <x-ts-modal title="ADD ITEM SUB-CLASSIFICATION" size="4xl" wire="addItemSubClassModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="addClassParent_id"
+                    label="Parent Classification *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemClassificationModal')">
+                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+                <x-ts-input label="Sub-Class name *" wire:model="addSubClassName"/>
+                <x-ts-textarea maxlength="50" count label="Classification Description" hint="Insert the description" wire:model="addSubClassDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('addItemSubClassModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="storeSubClass">SAVE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+    {{-- EDIT SUBCLASSIFICATION MODAL --}}
+    <x-ts-modal title="EDIT ITEM SUB-CLASSIFICATION" size="4xl" wire="editItemSubClassModal" persistent center>
+        <x-ts-banner wire close /> 
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-select.styled
+                    indicator="spinner.bars"
+                    :request="route('api.item.active.classification', ['company_id' => auth()->user()->branch->company_id ])"
+                    select="label:label|value:id|description:description"
+                    wire:model="editClassParent_id"
+                    label="Parent Classification *"
+                    :placeholders="[
+                    'default' => 'Select',
+                    'empty'   => 'No classification found',
+                    ]" required>
+                    <x-slot:after>
+                        <div class="px-2 mb-2 flex justify-center items-center">
+                            <x-ts-button x-on:click="show = false; $dispatch('confirmed', { term: search })" wire:click="$toggle('addItemClassificationModal')">
+                                <span x-html="`Add new Classification <b>${search}</b>`"></span>
+                            </x-ts-button>
+                        </div>
+                    </x-slot:after>
+                </x-ts-select.styled>
+                <x-ts-input label="Sub-Class name *" wire:model="editSubClassName"/>
+                <x-ts-textarea maxlength="50" count label="Sub-Class Description" hint="Insert the description" wire:model="editSubClassDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('editItemSubClassModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="updateSubClass">UPDATE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+
+
+     {{-- ADD BRAND MODAL --}}
+    <x-ts-modal title="ADD ITEM BRAND" size="4xl" wire="addItemBrandModal" persistent center>
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Brand name *" wire:model="addBrandName"/>
+                <x-ts-textarea maxlength="50" count label="Brand Description" hint="Insert the description" wire:model="addBrandDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('addItemBrandModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="storeBrand">SAVE</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
+    {{-- EDIT BRAND MODAL --}}
+    <x-ts-modal title="EDIT ITEM BRAND" size="4xl" wire="editItemBrandModal" persistent center>
+        <x-ts-banner wire close /> 
+        <x-ts-card shadowless loading>
+            <div class="grid gap-3">
+                <x-ts-input label="Brand name *" wire:model="editBrandName"/>
+                <x-ts-textarea maxlength="50" count label="Brand Description" hint="Insert the description" wire:model="editBrandDescription"/>
+            </div>
+            <x-slot:footer >
+                <x-ts-button flat wire:click="$toggle('editItemBrandModal')">Cancel</x-ts-button>
+                <x-ts-button wire:click="updateBrand">UPDATE</x-ts-button>
             </x-slot:footer>
         </x-ts-card>
     </x-ts-modal>
