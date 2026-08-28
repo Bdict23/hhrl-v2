@@ -110,7 +110,7 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
-                        <x-ts-side-bar.item text="Recipe">
+                        <x-ts-side-bar.item text="Recipe" :route="route('restaurant.recipe-summary')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
@@ -150,6 +150,35 @@
                             </x-slot:icon>
                         </x-ts-side-bar.item>
                          <x-ts-side-bar.item text="Event Liquidation" :route="route('event-liquidation-summary')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                    </x-ts-side-bar.item>
+    
+                    <!-- Pickle ball -->
+                    <x-ts-side-bar.item text="Pickle Court" icon="squares-2x2">
+                        <x-ts-side-bar.item text="Overview" :route="route('admin.dashboard')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Courts" :route="route('admin.courts')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Hours & Overrides" :route="route('admin.operating-hours')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                         <x-ts-side-bar.item text="Pricing Engine" :route="route('admin.pricing-rules')">
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Bookings" :route="route('admin.bookings')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>

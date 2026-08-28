@@ -20,6 +20,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/user/profile', Profile::class)->name('user.profile');
 
 
+    // RESTAURANT
+    // RECIPE
+    Volt::route('/restaurant/recipe-summary', 'restaurant.recipe.recipe-summary')->name('restaurant.recipe-summary');
+
     //EVENTS
 
     //EVENT BOOKING
@@ -165,6 +169,18 @@ Route::middleware(['auth'])->group(function () {
 
     // DATE MANAGEMENT
     volt::route('/data-management/data-management-tab', 'data-management.data-management-tab')->name('data-management.tab');
+});
+
+// Authenticated Admin & Court Manager Routes
+Route::middleware(['auth'])->group(function () {
+    Volt::route('/pickle/dashboard', 'pickle-court.dashboard')->name('admin.dashboard');
+    Volt::route('/pickle/courts', 'pickle-court.courts')->name('admin.courts');
+    Volt::route('/pickle/operating-hours', 'pickle-court.operating-hours')->name('admin.operating-hours');
+    Volt::route('/pickle/pricing-rules', 'pickle-court.pricing-rules')->name('admin.pricing-rules');
+    Volt::route('/pickle/bookings', 'pickle-court.bookings')->name('admin.bookings');
+
+    Volt::route('/booking/receipt/{referenceCode}', 'pickle-court.booking.receipt')->name('booking.receipt');
+    Volt::route('/find-booking', 'pickle-court.booking.find-booking')->name('find-booking');
 });
 
 require __DIR__ . '/auth.php';
