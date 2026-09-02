@@ -113,10 +113,22 @@ new  class extends Component {
 
     public function with(): array
     {
-        $courts = Court::ordered()->get();
+        return[
+         'courtHeader' => [
+                ['index' => 'display_order', 'label' => 'order'], 
+                ['index' => 'name', 'label' => 'Court Name & Details'], 
+                ['index' => 'surface_type', 'label' => 'Surface / Type'], 
+                ['index' => 'hourly_rate', 'label' => 'Base Hourly Rate'], 
+                ['index' => 'is_active', 'label' => 'Grid Status'], 
+                ['index' => 'action', 'label' => 'Action']],
+        'courtRows' => Court::query()
+                ->orderBy('display_order')
+                ->get(),
+        $courts = Court::ordered()->get(),
 
-        return [
+        // return [
             'courts' => $courts,
+        // ];
         ];
     }
 }; ?>
@@ -132,19 +144,10 @@ new  class extends Component {
                 Configure court details, base hourly rates, display ordering, and toggle visibility on the public booking grid.
             </p>
         </div>
-        <div>
-            <button
-                wire:click="openCreateModal"
-                class="px-5 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 text-xs font-black uppercase tracking-wider transition shadow-lg shadow-lime-500/20 flex items-center gap-2 cursor-pointer"
-            >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span>Add New Court</span>
-            </button>
-        </div>
     </div>
 
     <!-- COURTS LIST TABLE -->
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+    {{-- <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
                 <thead class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider text-[10px]">
@@ -188,11 +191,11 @@ new  class extends Component {
                                 <div class="font-medium text-slate-700 dark:text-slate-300">{{ $court->surface_type }}</div>
                                 @if ($court->is_indoor)
                                     <span class="mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-500">
-                                        Air-Conditioned Indoor
+                                        Indoor
                                     </span>
                                 @else
                                     <span class="mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400">
-                                        Covered Outdoor
+                                        Outdoor
                                     </span>
                                 @endif
                             </td>
@@ -244,7 +247,58 @@ new  class extends Component {
                 </tbody>
             </table>
         </div>
-    </div>
+    </div> --}}
+    <x-ts-table :headers="$courtHeader" :rows="$courtRows" striped persistent loading>
+        @interact('column_display_order', $row)
+            <div class="flex items-center justify-center gap-1">
+                <span class="font-bold text-slate-700 dark:text-slate-300">{{ $row->display_order }}</span>
+                <div class="flex flex-col">
+                    <button wire:click="moveUp({{ $row->id }})" title="Move Up" class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5">
+                        ▲
+                    </button>
+                    <button wire:click="moveDown({{ $row->id }})" title="Move Down" class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5">
+                        ▼
+                    </button>
+                </div>
+            </div>
+        @endinteract
+        @interact('column_name', $row)
+            <div class="font-black text-sm text-slate-900 dark:text-white">{{ $row->name }}</div>
+            @if ($row->description)
+                <div class="text-[11px] text-slate-500 mt-0.5 max-w-sm">{{ $row->description }}</div>
+            @endif
+        @endinteract
+        @interact('column_surface_type', $row)
+            <div class="font-medium text-slate-700 dark:text-slate-300">{{ $row->surface_type }}</div>
+            @if ($row->is_indoor)
+                <span class="mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-500">
+                    Indoor
+                </span>
+            @else
+                <span class="mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400">
+                    Outdoor
+                </span>
+            @endif
+        @endinteract
+        @interact('column_hourly_rate', $row)
+                ₱{{ number_format((float)$row->hourly_rate, 2) }} <span class="text-[10px] text-slate-400 font-normal">/ hour</span>
+        @endinteract
+        @interact('column_is_active', $row)
+            <button
+                wire:click="toggleActive({{ $row->id }})"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer {{ $row->is_active ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 border border-slate-300 dark:border-slate-700' }}"
+            >
+                <span class="w-2 h-2 rounded-full {{ $row->is_active ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
+                <span>{{ $row->is_active ? 'Active on Grid' : 'Hidden / Inactive' }}</span>
+            </button>       
+        @endinteract
+        @interact('column_action', $row)
+            <x-ts-dropdown icon="ellipsis-vertical" static lg>    
+                <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="openEditModal({{ $row->id }})"/>
+                <x-ts-dropdown.items text="Delete" separator icon="x-mark" wire:click="deleteCourt({{ $row->id }})" wire:confirm="Are you sure you want to delete this court?"/>
+            </x-ts-dropdown>
+        @endinteract
+    </x-ts-table>
 
     <!-- CREATE / EDIT MODAL -->
     @if ($showModal)
@@ -344,4 +398,8 @@ new  class extends Component {
             </div>
         </div>
     @endif
+
+    <x-ts-dial lg>
+        <x-ts-dial.items icon="plus" label="Add New Court"  wire:click="openCreateModal" />
+    </x-ts-dial>
 </div>

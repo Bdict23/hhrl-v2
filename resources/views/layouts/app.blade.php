@@ -28,7 +28,7 @@
             <x-ts-toast />
         </x-slot:top>
         <x-slot:header>
-            <x-ts-layout.header>
+            <x-ts-layout.header class="print:hidden">
                 <x-slot:right>
                     <div class="mr-10 flex items-center gap-2">
                         {{-- Bell Icon --}}

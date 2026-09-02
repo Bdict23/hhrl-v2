@@ -2,7 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Court;
-use App\Services\BookingService;
+use App\Services\PickleCourt\BookingService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -161,12 +161,19 @@ new  class extends Component {
             ->latest();
 
         /** @var LengthAwarePaginator $bookings */
-        $bookings = $query->paginate(15);
+        $bookings = $query->paginate(10);
         $courts = Court::active()->ordered()->get();
 
         return [
             'bookings' => $bookings,
             'courts'   => $courts,
+            'bookingHeader' => [
+                ['index' => 'reference_code', 'label' => 'Reference Code'], 
+                ['index' => 'customer_name', 'label' => 'Customer'],  
+                ['index' => 'total_amount', 'label' => 'Amount'], 
+                ['index' => 'payment_method', 'label' => 'Payment'], 
+                ['index' => 'status', 'label' => 'Status'], 
+                ['index' => 'action', 'label' => 'Action']],
         ];
     }
 }; ?>
@@ -241,244 +248,196 @@ new  class extends Component {
     </div>
 
     <!-- BOOKINGS DATA TABLE -->
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider text-[10px]">
-                    <tr>
-                        <th class="p-4">Reference Code</th>
-                        <th class="p-4">Customer</th>
-                        <th class="p-4">Schedule / Slots</th>
-                        <th class="p-4">Amount</th>
-                        <th class="p-4">Payment</th>
-                        <th class="p-4">Status</th>
-                        <th class="p-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                    @forelse ($bookings as $b)
-                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
-                            <td class="p-4">
-                                <div class="font-mono font-black text-sm text-slate-900 dark:text-white">
-                                    {{ $b->reference_code }}
-                                </div>
-                                <div class="text-[10px] text-slate-400">
-                                    {{ $b->created_at->format('M d, Y h:i A') }}
-                                </div>
-                            </td>
-
-                            <td class="p-4">
-                                <div class="font-bold text-slate-900 dark:text-white">{{ $b->customer_name }}</div>
-                                <div class="text-[11px] text-slate-500 font-mono">{{ $b->customer_phone }}</div>
-                            </td>
-
-                            <td class="p-4">
-                                <div class="space-y-0.5">
-                                    @foreach ($b->slots as $s)
-                                        <div class="text-[11px] text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-lime-500"></span>
-                                            <span class="font-semibold">{{ $s->court->name }}</span>:
-                                            <span class="text-slate-500">{{ $s->date->format('M d') }} ({{ \Carbon\Carbon::createFromTimeString($s->start_time)->format('g:i A') }})</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </td>
-
-                            <td class="p-4">
-                                <div class="font-black text-sm text-slate-900 dark:text-white">
-                                    ₱{{ number_format((float)$b->total_amount, 2) }}
-                                </div>
-                            </td>
-
-                            <td class="p-4">
-                                <span class="uppercase font-bold text-[10px] text-slate-700 dark:text-slate-300">
-                                    {{ $b->payment_method }}
-                                </span>
-                                <div class="text-[10px] {{ $b->payment_status === 'paid' ? 'text-emerald-500 font-semibold' : 'text-amber-500' }}">
-                                    {{ ucfirst($b->payment_status) }}
-                                </div>
-                            </td>
-
-                            <td class="p-4">
-                                @if ($b->status === 'confirmed')
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                                        Confirmed
-                                    </span>
-                                @elseif ($b->status === 'pending')
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/30">
-                                        Pending
-                                    </span>
-                                @elseif ($b->status === 'completed')
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/30">
-                                        Completed
-                                    </span>
-                                @else
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/30">
-                                        Cancelled
-                                    </span>
-                                @endif
-                            </td>
-
-                            <td class="p-4 text-right">
-                                <div class="flex items-center justify-end gap-1.5">
-                                    <button
-                                        wire:click="viewDetails({{ $b->id }})"
-                                        class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold"
-                                    >
-                                        Details
-                                    </button>
-                                    <a
-                                        href="{{ route('booking.receipt', $b->reference_code) }}"
-                                        target="_blank"
-                                        title="Print Receipt"
-                                        class="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500"
-                                    >
-                                        🖨️
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="p-8 text-center text-slate-400">
-                                No bookings match your search filters.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        @if ($bookings->hasPages())
-            <div class="p-4 border-t border-slate-200 dark:border-slate-800">
-                {{ $bookings->links() }}
+    <x-ts-table :headers="$bookingHeader" :rows="$bookings" striped persistent loading paginate expandable compact>
+        @interact('column_reference_code', $b)
+            <div class="font-mono font-black text-sm text-slate-900 dark:text-white">
+                {{ $b->reference_code }}
             </div>
-        @endif
-    </div>
+            <div class="text-[10px] text-slate-400">
+                {{ $b->created_at->format('M d, Y h:i A') }}
+            </div>
+        @endinteract
+        @interact('column_customer_name', $b)
+            <div class="font-bold text-slate-900 dark:text-white">{{ $b->customer_name }}</div>
+            <div class="text-[11px] text-slate-500 font-mono">{{ $b->customer_phone }}</div>
+        @endinteract
+        @interact('column_total_amount', $b)
+             ₱{{ number_format((float)$b->total_amount, 2) }}
+        @endinteract
+        @interact('column_payment_method', $b)
+            <span class="uppercase font-bold text-[10px] text-slate-700 dark:text-slate-300">
+                {{ $b->payment_method }}
+            </span>
+            <div class="text-[10px] {{ $b->payment_status === 'paid' ? 'text-emerald-500 font-semibold' : 'text-amber-500' }}">
+                {{ ucfirst($b->payment_status) }}
+            </div>
+        @endinteract
+        @interact('column_status', $b)
+            @if ($b->status === 'confirmed')
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                    Confirmed
+                </span>
+            @elseif ($b->status === 'pending')
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                    Pending
+                </span>
+            @elseif ($b->status === 'completed')
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/30">
+                    Completed
+                </span>
+            @else
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/30">
+                    Cancelled
+                </span>
+            @endif
+        @endinteract
+        @interact('column_action' ,$b)
+            <x-ts-dropdown icon="ellipsis-vertical" static lg>    
+                <x-ts-dropdown.items text="Details" icon="ticket"  wire:click="viewDetails({{ $b->id }})"/>
+                <x-ts-dropdown.items text="Print" separator icon="printer" href="{{route('booking.receipt', $b->reference_code)}}"/>
+            </x-ts-dropdown>
+        @endinteract
+        @interact('sub_table', $row)
+            @php
+                $insertRow = [];
+                foreach ($row->slots as $s) {
+                    $insertRow[] = [
+                        'court_name' => $s->court->name ,
+                        'schedule' =>  $s->date->format('M. d') .' ( ' . (Carbon::createFromTimeString($s->start_time)->format('g:i A'))  . ' ) ',
+                    ];
+                }
+            @endphp
+        <x-ts-table :headers="[
+            ['index' => 'court_name', 'label' => 'Property'],
+            ['index' => 'schedule', 'label' => 'Value'],
+        ]" :rows="$insertRow"/>
+        @endinteract
+    </x-ts-table>
 
     <!-- BOOKING DETAILS MODAL -->
-    @if ($showDetailsModal && $selectedBooking)
-        <div class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-white relative animate-in zoom-in-95 text-xs space-y-4">
-                <button wire:click="closeDetailsModal" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 dark:hover:text-white p-2">✕</button>
-
-                <div class="flex items-center justify-between">
-                    <div>
-                        <span class="text-[10px] font-bold uppercase text-slate-400">Booking Reference</span>
-                        <div class="text-2xl font-black font-mono text-lime-500">{{ $selectedBooking->reference_code }}</div>
+    <x-ts-modal wire="showDetailsModal" >
+        @if ($showDetailsModal && $selectedBooking)
+            <x-ts-card shadowless loading>
+                <x-slot:header>
+                    <!-- ACTIONS -->
+                    <div class="pt-2 flex flex-wrap items-center justify-between gap-2">
+                        <a
+                            href="{{ route('booking.receipt', $selectedBooking?->reference_code) }}"
+                            target="_blank"
+                            class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
+                        >View Receipt
+                        </a>
                     </div>
-                    <div class="text-right">
-                        <span class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase {{ $selectedBooking->status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' : ($selectedBooking->status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-400') }}">
-                            {{ $selectedBooking->status }}
-                        </span>
-                    </div>
-                </div>
-
-                <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">Customer:</span>
-                        <span class="font-bold">{{ $selectedBooking->customer_name }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">Contact Phone:</span>
-                        <span class="font-mono font-medium">{{ $selectedBooking->customer_phone }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">Email:</span>
-                        <span>{{ $selectedBooking->customer_email }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">Payment:</span>
-                        <span class="uppercase font-bold">{{ $selectedBooking->payment_method }} ({{ $selectedBooking->payment_status }})</span>
-                    </div>
-                    @if ($selectedBooking->proof_of_payment_url)
-                        <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
-                            <span class="text-emerald-500 font-bold block mb-1">📎 Uploaded Proof of Payment:</span>
-                            <div class="p-2 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-                                <a href="{{ $selectedBooking->proof_of_payment_url }}" target="_blank" class="block group relative">
-                                    <img src="{{ $selectedBooking->proof_of_payment_url }}" alt="Proof of Payment" class="w-16 h-16 object-cover rounded-lg border border-slate-300 dark:border-slate-700 group-hover:opacity-80 transition" />
-                                </a>
-                                <div class="text-xs">
-                                    <div class="font-bold text-slate-900 dark:text-white">Customer Receipt Screenshot</div>
-                                    <a href="{{ $selectedBooking->proof_of_payment_url }}" target="_blank" class="text-lime-500 hover:underline font-bold text-[11px]">
-                                        Open Full Size Image ↗
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-                    @if ($selectedBooking->notes)
-                        <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
-                            <span class="text-slate-400 block mb-1">Customer Notes:</span>
-                            <p class="text-slate-700 dark:text-slate-300 italic">{{ $selectedBooking->notes }}</p>
-                        </div>
-                    @endif
-                </div>
-
-                <!-- SLOTS -->
-                <div>
-                    <span class="font-black uppercase tracking-wider text-slate-400 block mb-2">Reserved Slots ({{ $selectedBooking->slots->count() }})</span>
-                    <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                        @foreach ($selectedBooking->slots as $s)
-                            <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                                <div>
-                                    <span class="font-bold">{{ $s->court->name }}</span>
-                                    <div class="text-[11px] text-slate-500">
-                                        {{ $s->date->format('M d, Y') }} • {{ \Carbon\Carbon::createFromTimeString($s->start_time)->format('g:i A') }} - {{ \Carbon\Carbon::createFromTimeString($s->end_time)->format('g:i A') }}
-                                    </div>
-                                </div>
-                                <span class="font-bold text-lime-500">₱{{ number_format((float)$s->price, 2) }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline text-sm">
-                    <span class="font-bold">Total Amount:</span>
-                    <span class="text-xl font-black text-lime-500">₱{{ number_format((float)$selectedBooking->total_amount, 2) }}</span>
-                </div>
-
-                <!-- ACTIONS -->
-                <div class="pt-2 flex flex-wrap items-center justify-between gap-2">
-                    <a
-                        href="{{ route('booking.receipt', $selectedBooking->reference_code) }}"
-                        target="_blank"
-                        class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
-                    >
-                        View Receipt
-                    </a>
-
-                    <div class="flex items-center gap-2">
-                        @if ($selectedBooking->status === 'pending')
+                    <div class="flex gap-2">
+                        @if ($selectedBooking?->status === 'pending')
                             <button
-                                wire:click="updateStatus({{ $selectedBooking->id }}, 'confirmed')"
+                                wire:click="updateStatus({{ $selectedBooking?->id }}, 'confirmed')"
                                 class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-wider"
                             >
                                 Approve & Mark Paid
                             </button>
-                        @elseif ($selectedBooking->status === 'confirmed')
+                        @elseif ($selectedBooking?->status === 'confirmed')
                             <button
-                                wire:click="updateStatus({{ $selectedBooking->id }}, 'completed')"
+                                wire:click="updateStatus({{ $selectedBooking?->id }}, 'completed')"
                                 class="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white font-bold"
                             >
                                 Mark Completed
                             </button>
                         @endif
-
-                        @if ($selectedBooking->status !== 'cancelled')
+                    
+                        @if ($selectedBooking?->status !== 'cancelled')
                             <button
                                 wire:click="updateStatus({{ $selectedBooking->id }}, 'cancelled')"
                                 wire:confirm="Are you sure you want to cancel this booking?"
                                 class="px-3 py-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold"
-                            >
-                                Cancel
+                            >CANCEL BOOKING
                             </button>
                         @endif
                     </div>
+                </x-slot:header>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-400">Booking Reference</span>
+                        <div class="text-2xl font-black font-mono text-lime-500">{{ $selectedBooking?->reference_code }}</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase {{ $selectedBooking?->status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' : ($selectedBooking->status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-400') }}">
+                            {{ $selectedBooking?->status }}
+                        </span>
+                    </div>
                 </div>
-            </div>
-        </div>
-    @endif
+                    <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Customer:</span>
+                            <span class="font-bold">{{ $selectedBooking?->customer_name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Contact Phone:</span>
+                            <span class="font-mono font-medium">{{ $selectedBooking?->customer_phone }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Email:</span>
+                            <span>{{ $selectedBooking?->customer_email }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Payment:</span>
+                            <span class="uppercase font-bold">{{ $selectedBooking?->payment_method }} ({{ $selectedBooking?->payment_status }})</span>
+                        </div>
+                        @if ($selectedBooking->proof_of_payment_url)
+                            <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <span class="text-emerald-500 font-bold block mb-1">📎 Uploaded Proof of Payment:</span>
+                                <div class="p-2 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                                    <a href="{{ $selectedBooking?->proof_of_payment_url }}" target="_blank" class="block group relative">
+                                        <img src="{{ $selectedBooking?->proof_of_payment_url }}" alt="Proof of Payment" class="w-16 h-16 object-cover rounded-lg border border-slate-300 dark:border-slate-700 group-hover:opacity-80 transition" />
+                                    </a>
+                                    <div class="text-xs">
+                                        <div class="font-bold text-slate-900 dark:text-white">Customer Receipt Screenshot</div>
+                                        <a href="{{ $selectedBooking?->proof_of_payment_url }}" target="_blank" class="text-lime-500 hover:underline font-bold text-[11px]">
+                                            Open Full Size Image ↗
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                        @if ($selectedBooking->notes)
+                            <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <span class="text-slate-400 block mb-1">Customer Notes:</span>
+                                <p class="text-slate-700 dark:text-slate-300 italic">{{ $selectedBooking?->notes }}</p>
+                            </div>
+                        @endif
+                    </div>
+                    <!-- SLOTS -->
+                    <div>
+                        <span class="font-black uppercase tracking-wider text-slate-400 block mb-2">Reserved Slots ({{ $selectedBooking->slots->count() }})</span>
+                        <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                            @foreach ($selectedBooking?->slots as $s)
+                                <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <span class="font-bold">{{ $s?->court?->name }}</span>
+                                        <div class="text-[11px] text-slate-500">
+                                            {{ $s->date->format('M d, Y') }} • {{ Carbon::createFromTimeString($s?->start_time)->format('g:i A') }} - {{ Carbon::createFromTimeString($s?->end_time)->format('g:i A') }}
+                                        </div>
+                                    </div>
+                                    <span class="font-bold text-lime-500">₱{{ number_format((float)$s?->price, 2) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                
+                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline text-sm">
+                        <span class="font-bold">Total Amount:</span>
+                        <span class="text-xl font-black text-lime-500">₱{{ number_format((float)$selectedBooking?->total_amount, 2) }}</span>
+                    </div>
+                <x-slot:footer>
+                    <div class="flex justify-between gap-3 flex-wrap ">
+                        <div class="w-fit">
+                            <x-ts-button wire:click="closeDetailsModal" >CLOSE</x-ts-button>
+                        </div>
+                    </div>
+                </x-slot:footer>
+            </x-ts-card>
+        @endif
+    </x-ts-modal>
 
     <!-- WALK-IN / MANUAL BOOKING MODAL -->
     @if ($showWalkInModal)

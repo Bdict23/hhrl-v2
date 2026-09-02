@@ -139,6 +139,18 @@ new class extends Component {
         return [
             'courts'    => $courts,
             'overrides' => $overrides,
+            'overrideHeader' => [
+                ['index' => 'date', 'label' => 'Date & Schedule'], 
+                ['index' => 'court', 'label' => 'Court'], 
+                ['index' => 'type', 'label' => 'Override Type'], 
+                ['index' => 'title', 'label' => 'Title & Details'], 
+                ['index' => 'fee_per_person', 'label' => 'Fee / Capacity'], 
+                ['index' => 'action', 'label' => 'Action']],
+            'overrideRows' => SlotOverride::with('court')
+            ->where('date', '>=', Carbon::today()->format('Y-m-d'))
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get()
         ];
     }
 }; ?>
@@ -154,7 +166,7 @@ new class extends Component {
                 Manage global opening/closing hours per weekday and block custom date ranges for maintenance or Open Play events.
             </p>
         </div>
-        <div>
+        {{-- <div>
             <button
                 wire:click="openCreateOverrideModal"
                 class="px-5 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 text-xs font-black uppercase tracking-wider transition shadow-lg shadow-lime-500/20 flex items-center gap-2 cursor-pointer"
@@ -162,7 +174,7 @@ new class extends Component {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 <span>Create Slot Override / Block</span>
             </button>
-        </div>
+        </div> --}}
     </div>
 
     <!-- 1. FACILITY BASE OPERATING HOURS -->
@@ -176,12 +188,13 @@ new class extends Component {
                     Defines the public schedule matrix opening and closing time range.
                 </p>
             </div>
-            <button
+            <x-ts-button
                 wire:click="saveOperatingHours"
+                loading="saveOperatingHours"
                 class="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 text-xs font-black uppercase tracking-wider transition"
             >
                 Save Base Hours
-            </button>
+            </x-ts-button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -227,101 +240,63 @@ new class extends Component {
     </div>
 
     <!-- 2. UPCOMING SLOT OVERRIDES, OPEN PLAY & MAINTENANCE BLOCKS -->
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-            <div>
-                <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                    Active & Upcoming Slot Overrides
-                </h2>
-                <p class="text-xs text-slate-500">
-                    Open Play rally sessions, maintenance blocks, and private events that override standard court availability.
-                </p>
-            </div>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider text-[10px]">
-                    <tr>
-                        <th class="p-4">Date & Schedule</th>
-                        <th class="p-4">Court</th>
-                        <th class="p-4">Override Type</th>
-                        <th class="p-4">Title & Details</th>
-                        <th class="p-4">Fee / Capacity</th>
-                        <th class="p-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                    @forelse ($overrides as $o)
-                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
-                            <td class="p-4">
-                                <div class="font-bold text-slate-900 dark:text-white">
-                                    {{ $o->date->format('M d, Y (D)') }}
-                                </div>
-                                <div class="text-[11px] text-slate-500 font-mono">
-                                    {{ \Carbon\Carbon::createFromTimeString($o->start_time)->format('g:i A') }} – {{ \Carbon\Carbon::createFromTimeString($o->end_time)->format('g:i A') }}
-                                </div>
-                            </td>
-
-                            <td class="p-4">
-                                <span class="font-bold text-slate-700 dark:text-slate-300">
-                                    {{ $o->court ? $o->court->name : 'All Active Courts' }}
-                                </span>
-                            </td>
-
-                            <td class="p-4">
-                                @if ($o->isOpenPlay())
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/30">
-                                        ⚡ Open Play
-                                    </span>
-                                @elseif ($o->isMaintenance())
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30">
-                                        🛠️ {{ ucfirst($o->type) }}
-                                    </span>
-                                @else
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                                        {{ ucfirst($o->type) }}
-                                    </span>
-                                @endif
-                            </td>
-
-                            <td class="p-4">
-                                <div class="font-bold text-slate-900 dark:text-white">{{ $o->title }}</div>
-                                @if ($o->reason)
-                                    <div class="text-[11px] text-slate-500 italic max-w-sm">{{ $o->reason }}</div>
-                                @endif
-                            </td>
-
-                            <td class="p-4">
-                                @if ($o->isOpenPlay())
-                                    <div class="font-bold text-lime-500">₱{{ number_format((float)$o->fee_per_person, 2) }} / player</div>
-                                    <div class="text-[10px] text-slate-400">Max: {{ $o->max_participants ?? 'Unlimited' }} players</div>
-                                @else
-                                    <span class="text-slate-400">—</span>
-                                @endif
-                            </td>
-
-                            <td class="p-4 text-right">
-                                <button
-                                    wire:click="deleteOverride({{ $o->id }})"
-                                    wire:confirm="Are you sure you want to remove this slot override?"
-                                    class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold transition"
-                                >
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="p-8 text-center text-slate-400">
-                                No active slot overrides or maintenance blocks found.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <x-ts-card>
+        <x-slot:header>
+                    <div class="p-6 border-b mb-4 border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                                Active & Upcoming Slot Overrides
+                            </h2>
+                            <p class="text-xs text-slate-500">
+                                Open Play rally sessions, maintenance blocks, and private events that override standard court availability.
+                            </p>
+                        </div>
+                    </div>
+            </x-slot:header>
+        <x-ts-table :headers="$overrideHeader" :rows="$overrideRows" striped persistent loading>
+            @interact('column_date', $row)
+                <div class="font-semibold text-slate-900 dark:text-white">
+                    {{ $row->date->format('M d, Y (D)') }}
+                </div>
+                <div class="text-[11px] text-slate-500 font-mono">
+                    {{ Carbon::createFromTimeString($row->start_time)->format('g:i A') }} – {{ Carbon::createFromTimeString($row->end_time)->format('g:i A') }}
+                </div>
+            @endinteract
+            @interact('column_court', $row)
+                <span class="font-semibold text-slate-700 dark:text-slate-300">
+                    {{ $row->court ? $row->court->name : 'All Active Courts' }}
+                </span>
+            @endinteract
+            @interact('column_type', $row)
+                 @if ($row->isOpenPlay())
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                        ⚡ Open Play
+                    </span>
+                @elseif ($row->isMaintenance())
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30">
+                        🛠️ {{ ucfirst($row->type) }}
+                    </span>
+                @else
+                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                        {{ ucfirst($row->type) }}
+                    </span>
+                @endif
+            @endinteract
+            @interact('column_fee_per_person', $row)
+                 @if ($row->isOpenPlay())
+                    <div class="font-bold text-lime-500">₱{{ number_format((float)$row->fee_per_person, 2) }} / player</div>
+                    <div class="text-[10px] text-slate-400">Max: {{ $row->max_participants ?? 'Unlimited' }} players</div>
+                @else
+                    <span class="text-slate-400">—</span>
+                @endif
+            @endinteract
+            @interact('column_action', $row)
+                <x-ts-dropdown icon="ellipsis-vertical" static lg>    
+                    <x-ts-dropdown.items text="Delete" separator icon="x-mark" wire:click="deleteOverride({{ $row->id }})" wire:confirm="Are you sure you want to remove this slot override?"/>
+                </x-ts-dropdown>
+            @endinteract
+        </x-ts-table>
+    </x-ts-card>
 
     <!-- CREATE OVERRIDE MODAL -->
     @if ($showOverrideModal)
@@ -454,4 +429,8 @@ new class extends Component {
             </div>
         </div>
     @endif
+
+    <x-ts-dial lg>
+        <x-ts-dial.items icon="plus" label="Create Slot Override / Block"  wire:click="openCreateModal" wire:click="openCreateOverrideModal" />
+    </x-ts-dial>
 </div>

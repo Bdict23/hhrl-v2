@@ -120,15 +120,6 @@ new #[Layout('layouts.app')] class extends Component {
                 Define peak hour surcharges, weekend rates, and custom pricing multipliers applied in real-time on the booking matrix.
             </p>
         </div>
-        <div>
-            <button
-                wire:click="openCreateModal"
-                class="px-5 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 text-xs font-black uppercase tracking-wider transition shadow-lg shadow-lime-500/20 flex items-center gap-2 cursor-pointer"
-            >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span>Add Pricing Rule</span>
-            </button>
-        </div>
     </div>
 
     <!-- RULES TABLE -->
@@ -326,4 +317,8 @@ new #[Layout('layouts.app')] class extends Component {
             </div>
         </div>
     @endif
+
+    <x-ts-dial lg>
+        <x-ts-dial.items icon="plus" label="Add Pricing Rule"  wire:click="openCreateModal" />
+    </x-ts-dial>
 </div>

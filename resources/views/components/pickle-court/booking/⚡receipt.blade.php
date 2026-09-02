@@ -18,8 +18,8 @@ new  class extends Component {
 <div class="max-w-2xl mx-auto my-4 sm:my-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-10 shadow-xl text-slate-900 dark:text-white print:bg-white print:text-slate-950 print:border-none print:shadow-none print:p-0 transition-colors duration-200">
     <!-- PRINT BUTTON & CONTROLS -->
     <div class="flex items-center justify-between pb-4 sm:pb-6 mb-4 sm:mb-6 border-b border-slate-200 dark:border-slate-800 print:hidden">
-        <a href="{{ route('welcome') }}" class="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1.5 transition">
-            ← Back to Schedule Grid
+        <a href="{{route('admin.bookings')}}" class="text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1.5 transition">
+            ← Back to Booking
         </a>
         <button
             onclick="window.print()"
@@ -33,7 +33,7 @@ new  class extends Component {
     <!-- RECEIPT HEADER -->
     <div class="text-center pb-6 sm:pb-8 border-b-2 border-dashed border-slate-200 dark:border-slate-800">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-lime-400 text-slate-950 text-2xl font-black mb-3 shadow-md">
-            🎾
+                <img src="{{ asset('/assets/images/LYR-PickleClub.png') }}" width="80" height="80" />
         </div>
         <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase print:text-black">
             LYR Pickleball Club

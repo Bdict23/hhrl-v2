@@ -7,27 +7,68 @@ use App\Models\SlotOverride;
 use App\Services\PickleCourt\BookingService;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
+use TallStackUi\Traits\Interactions;
 use Livewire\Component;
 
 new class extends Component {
+    use Interactions;
     public ?string $previewProofUrl = null;
+    public $booking_id;
 
-    public function approveBooking(int $bookingId, BookingService $bookingService): void
+    public function approveBooking(BookingService $bookingService): void
     {
-        $booking = Booking::find($bookingId);
+        try{
+        $booking = Booking::find($this->booking_id);
         if ($booking) {
             $bookingService->updateBookingStatus($booking, 'confirmed', 'Payment approved by staff.');
-            $this->dispatch('booking-approved');
+            $this->booking_id = null;
+            $this->toast()->success('Success', "Booking approved successfully!")->send();
+        }
+        }catch(\Exception $e){
+            \Log::error("Approval booking Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while applying action: ' . $e->getMessage())->send();
+        }
+    }
+    public function approveBookingAction(int $bookingId)
+    {
+        $this->booking_id = $bookingId;
+        $this->dialog()
+            ->question('Approve Booking?', 'Are you sure to approve this booking ?')
+            ->confirm(
+                'Confirm',
+                'approveBooking', //pass a functio to call
+                )
+            ->cancel('Cancel')
+            ->send();
+    }
+
+    public function cancelBooking( BookingService $bookingService): void
+    {
+        try {
+        $booking = Booking::find($this->booking_id);
+        if ($booking) {
+            $bookingService->updateBookingStatus($booking, 'cancelled', 'Cancelled by manager.');
+            $this->booking_id = null;
+            $this->toast()->success('Success', "Booking decline successfully!")->send();
+        }
+
+         } catch (\Exception $e) {
+            \Log::error("Cancellation of booking Failed: " . $e->getMessage());
+            $this->toast()->error('Error', 'Something went wrong while applying action: ' . $e->getMessage())->send();
         }
     }
 
-    public function cancelBooking(int $bookingId, BookingService $bookingService): void
+    public function cancelBookingAction(int $bookingId)
     {
-        $booking = Booking::find($bookingId);
-        if ($booking) {
-            $bookingService->updateBookingStatus($booking, 'cancelled', 'Cancelled by manager.');
-            $this->dispatch('booking-cancelled');
-        }
+        $this->booking_id = $bookingId;
+        $this->dialog()
+            ->warning('Decline Booking?', 'Are you sure to decline/cancel this reservation ?')
+            ->confirm(
+                'Confirm',
+                'cancelBooking', //pass a functio to call
+                )
+            ->cancel('Cancel')
+            ->send();
     }
 
     public function viewProof(string $url): void
@@ -96,7 +137,7 @@ new class extends Component {
         </div>
         <div class="flex items-center gap-2">
             <a
-                href=""
+                href="https://lyr-pickle.on-forge.com/"
                 target="_blank"
                 class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1.5"
             >
@@ -210,19 +251,20 @@ new class extends Component {
                         </div>
 
                         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <button
-                                wire:click="cancelBooking({{ $pending->id }})"
-                                wire:confirm="Are you sure you want to decline/cancel this reservation?"
+                            <x-ts-button
+                            flat
+                            loading="cancelBookingAction({{ $pending->id }})"
+                                wire:click="cancelBookingAction({{ $pending->id }})"
                                 class="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-500/10 transition"
                             >
                                 Decline
-                            </button>
-                            <button
-                                wire:click="approveBooking({{ $pending->id }})"
-                                class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black uppercase tracking-wider transition shadow-sm"
+                            </x-ts-button>
+                            <x-ts-button
+                                wire:click="approveBookingAction({{ $pending->id }})"
+                                loading="approveBookingAction({{ $pending->id }})"
                             >
                                 Approve & Mark Paid
-                            </button>
+                            </x-ts-button>
                         </div>
                     </div>
                 @endforeach
