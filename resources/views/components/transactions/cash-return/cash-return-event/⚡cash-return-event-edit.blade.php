@@ -48,7 +48,7 @@ new class extends Component {
             $this->checkAmount = $cashReturn->event?->banquetEventLiquidation->event?->acknowledgment?->check_amount;
             $this->totalExpense = $cashReturn->event?->banquetEventLiquidation->total_incurred;
             $this->amountToReturn = $cashReturn->amount_returned;
-            $this->amountReturned = str_replace(',', '', number_format($cashReturn->amount_returned, 2));
+            $this->amountReturned = number_format($cashReturn->amount_returned, 2);
             $this->notes = $cashReturn->notes;
             $this->status = $cashReturn->status;
         }
@@ -169,7 +169,7 @@ new class extends Component {
                     </div>
                 </div>
                 <div>
-                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol readonly/>
+                    <x-ts-input label="RETURN AMOUNT" wire:model="amountReturned" readonly />
                     <x-ts-textarea label="Notes" resize maxlength="225" count placeholder="Add note here..."
                         wire:model="notes" />
                 </div>

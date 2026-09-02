@@ -80,7 +80,7 @@ new class extends Component
             $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
             $this->pcvList = PettyCashVoucherService::pcvListsCollection($id, Auth::user()->branch_id);
             $this->pcvTotalReturn = PettyCashVoucherService::totalPcvRetunAmount($id, Auth::user()->branch_id);
-            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') + $this->pcvList->sum('total_reimbursement') - $this->pcvTotalReturn;
+            $this->pcvTotal = (float) $this->pcvList->where('status', '!=', 'CANCELLED')->sum('total_amount') + $this->pcvList->sum('total_reimbursement') - $this->pcvTotalReturn;
             $this->pcvTotalMutate = $this->pcvTotal;
             $this->purchaseOrderTotal = $this->purchaseList->sum('total_amount');
             $this->receivedList = PurchaseOrderService::purchaseReceivedData($id, Auth::user()->branch_id);
@@ -376,7 +376,11 @@ new class extends Component
                             ₱ {{ number_format($row->reimbursement?->amount, 2) }}
                         @endinteract
                         @interact('column_total', $row)
-                           ₱ {{ number_format($row->total_amount + $row->total_reimbursement - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
+                            @if($row->status == 'CANCELLED')
+                                <span>--.--</span>
+                            @else
+                                ₱ {{ number_format($row->total_amount + $row->total_reimbursement - ($row->cashReturn?->amount_returned ?? 0) , 2) }}
+                           @endif
                         @endinteract
                         @interact('sub_table', $row)
                             <x-ts-table :headers="[

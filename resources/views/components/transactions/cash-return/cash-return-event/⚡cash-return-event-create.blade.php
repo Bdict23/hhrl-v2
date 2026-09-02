@@ -135,7 +135,7 @@ new class extends Component {
                     </div>
                 </div>
                 <div>
-                    <x-ts-currency label="RETURN AMOUNT" wire:model="amountReturned" mutate symbol readonly/>
+                    <x-ts-input label="RETURN AMOUNT" wire:model="amountReturned"  readonly/>
                     <x-ts-textarea label="Notes" resize maxlength="225" count placeholder="Add note here..."
                         wire:model="notes" />
                 </div>
