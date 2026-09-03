@@ -216,7 +216,7 @@ new class extends Component {
                 'slots'                 => $booking->slots->map(function ($s) {
                     return [
                         'court_name'  => $s->court->name,
-                        'date'        => $s->date->format('M d, Y'),
+                        'date'        => $s->date->format('l, M d, Y'),
                         'time_label'  => Carbon::createFromTimeString($s->start_time)->format('g:i A') . ' - ' . Carbon::createFromTimeString($s->end_time)->format('g:i A'),
                         'price'       => (float) $s->price,
                     ];
@@ -952,6 +952,37 @@ new class extends Component {
                     <span class="text-[10px] text-slate-500">Show this code at the reception desk</span>
                 </div>
 
+                <!-- RESERVED SCHEDULE & DATES DETAILS -->
+                <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 text-left text-xs mb-4">
+                    <div class="flex items-center justify-between text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">
+                        <span class="flex items-center gap-1.5 text-lime-700 dark:text-lime-400">
+                            <span>📅</span> Confirmed Schedule ({{ count($confirmedBooking['slots'] ?? []) }} {{ count($confirmedBooking['slots'] ?? []) === 1 ? 'Slot' : 'Slots' }})
+                        </span>
+                        <span>Amount</span>
+                    </div>
+                    <div class="space-y-2 max-h-40 overflow-y-auto scrollbar-thin pr-1">
+                        @foreach (($confirmedBooking['slots'] ?? []) as $slot)
+                            <div class="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0">
+                                <div>
+                                    <div class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-lime-500"></span>
+                                        {{ $slot['court_name'] }}
+                                    </div>
+                                    <div class="text-[11px] font-semibold text-lime-700 dark:text-lime-400">
+                                        {{ $slot['date'] }}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                        {{ $slot['time_label'] }}
+                                    </div>
+                                </div>
+                                <div class="font-black text-slate-900 dark:text-white">
+                                    ₱{{ number_format((float)$slot['price'], 2) }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                
                 <!-- SUMMARY DETAILS -->
                 <div class="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3.5 sm:p-4 text-left text-xs space-y-2 mb-4 sm:mb-6">
                     <div class="flex justify-between">

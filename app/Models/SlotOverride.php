@@ -67,6 +67,22 @@ class SlotOverride extends Model
         $sStart = substr($slotStartTime, 0, 5);
         $sEnd = substr($slotEndTime, 0, 5);
 
+
+        if ($sEnd === '00:00' || $sEnd === '24:00') {
+            $sEnd = '24:00';
+        }
+
+        if ($oEnd === '00:00' || $oEnd === '24:00') {
+            $oEnd = '24:00';
+        }
+
+        if ($oStart > $oEnd) {
+            // Override crosses midnight (e.g. 22:00 to 02:00)
+            $firstSegment = ($sStart < '24:00') && ($sEnd > $oStart);
+            $secondSegment = ($sStart < $oEnd) && ($sEnd > '00:00');
+            return $firstSegment || $secondSegment;
+        }
+
         // slot starts before override ends, and slot ends after override starts
         return ($sStart < $oEnd) && ($sEnd > $oStart);
     }

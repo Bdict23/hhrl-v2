@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\PickleCourt;
+namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\BookingSlot;
@@ -31,7 +31,7 @@ class BookingService
             $hours = new OperatingHour([
                 'day_of_week'  => $dayOfWeek,
                 'opening_time' => '06:00:00',
-                'closing_time' => '24:00:00',
+                'closing_time' => '00:00:00',
                 'is_closed'    => false,
             ]);
         }
@@ -41,6 +41,7 @@ class BookingService
 
     /**
      * Generate list of hourly time slots between opening and closing hours.
+     * Supports overnight hours crossing midnight (e.g., 16:00 to 02:00 or 16:00 to 11:00).
      */
     public function generateTimeSlots(string $openingTime, string $closingTime): array
     {
@@ -49,30 +50,39 @@ class BookingService
         $startHour = (int) substr($openingTime, 0, 2);
         $closingHour = (int) substr($closingTime, 0, 2);
 
-        // If closing at 00:00:00 or 24:00:00, represent as 24
-        if ($closingHour === 0 && (str_starts_with($closingTime, '00') || str_starts_with($closingTime, '24'))) {
+        // Normalize closing at 24:00 to 00:00 or 24
+        if (str_starts_with($closingTime, '24')) {
             $closingHour = 24;
         }
 
-        for ($hour = $startHour; $hour < $closingHour; $hour++) {
-            $slotStart = sprintf('%02d:00:00', $hour);
-            $nextHour = $hour + 1;
-            $slotEnd = sprintf('%02d:00:00', $nextHour === 24 ? 0 : $nextHour);
+        // If closing time is less than or equal to start time, or closing is 00:00, it extends into the next day / 24hr cycle
+        if ($closingHour <= $startHour) {
+            $closingHour += 24;
+        }
 
-            $carbonStart = Carbon::createFromTime($hour, 0, 0);
-            $carbonEnd = $nextHour === 24 ? Carbon::createFromTime(23, 59, 59) : Carbon::createFromTime($nextHour, 0, 0);
+        for ($hour = $startHour; $hour < $closingHour; $hour++) {
+            $actualStartHour = $hour % 24;
+            $actualNextHour = ($hour + 1) % 24;
+
+            $slotStart = sprintf('%02d:00:00', $actualStartHour);
+            $slotEnd = sprintf('%02d:00:00', $actualNextHour);
+
+            $carbonStart = Carbon::createFromTime($actualStartHour, 0, 0);
+            $carbonEnd = Carbon::createFromTime($actualNextHour, 0, 0);
 
             $startLabel = $carbonStart->format('g:i A');
-            $endLabel = $nextHour === 24 ? '12:00 AM' : $carbonEnd->format('g:i A');
+            $endLabel = $carbonEnd->format('g:i A');
+            $isNextDay = $hour >= 24;
 
             $slots[] = [
-                'key'         => sprintf('%02d:00', $hour),
+                'key'         => sprintf('%02d:00', $actualStartHour),
                 'start_time'  => $slotStart,
                 'end_time'    => $slotEnd,
                 'start_label' => $startLabel,
                 'end_label'   => $endLabel,
                 'label'       => "{$startLabel} - {$endLabel}",
-                'hour'        => $hour,
+                'hour'        => $actualStartHour,
+                'is_next_day' => $isNextDay,
             ];
         }
 

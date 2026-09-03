@@ -138,7 +138,8 @@ new class extends Component
             $this->purchaseList = PurchaseOrder::where('event_id', $id)->get();
             $this->pcvList = PettyCashVoucherService::pcvListsCollection($id, Auth::user()->branch_id);
             $this->pcvTotalReturn = PettyCashVoucherService::totalPcvRetunAmount($id, Auth::user()->branch_id);
-            $this->pcvTotal = (float) $this->pcvList->sum('total_amount') - $this->pcvTotalReturn;
+            $this->pcvTotal = (float) $this->pcvList->where('status', '!=', 'CANCELLED')->sum('total_amount') - $this->pcvTotalReturn;
+            dd($this->pcvTotal);
             $this->pcvTotalMutate = $this->pcvTotal;
             $this->purchaseOrderTotal = $this->purchaseList->sum('total_amount');
             $this->receivedList = PurchaseOrderService::purchaseReceivedData($id, Auth::user()->branch_id);
@@ -264,7 +265,7 @@ new class extends Component
                 'branch_id'   => Auth::user()->branch_id,
                 'company_id'    => Auth::user()->branch->company_id,
                 'event_id' => $this->eventId,
-                'prepared_by'  => auth()->user()->emp_id,
+                'prepared_by'  => Auth::user()->emp_id,
                 'status'  => $this->status,
                 'notes'       => $this->notes,
                 'total_incurred' => $this->pcvTotal,
@@ -340,7 +341,7 @@ new class extends Component
         {{-- TABLE --}}
         <x-ts-tab selected="PETTY CASH VOUCHERS">
             <x-ts-tab.items tab="PETTY CASH VOUCHERS">
-                <x-ts-card>
+                <x-ts-card shadowless>
                     <x-ts-table :headers="$pettyCashVoucherHeader" :rows="$pcvList" striped expandable loading highlight>
                         @interact('column_status', $row)
                             <div class="flex items-center gap-2">
@@ -370,10 +371,18 @@ new class extends Component
                             ₱ {{  number_format(($row->liquidationData?->sum('amount')) ?? 0 , 2) }}
                         @endinteract
                         @interact('column_return_amount', $row)
-                            ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
+                            @if($row->cashReturn?->status == 'CANCELLED' )
+                                <span>--.--</span>
+                            @else
+                                ₱ {{ number_format($row->cashReturn?->amount_returned, 2) }}
+                            @endif
                         @endinteract
                         @interact('column_reimburse_amount', $row)
+                            @if($row->reimbursement?->status == 'CANCELLED' || $row->reimbursement?->status == 'REJECTED')
+                                <span>--.--</span>
+                            @else
                             ₱ {{ number_format($row->reimbursement?->amount, 2) }}
+                            @endif
                         @endinteract
                         @interact('column_total', $row)
                             @if($row->status == 'CANCELLED')
@@ -418,7 +427,7 @@ new class extends Component
                 </x-ts-card>
             </x-ts-tab.items>
             <x-ts-tab.items tab="PURCHASE ORDERS">
-                <x-ts-card>
+                <x-ts-card shadowless>
                     <x-ts-table :headers="$purchaseOrderHeader" :rows="$purchaseList" striped expandable loading highlight>
                         @interact('column_requisition_status', $row)
                             <div class="flex items-center gap-2">
@@ -488,8 +497,8 @@ new class extends Component
                 </x-ts-card>
                 
             </x-ts-tab.items>
-            <x-ts-tab.items tab="PURCHASE RECEIVED">
-                <x-ts-card>
+            <x-ts-tab.items tab="GOODS RECEIVED">
+                <x-ts-card shadowless>
                     <x-ts-table :headers="$receivedOrderHeader" :rows="$receivedList" striped expandable loading highlight>
                         @interact('column_receiving_status', $row)
                             <div class="flex items-center gap-2">
@@ -548,7 +557,7 @@ new class extends Component
                 </x-ts-card>
             </x-ts-tab.items>
             <x-ts-tab.items tab="ITEM WITHDRAWALS">
-                <x-ts-card>
+                <x-ts-card shadowless>
                     <x-ts-table :headers="$withdrawalHeader" :rows="$withdrawalList" striped expandable loading highlight>
                         @interact('column_receiving_status', $row)
                             <div class="flex items-center gap-2">
@@ -623,7 +632,7 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
                     <div class="grid">
-                        <x-ts-card>
+                        <x-ts-card shadowless>
                             <div class="grid grid-cols-4">
                                 <div class="grid">
                                     <span class="font-bold">Petty Cash Voucher</span>

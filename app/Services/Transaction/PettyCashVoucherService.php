@@ -342,16 +342,14 @@ class PettyCashVoucherService
             ->where('branch_id', $branch)->get();
         return $pcvCollection;
     }
-    public static function totalPcvRetunAmount(int $event, int $branch)
+    // Querying directly from the CashReturn model (Cleaner & Fastest)
+    public static function totalPcvRetunAmount(int $event, int $branch): float
     {
-        $total = 0;
-        $pcvCollection = PettyCashVoucher::where('event_id', $event)->where('branch_id', $branch)->get();
-        if ($pcvCollection) {
-            foreach ($pcvCollection as $pcv) {
-                $total += $pcv->cashReturn?->amount_returned ?? 0;
-            }
-        }
-
-        return $total;
+        return (float) CashReturn::where('status', '!=', 'CANCELLED')
+            ->whereHas('pettyCashVoucher', function ($query) use ($event, $branch) {
+                $query->where('event_id', $event)
+                    ->where('branch_id', $branch);
+            })
+            ->sum('amount_returned');
     }
 }

@@ -53,6 +53,15 @@ class PricingRule extends Model
         $ruleEnd = substr($this->end_time, 0, 5);
         $slotStart = substr($slotStartTime, 0, 5);
 
+        if ($ruleEnd === '00:00' || $ruleEnd === '24:00') {
+            return $slotStart >= $ruleStart;
+        }
+
+        if ($ruleStart > $ruleEnd) {
+            // Overnight rule spanning past midnight (e.g. 22:00 to 02:00)
+            return $slotStart >= $ruleStart || $slotStart < $ruleEnd;
+        }
+
         return $slotStart >= $ruleStart && $slotStart < $ruleEnd;
     }
 }

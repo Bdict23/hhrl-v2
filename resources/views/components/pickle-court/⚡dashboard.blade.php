@@ -221,14 +221,14 @@ new class extends Component {
                                         {{ $pending->payment_method }}
                                     </span>
                                 </div>
-                                <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1">
+                                <div class="text-sm font-bold text-slate-700 dark:text-slate-300 mt-1">
                                     {{ $pending->customer_name }} • {{ $pending->customer_phone }}
                                 </div>
                                 <div class="text-[11px] text-slate-500">
                                     {{ $pending->slots->count() }} Slots:
                                     @foreach ($pending->slots as $s)
-                                        <span class="inline-block bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] mr-1">
-                                            {{ $s->court->name }} ({{ \Carbon\Carbon::createFromTimeString($s->start_time)->format('g:i A') }})
+                                        <span class="inline-block bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[12px] mr-1">
+                                            {{ $s->court->name }} ({{ Carbon::parse($s->date)->format('M. d') }} @ {{ \Carbon\Carbon::createFromTimeString($s->start_time)->format('g:i A') }})
                                         </span>
                                     @endforeach
                                 </div>

@@ -13,10 +13,11 @@ new class extends Component {
 
     // Slot Override Form
     public bool $showOverrideModal = false;
+    public ?int $editingOverrideId = null;
     public ?int $courtId = null; // null = all courts
     public string $overrideDate;
-    public string $startTime = '08:00:00';
-    public string $endTime = '12:00:00';
+    public string $startTime = '08:00';
+    public string $endTime = '12:00';
     public string $overrideType = 'maintenance';
     public string $overrideTitle = '';
     public string $overrideReason = '';
@@ -37,11 +38,18 @@ new class extends Component {
         $this->hours = [];
         foreach ($days as $day) {
             $record = $existing->get($day);
+
+            $open = $record ? substr($record->opening_time, 0, 5) : '06:00';
+            $close = $record ? substr($record->closing_time, 0, 5) : '00:00';
+            if ($close === '24:00') {
+                $close = '00:00';
+            }
+
             $this->hours[$day] = [
                 'id'           => $record?->id,
                 'day_of_week'  => $day,
-                'opening_time' => $record ? substr($record->opening_time, 0, 5) : '06:00',
-                'closing_time' => $record ? substr($record->closing_time, 0, 5) : '24:00',
+                'opening_time' => $open,
+                'closing_time' => $close,
                 'is_closed'    => $record ? (bool) $record->is_closed : false,
             ];
         }
@@ -50,8 +58,14 @@ new class extends Component {
     public function saveOperatingHours(): void
     {
         foreach ($this->hours as $day => $data) {
-            $open = $data['opening_time'] . ':00';
-            $close = ($data['closing_time'] === '24:00' || $data['closing_time'] === '00:00') ? '24:00:00' : $data['closing_time'] . ':00';
+             $open = ($data['opening_time'] ?? '06:00');
+            $open = strlen($open) === 5 ? $open . ':00' : $open;
+
+            $close = ($data['closing_time'] ?? '00:00');
+            $close = strlen($close) === 5 ? $close . ':00' : $close;
+            if ($close === '24:00:00') {
+                $close = '00:00:00';
+            }
 
             OperatingHour::updateOrCreate(
                 ['day_of_week' => $day],
@@ -69,21 +83,41 @@ new class extends Component {
 
     public function openCreateOverrideModal(): void
     {
+        $this->editingOverrideId = null;
         $this->courtId = null;
         $this->overrideDate = Carbon::today()->format('Y-m-d');
-        $this->startTime = '08:00:00';
-        $this->endTime = '12:00:00';
+        $this->startTime = '08:00';
+        $this->endTime = '12:00';
         $this->overrideType = 'maintenance';
         $this->overrideTitle = '';
         $this->overrideReason = '';
         $this->feePerPerson = 150.00;
         $this->maxParticipants = 24;
         $this->showOverrideModal = true;
+        $this->resetErrorBag();
+    }
+
+    public function openEditOverrideModal(int $id): void
+    {
+        $override = SlotOverride::findOrFail($id);
+        $this->editingOverrideId = $override->id;
+        $this->courtId = $override->court_id;
+        $this->overrideDate = $override->date instanceof Carbon ? $override->date->format('Y-m-d') : (string) $override->date;
+        $this->startTime = substr($override->start_time, 0, 5);
+        $this->endTime = substr($override->end_time, 0, 5);
+        $this->overrideType = $override->type;
+        $this->overrideTitle = $override->title ?? '';
+        $this->overrideReason = $override->reason ?? '';
+        $this->feePerPerson = $override->fee_per_person ? (float) $override->fee_per_person : 150.00;
+        $this->maxParticipants = $override->max_participants ?? 24;
+        $this->showOverrideModal = true;
+        $this->resetErrorBag();
     }
 
     public function closeOverrideModal(): void
     {
         $this->showOverrideModal = false;
+        $this->editingOverrideId = null;
         $this->resetErrorBag();
     }
 
@@ -103,7 +137,7 @@ new class extends Component {
         $start = str_contains($this->startTime, ':') && strlen($this->startTime) === 5 ? $this->startTime . ':00' : $this->startTime;
         $end = str_contains($this->endTime, ':') && strlen($this->endTime) === 5 ? $this->endTime . ':00' : $this->endTime;
 
-        SlotOverride::create([
+        $overrideData = [
             'court_id'         => $this->courtId ? (int) $this->courtId : null,
             'date'             => $this->overrideDate,
             'start_time'       => $start,
@@ -117,7 +151,14 @@ new class extends Component {
             'reason'           => $this->overrideReason,
             'fee_per_person'   => $this->overrideType === 'open_play' ? $this->feePerPerson : null,
             'max_participants' => $this->overrideType === 'open_play' ? $this->maxParticipants : null,
-        ]);
+ ];
+
+        if ($this->editingOverrideId) {
+            SlotOverride::findOrFail($this->editingOverrideId)->update($overrideData);
+        } else {
+            SlotOverride::create($overrideData);
+        }
+
 
         $this->closeOverrideModal();
     }
@@ -185,7 +226,7 @@ new class extends Component {
                     Facility Base Operating Hours (Monday – Sunday)
                 </h2>
                 <p class="text-xs text-slate-500">
-                    Defines the public schedule matrix opening and closing time range.
+                    Defines the public schedule matrix opening and closing time range. Note: 12:00 AM is 00:00 midnight. Overnight hours (e.g. 4 PM to 2 AM) are fully supported.
                 </p>
             </div>
             <x-ts-button
@@ -199,13 +240,32 @@ new class extends Component {
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             @foreach ($hours as $day => $data)
+                @php
+                    $openStr = $hours[$day]['opening_time'] ?? '06:00';
+                    $closeStr = $hours[$day]['closing_time'] ?? '00:00';
+                    
+                    try {
+                        $openLabel = \Carbon\Carbon::createFromFormat('H:i', $openStr)->format('g:i A');
+                    } catch (\Exception $e) {
+                        $openLabel = $openStr;
+                    }
+                    
+                    try {
+                        $closeLabel = \Carbon\Carbon::createFromFormat('H:i', $closeStr)->format('g:i A');
+                        if ($closeStr === '00:00') {
+                            $closeLabel = '12:00 AM (Midnight)';
+                        }
+                    } catch (\Exception $e) {
+                        $closeLabel = $closeStr;
+                    }
+                @endphp
                 <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="font-black uppercase tracking-wider text-slate-900 dark:text-white text-xs">
                             {{ ucfirst($day) }}
                         </span>
                         <label class="flex items-center gap-1.5 cursor-pointer text-[11px]">
-                            <input type="checkbox" wire:model="hours.{{ $day }}.is_closed" class="rounded border-slate-300 text-red-500 focus:ring-red-500">
+                            <input type="checkbox" wire:model.live="hours.{{ $day }}.is_closed" class="rounded border-slate-300 text-red-500 focus:ring-red-500">
                             <span class="text-red-500 font-bold">Closed</span>
                         </label>
                     </div>
@@ -219,6 +279,9 @@ new class extends Component {
                                     wire:model="hours.{{ $day }}.opening_time"
                                     class="w-full px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold focus:outline-none focus:border-lime-500 text-center"
                                 />
+                                <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 text-center font-medium">
+                                    {{ $openLabel }}
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Closes</label>
@@ -227,10 +290,13 @@ new class extends Component {
                                     wire:model="hours.{{ $day }}.closing_time"
                                     class="w-full px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold focus:outline-none focus:border-lime-500 text-center"
                                 />
+                                <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 text-center font-medium">
+                                    {{ $closeLabel }}
+                                </div>
                             </div>
                         </div>
                     @else
-                        <div class="py-2 text-center text-red-400 font-semibold text-xs">
+                        <div class="py-4 text-center text-red-400 font-semibold text-xs">
                             Facility Closed All Day
                         </div>
                     @endif
@@ -292,6 +358,7 @@ new class extends Component {
             @endinteract
             @interact('column_action', $row)
                 <x-ts-dropdown icon="ellipsis-vertical" static lg>    
+                    <x-ts-dropdown.items text="Edit" separator icon="pencil" wire:click="openEditOverrideModal({{ $row->id }})"/>
                     <x-ts-dropdown.items text="Delete" separator icon="x-mark" wire:click="deleteOverride({{ $row->id }})" wire:confirm="Are you sure you want to remove this slot override?"/>
                 </x-ts-dropdown>
             @endinteract
@@ -305,7 +372,7 @@ new class extends Component {
                 <button wire:click="closeOverrideModal" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 dark:hover:text-white p-2">✕</button>
 
                 <h3 class="text-xl font-black uppercase tracking-tight mb-4">
-                    Create Slot Override / Block
+                    {{ $editingOverrideId ? 'Edit Slot Override / Block' : 'Create Slot Override / Block' }}
                 </h3>
 
                 <form wire:submit="saveSlotOverride" class="space-y-4 text-xs">
@@ -406,23 +473,24 @@ new class extends Component {
                             wire:model="overrideReason"
                             rows="2"
                             placeholder="Details shown to customers on the public grid..."
-                            class="w-full px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:border-lime-500"
-                        ></textarea>
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:border-lime-500"
+                        
+                            ></textarea>
                     </div>
 
                     <div class="pt-2 flex items-center justify-end gap-2">
                         <button
                             type="button"
                             wire:click="closeOverrideModal"
-                            class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold"
+                            class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            class="px-6 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-black uppercase tracking-wider"
+                            class="px-6 py-2.5 rounded-xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-black uppercase tracking-wider cursor-pointer"
                         >
-                            Save Override
+                            {{ $editingOverrideId ? 'Update Override' : 'Save Override' }}
                         </button>
                     </div>
                 </form>
