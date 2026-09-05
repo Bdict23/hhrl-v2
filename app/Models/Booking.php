@@ -77,7 +77,9 @@ class Booking extends Model
             return null;
         }
 
-        return asset('storage/' . $this->proof_of_payment_path);
+        return rtrim((string) config('custom.proof_of_payment_url'), '/')
+            . '/' . rawurlencode($this->reference_code)
+            . '/proof-of-payment';
     }
 
     public function hasProofOfPayment(): bool

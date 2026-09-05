@@ -73,7 +73,7 @@ new class extends Component {
 
     public function viewProof(string $url): void
     {
-        $this->previewProofUrl = $url;
+        $this->previewProofUrl =  $url;
     }
 
     public function closeProof(): void
@@ -236,7 +236,7 @@ new class extends Component {
                                     <div class="mt-2">
                                         <button
                                             type="button"
-                                            wire:click="viewProof('{{ $pending->proof_of_payment_url }}')"
+                                            wire:click="viewProof(@js($pending->proof_of_payment_url))"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition border border-emerald-500/20 cursor-pointer"
                                         >
                                             <span>📎 View Proof Image</span>
