@@ -428,9 +428,10 @@ new class extends Component {
                             class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:border-lime-500"
                         >
                             <option value="maintenance">Maintenance (Surface, Nets, Lighting)</option>
-                            <option value="open_play">⚡ Open Play Rally Event</option>
+                            <option value="open_play">⚡ Open Play</option>
+                            <option value="tournament">⚡ Tournament</option>
                             <option value="blocked">Blocked / Unavailable</option>
-                            <option value="private_event">Private Tournament / Event</option>
+                            <option value="private_event">Private Event</option>
                         </select>
                     </div>
 
