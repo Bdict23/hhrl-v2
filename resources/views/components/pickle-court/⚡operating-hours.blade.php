@@ -127,7 +127,7 @@ new class extends Component {
             'overrideDate'    => ['required', 'date'],
             'startTime'       => ['required'],
             'endTime'         => ['required'],
-            'overrideType'    => ['required', 'in:open_play,maintenance,blocked,private_event,unavailable'],
+            'overrideType'    => ['required', 'in:open_play,maintenance,blocked,private_event,unavailable,tournament'],
             'overrideTitle'   => ['nullable', 'string', 'max:100'],
             'overrideReason'  => ['nullable', 'string', 'max:500'],
             'feePerPerson'    => ['nullable', 'numeric', 'min:0'],
@@ -149,9 +149,9 @@ new class extends Component {
                 default       => 'Slot Unavailable',
             },
             'reason'           => $this->overrideReason,
-            'fee_per_person'   => $this->overrideType === 'open_play' ? $this->feePerPerson : null,
-            'max_participants' => $this->overrideType === 'open_play' ? $this->maxParticipants : null,
- ];
+            'fee_per_person'   => $this->overrideType === 'open_play' || $this->overrideType === 'tournament' ? $this->feePerPerson : null,
+            'max_participants' => $this->overrideType === 'open_play' || $this->overrideType === 'tournament' ? $this->maxParticipants : null,
+        ];
 
         if ($this->editingOverrideId) {
             SlotOverride::findOrFail($this->editingOverrideId)->update($overrideData);
@@ -445,7 +445,7 @@ new class extends Component {
                         />
                     </div>
 
-                    @if ($overrideType === 'open_play')
+                    @if ($overrideType === 'open_play' || $overrideType === 'tournament')
                         <div class="grid grid-cols-2 gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
                             <div>
                                 <label class="block font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Fee / Player (₱)</label>
