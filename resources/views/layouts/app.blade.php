@@ -31,24 +31,21 @@
             <x-ts-layout.header class="print:hidden">
                 <x-slot:right>
                     <div class="mr-10 flex items-center gap-2">
-                        {{-- Bell Icon --}}
-                        <x-ts-button.circle icon="bell"
-                                         flat
-                                         lg
-                                         color="primary"
-                                         class="dark:!text-white dark:hover:!bg-white/10 dark:focus:!bg-white/10 [&>svg]:dark:!text-white" />
+                        {{-- Real-time Bell Notifications Dropdown --}}
+                        <livewire:notifications.bell-dropdown />
 
                         {{-- Chat Icon with Dynamic Color --}}
                         <x-ts-button.circle icon="chat-bubble-left-right"
                                         flat
                                         lg
                                         color="primary"
-                                        class="dark:!text-white dark:hover:!bg-white/10 dark:focus:!bg-white/10 [&>svg]:dark:!text-white" />
+                                        class="dark:!text-white dark:hover:!bg-white/10 dark:focus:!bg-white/10 [&>svg]:dark:!text-white" >
+                        </x-ts-button.circle>
                     </div>
                     <x-ts-dropdown>
                         <x-slot:action>
                             <button class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition" x-on:click="show = !show">
-                                <img :src="avatar" alt="Avatar" class="w-10 h-10 rounded-full object-cover" />
+                                <img :src="avatar"  class="w-10 h-10 rounded-full object-cover"  gravatar="nobody@tallstackui.com" gravatar-default="monsterid"/>
                                 <span class="text-base font-semibold text-primary-500" x-text="name"></span>
                             </button>
                         </x-slot:action>
@@ -65,8 +62,7 @@
             </x-ts-layout.header>
         </x-slot:header>
         <x-slot:menu>
-            @persist('side-bar')
-                <x-ts-side-bar smart collapsible >
+                <x-ts-side-bar smart collapsible thin-scroll navigate>
                     <x-slot:brand>
                         <div class="my-4 flex items-center justify-center">
                             <img src="{{ asset('assets/images/1772440510.png') }}" width="80" height="80" />
@@ -158,11 +154,7 @@
     
                     <!-- Pickle ball -->
                     <x-ts-side-bar.item text="Pickle Court" icon="squares-2x2">
-                        <x-ts-side-bar.item text="Overview" :route="route('admin.dashboard')">
-                            <x-slot:icon>
-                                <x-icon-dot class="w-5 h-5" />
-                            </x-slot:icon>
-                        </x-ts-side-bar.item>
+                        <livewire:badges.payment-approval-badge />
                         <x-ts-side-bar.item text="Courts" :route="route('admin.courts')">
                             <x-slot:icon>
                                 <x-icon-dot class="w-5 h-5" />
@@ -406,11 +398,10 @@
                         <p class="text-sm text-gray-500">v1.0.0</p>
                     </x-slot:footer>
                 </x-ts-side-bar>
-            @endpersist
         </x-slot:menu>
         {{ $slot }}
 
-        <livewire:inventory.cardex />
+        {{-- <livewire:inventory.cardex /> --}}
     </x-ts-layout>
     @livewireScripts
     </body>

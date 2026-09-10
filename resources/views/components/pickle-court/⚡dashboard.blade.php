@@ -7,13 +7,23 @@ use App\Models\SlotOverride;
 use App\Services\PickleCourt\BookingService;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use TallStackUi\Traits\Interactions;
 use Livewire\Component;
+
 
 new class extends Component {
     use Interactions;
     public ?string $previewProofUrl = null;
     public $booking_id;
+
+    #[On('echo-private:hhrl-channel,.update-booking')]
+    #[On('echo-private:hhrl-channel,PickleBooking')]
+    #[On('echo-private:hhrl-channel,.new-notification')]
+    public function handleBookingRealtimeUpdate($event = null): void
+    {
+        // Re-renders dashboard with fresh bookings and metrics
+    }
 
     public function approveBooking(BookingService $bookingService): void
     {
@@ -124,7 +134,7 @@ new class extends Component {
     }
 }; ?>
 
-<div class="space-y-6">
+<div class="space-y-6" wire:poll.15s>
     <!-- PAGE HEADER -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -372,4 +382,5 @@ new class extends Component {
             @endif
         </div>
     </div>
+
 </div>

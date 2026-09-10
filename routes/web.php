@@ -11,6 +11,7 @@ use Livewire\Volt\Volt;
 
 
 
+
 Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware(['auth'])->group(function () {

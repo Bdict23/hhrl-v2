@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services\PickleCourt;
 
+use App\Events\PickleBooking;
 use App\Models\Booking;
 use App\Models\BookingSlot;
 use App\Models\Court;
 use App\Models\OperatingHour;
 use App\Models\PricingRule;
 use App\Models\SlotOverride;
+use App\Models\User;
+use App\Notifications\GeneralNotification;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 class BookingService
@@ -381,6 +385,20 @@ class BookingService
                 $booking->slots()->create($pSlot);
             }
 
+            $users = User::all();
+            if ($users->isNotEmpty()) {
+                Notification::send($users, new GeneralNotification(
+                    "New Pending Payment - Voucher {$booking->reference_code}",
+                    "Customer {$booking->customer_name} placed booking voucher {$booking->reference_code} awaiting payment approval.",
+                    route('admin.dashboard'),
+                    'pending_payment',
+                    $booking->id,
+                    $booking->reference_code
+                ));
+            }
+
+            PickleBooking::dispatch($booking);
+
             return $booking->load(['slots.court']);
         });
     }
@@ -443,6 +461,38 @@ class BookingService
             'payment_status' => $paymentStatus,
             'admin_notes'    => $adminNotes ?? $booking->admin_notes,
         ]);
+
+        $notificationTitle = match ($status) {
+            'confirmed' => "Payment Approved - Voucher {$booking->reference_code}",
+            'cancelled' => "Declined - Voucher {$booking->reference_code}",
+            default     => "Court Updated - Voucher {$booking->reference_code}",
+        };
+
+        $notificationType = match ($status) {
+            'confirmed' => 'payment_approved',
+            'cancelled' => 'cancellation_requested',
+            default     => 'court_updated',
+        };
+
+        $notificationMessage = match ($status) {
+            'confirmed' => "Booking voucher {$booking->reference_code} has been approved and marked as paid.",
+            'cancelled' => "Booking voucher {$booking->reference_code} has been cancelled/declined.",
+            default     => "Booking voucher {$booking->reference_code} status updated to {$status}.",
+        };
+
+        $users = User::all();
+        if ($users->isNotEmpty()) {
+            Notification::send($users, new GeneralNotification(
+                $notificationTitle,
+                $notificationMessage,
+                route('admin.dashboard'),
+                $notificationType,
+                $booking->id,
+                $booking->reference_code
+            ));
+        }
+
+        PickleBooking::dispatch($booking);
 
         return $booking;
     }
