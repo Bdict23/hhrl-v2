@@ -62,28 +62,41 @@ new class extends Component
      x-on:click.outside="open = false"
      wire:key="navbar-bell-notifications">
 
-    {{-- Bell Trigger Button: Clicking only toggles dropdown, DOES NOT remove or decrement badge --}}
+    {{-- Trigger Button: Clicking only toggles dropdown, DOES NOT remove or decrement badge --}}
     <button type="button"
             x-on:click="open = !open"
             aria-label="Notifications"
-            class="relative p-2 rounded-full cursor-pointer duration-200 transition-colors
-                   text-primary-600 hover:text-primary-600 hover:bg-primary-50
-                   dark:text-gray-300 dark:hover:text-white dark:hover:bg-white/10
+            class="relative p-1.5 sm:p-2 rounded-full cursor-pointer duration-200 transition-colors
+                   text-primary-600 hover:text-primary-700 hover:bg-primary-50
+                   dark:text-primary-400 dark:hover:text-white dark:hover:bg-white/10
                    focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
 
-        <x-icon-pickleball class="w-8 h-8" />
+        <x-icon-pickleball class="w-7 h-7 sm:w-8 sm:h-8" />
 
         {{-- Dynamic Badge Counter: Only decrements when a booking is approved/declined --}}
         @if ($pendingCount > 0)
-            <span class="absolute top-1 right-1 flex items-center justify-center min-w-5 h-5 px-1
-                         text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white
+            <span class="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 flex items-center justify-center min-w-4.5 h-4.5 sm:min-w-5 sm:h-5 px-1
+                         text-[9px] sm:text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white
                          dark:border-gray-800 animate-pulse shadow-sm">
                 {{ $pendingCount > 99 ? '99+' : $pendingCount }}
             </span>
         @endif
     </button>
 
-    {{-- Notifications Dropdown Menu --}}
+    {{-- Mobile Backdrop to close on tap outside and prevent overflow confusion --}}
+    <div x-show="open"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         x-on:click="open = false"
+         x-cloak
+         class="fixed inset-0 bg-black/25 backdrop-blur-[2px] sm:hidden z-40">
+    </div>
+
+    {{-- Notifications Dropdown Menu: Fully responsive for mobile & desktop --}}
     <div x-show="open"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 scale-95 -translate-y-2"
@@ -92,12 +105,14 @@ new class extends Component
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 -translate-y-2"
          x-cloak
-         class="absolute right-0 mt-3 w-84 sm:w-96 rounded-2xl shadow-2xl border
+         class="fixed inset-x-2 top-16 sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-2
+                w-auto sm:w-96 sm:max-w-md max-h-[82vh] sm:max-h-[520px]
+                rounded-2xl shadow-2xl border
                 bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800
-                overflow-hidden z-50">
+                flex flex-col overflow-hidden z-50">
 
         {{-- Dropdown Header --}}
-        <div class="px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/80 bg-gray-50/70 dark:bg-gray-800/50 flex items-center justify-between">
+        <div class="flex-shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-800/80 bg-gray-50/70 dark:bg-gray-800/50 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="font-bold text-sm text-gray-800 dark:text-gray-100">Notifications</span>
                 @if ($pendingCount > 0)
@@ -116,7 +131,7 @@ new class extends Component
         </div>
 
         {{-- Notification Items List --}}
-        <div class="max-h-[380px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/60">
+        <div class="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/60 thin-scroll">
             @forelse ($notifications as $notification)
                 @php
                     $data = $notification->data ?? [];
@@ -145,7 +160,7 @@ new class extends Component
 
                 <div wire:key="notif-{{ $notification->id }}"
                      wire:click="openNotification('{{ $notification->id }}')"
-                     class="p-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition flex items-start gap-3 relative group {{ $isUnread ? 'bg-primary-50/30 dark:bg-primary-950/20' : '' }}">
+                     class="p-3 sm:p-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition flex items-start gap-3 relative group {{ $isUnread ? 'bg-primary-50/30 dark:bg-primary-950/20' : '' }}">
 
                     {{-- Type Icon Badge --}}
                     <div class="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center {{ $badgeStyles }}">
@@ -154,22 +169,22 @@ new class extends Component
 
                     {{-- Content --}}
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between gap-1">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <p class="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        <div class="flex items-start justify-between gap-1">
+                            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                                <p class="text-xs font-semibold text-gray-900 dark:text-gray-100 break-words">
                                     {{ $title }}
                                 </p>
                                 @if ($referenceCode)
-                                    <span class="inline-block px-1.5 py-0.2 rounded font-mono font-bold text-[10px] bg-slate-100 dark:bg-slate-800 text-primary-600 dark:text-primary-400 border border-slate-200 dark:border-slate-700">
+                                    <span class="inline-block px-1.5 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-100 dark:bg-slate-800 text-primary-600 dark:text-primary-400 border border-slate-200 dark:border-slate-700 flex-shrink-0">
                                         {{ $referenceCode }}
                                     </span>
                                 @endif
                             </div>
-                            <span class="text-[10px] text-gray-400 whitespace-nowrap">
+                            <span class="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0 ml-1">
                                 {{ $notification->created_at->diffForHumans(null, true, true) }}
                             </span>
                         </div>
-                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2 leading-relaxed">
+                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed break-words">
                             {{ $message }}
                         </p>
                     </div>
@@ -182,7 +197,7 @@ new class extends Component
             @empty
                 <div class="py-12 px-4 text-center">
                     <div class="w-12 h-12 mx-auto rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 mb-3">
-                        <x-icon-bell class="w-6 h-6" />
+                        <x-icon-pickleball class="w-6 h-6" />
                     </div>
                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300">No notifications yet</p>
                     <p class="text-xs text-gray-400 mt-1">We'll alert you when approval events occur.</p>
@@ -192,7 +207,7 @@ new class extends Component
 
         {{-- Dropdown Footer --}}
         @if ($notifications->isNotEmpty())
-            <div class="px-4 py-2 bg-gray-50/70 dark:bg-gray-800/40 border-t border-gray-100 dark:border-gray-800 text-center">
+            <div class="flex-shrink-0 px-4 py-2.5 bg-gray-50/70 dark:bg-gray-800/40 border-t border-gray-100 dark:border-gray-800 text-center">
                 <a href="{{ route('admin.dashboard') }}"
                    wire:navigate
                    x-on:click="open = false"

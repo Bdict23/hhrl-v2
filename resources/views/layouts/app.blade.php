@@ -30,7 +30,7 @@
         <x-slot:header>
             <x-ts-layout.header class="print:hidden">
                 <x-slot:right>
-                    <div class="mr-10 flex items-center gap-2">
+                    <div class="mr-1 sm:mr-4 lg:mr-8 flex items-center gap-1.5 sm:gap-2">
                         {{-- Real-time Bell Notifications Dropdown --}}
                         <livewire:notifications.bell-dropdown />
 
