@@ -67,8 +67,8 @@ new class extends Component
             x-on:click="open = !open"
             aria-label="Notifications"
             class="relative p-1.5 sm:p-2 rounded-full cursor-pointer duration-200 transition-colors
-                   text-primary-600 hover:text-primary-700 hover:bg-primary-50
-                   dark:text-primary-400 dark:hover:text-white dark:hover:bg-white/10
+                   text-primary-600  hover:text-primary-700 hover:bg-primary-50
+                   dark:text-primary-50 dark:hover:text-primary-600 dark:hover:bg-white/10
                    focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
 
         <x-icon-pickleball class="w-7 h-7 sm:w-8 sm:h-8" />
@@ -76,7 +76,7 @@ new class extends Component
         {{-- Dynamic Badge Counter: Only decrements when a booking is approved/declined --}}
         @if ($pendingCount > 0)
             <span class="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 flex items-center justify-center min-w-4.5 h-4.5 sm:min-w-5 sm:h-5 px-1
-                         text-[9px] sm:text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white
+                         text-[9px] sm:text-[10px] font-bold text-white bg-red-500 rounded-full 
                          dark:border-gray-800 animate-pulse shadow-sm">
                 {{ $pendingCount > 99 ? '99+' : $pendingCount }}
             </span>

@@ -1445,7 +1445,7 @@ public function with(): array
                     </div>
                     <x-ts-number 
                         :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
-                        :disabled="$this->isUnitType || !$measureType" 
+                        :disabled="$this->isUnitType" 
                         wire:model="measureValueEdit"
                     />
                 </div>
