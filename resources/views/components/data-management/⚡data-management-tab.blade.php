@@ -51,6 +51,20 @@ new class extends Component
         $addItemSubClassModal,
         $editItemSubClassModal;
 
+    // ITEM COST HISTORY DECLARATION
+    public bool $itemCostHistoryModal = false;
+    public ?int $selectedItemId = null;
+    public ?string $historyItemName = null;
+    public ?string $historyItemCode = null;
+    public ?string $historyItemUom = null;
+    public float $historyCurrentCost = 0.0;
+    public float $historyMinCost = 0.0;
+    public float $historyMaxCost = 0.0;
+    public array $historyChartLabels = [];
+    public array $historyChartSeries = [];
+    public array $historyLogs = [];
+    public int $historyCount = 0;
+
     // ITEM REGISTRATION DECLARATION
         public 
             $itemCode,
@@ -208,7 +222,7 @@ new class extends Component
                 'measureValue',
                 'itemCost',
                 'isForSale']);
-            $this->toast()->success('Success', "Item {$item->item_description} created successfully!")->send();
+            $this->toast()->success('Success', "Item {$item->item_description} created & unit conversion matrix generated!")->send();
 
         } catch (\Exception $e) {
             $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
@@ -257,7 +271,7 @@ new class extends Component
                 'itemCostEdit',
                 'item_id',
                 'isForSaleEdit']);
-            $this->toast()->success('Success', "Item {$item->item_description} updated successfully!")->send();
+            $this->toast()->success('Success', "Item {$item->item_description} updated & unit conversions synchronized!")->send();
 
         } catch (\Exception $e) {
             $this->toast()->error('Error', 'Something went wrong while updating: ' . $e->getMessage())->send();
@@ -750,7 +764,7 @@ new class extends Component
         #[Computed]
         public function isUnitType(): bool
         {
-            $typeId = $this->measureType ?: $this->measureTypeEdit;
+            $typeId = $this->editItemModal ? $this->measureTypeEdit : $this->measureType;
 
             if (!$typeId) {
                 return false;
@@ -761,6 +775,7 @@ new class extends Component
                 ->exists();
         }
     // END OF COMPUTED
+
 
     public function updatedMeasureType($value): void
     {
@@ -800,6 +815,26 @@ new class extends Component
 
             }
 
+        }
+
+        public function viewCostHistory(int $id, ItemService $service)
+        {
+            $item = Item::with(['unit', 'costHistory.supplier'])->findOrFail($id);
+            $this->selectedItemId = $id;
+            $this->historyItemName = $item->item_description;
+            $this->historyItemCode = $item->item_code;
+            $this->historyItemUom = $item->unit?->unit_symbol ?? 'N/A';
+            $this->historyCurrentCost = (float) ($item->cost?->amount ?? 0.0);
+
+            $data = $service->getItemCostHistory($item);
+            $this->historyChartLabels = $data['labels'];
+            $this->historyChartSeries = $data['series'];
+            $this->historyLogs = $data['logs'];
+            $this->historyCount = $data['raw_count'];
+            $this->historyMinCost = $data['min_cost'];
+            $this->historyMaxCost = $data['max_cost'];
+
+            $this->itemCostHistoryModal = true;
         }
         public function editCategory(int $id)
         {
@@ -965,7 +1000,10 @@ public function with(): array
                         {{$row->unit?->unit_symbol}}
                     @endinteract
                     @interact('column_cost',$row)
-                       ₱ {{number_format($row->cost?->amount,2)}}
+                        <button type="button" wire:click="viewCostHistory({{$row->id}})" class="inline-flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group cursor-pointer" title="View cost changes chart">
+                            ₱ {{number_format($row->cost?->amount,2)}}
+                            <x-ts-icon name="chart-bar" class="w-3.5 h-3.5 text-gray-400 group-hover:text-primary-500 transition-colors" />
+                        </button>
                     @endinteract
                     @interact('column_is_forsale',$row)
                          <div class="flex items-center gap-2">
@@ -981,6 +1019,7 @@ public function with(): array
                     @endinteract
                     @interact('column_action', $row)
                         <x-ts-dropdown icon="ellipsis-vertical" static lg>
+                            <x-ts-dropdown.items text="Cost History" icon="chart-bar" wire:click="viewCostHistory({{$row->id}})"/>
                             <x-ts-dropdown.items text="Edit" icon="pencil-square" wire:click="editItem({{$row->id}})"/>
                             <x-ts-dropdown.items 
                                 :text="$row->item_status == 'ACTIVE' ? 'Set INACTIVE' : 'Set ACTIVE'" 
@@ -1302,7 +1341,7 @@ public function with(): array
                             :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureType])"
                             select="label:label|value:label|description:description"
                             :disabled="!$measureType"
-                            wire:model="measureSymbol"
+                            wire:model.live="measureSymbol"
                             label="Symbol *"
                             :placeholders="[
                             'default' => 'Select',
@@ -1312,7 +1351,7 @@ public function with(): array
                     <x-ts-number 
                         :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
                         :disabled="$this->isUnitType || !$measureType" 
-                        wire:model="measureValue"
+                        wire:model.live="measureValue"
                     />
                 </div>
                <div class="col-span-2">
@@ -1436,7 +1475,7 @@ public function with(): array
                             :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureTypeEdit])"
                             select="label:label|value:label|description:description"
                             :disabled="!$measureTypeEdit"
-                            wire:model="measureSymbolEdit"
+                            wire:model.live="measureSymbolEdit"
                             label="Symbol *"
                             :placeholders="[
                             'default' => 'Select',
@@ -1446,7 +1485,7 @@ public function with(): array
                     <x-ts-number 
                         :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
                         :disabled="$this->isUnitType" 
-                        wire:model="measureValueEdit"
+                        wire:model.live="measureValueEdit"
                     />
                 </div>
                <div class="col-span-2">
@@ -1611,4 +1650,134 @@ public function with(): array
         </x-ts-card>
     </x-ts-modal>
 
+    {{-- ITEM COST HISTORY MODAL --}}
+    <x-ts-modal title="ITEM COST HISTORY & PO PRICE TREND" size="4xl" wire="itemCostHistoryModal" center>
+        <x-ts-card shadowless loading>
+            <div class="space-y-4">
+                <!-- Item Summary Banner -->
+                <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300">
+                                {{ $historyItemCode }}
+                            </span>
+                            <span class="font-bold text-gray-900 dark:text-gray-100 text-base">{{ $historyItemName }}</span>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                            Packaging Unit: <strong class="text-gray-700 dark:text-gray-300">{{ $historyItemUom }}</strong>
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-right">
+                            <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block">Current Cost</span>
+                            <span class="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                                ₱ {{ number_format($historyCurrentCost, 2) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xs">
+                        <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">Latest Cost</span>
+                        <span class="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">₱ {{ number_format($historyCurrentCost, 2) }}</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xs">
+                        <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">Lowest Cost</span>
+                        <span class="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">₱ {{ number_format($historyMinCost, 2) }}</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xs">
+                        <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">Highest Cost</span>
+                        <span class="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono">₱ {{ number_format($historyMaxCost, 2) }}</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xs">
+                        <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">Price Changes</span>
+                        <span class="text-lg font-bold text-primary-600 dark:text-primary-400 font-mono">{{ $historyCount }} record(s)</span>
+                    </div>
+                </div>
+
+                <!-- TallStackUI Native Chart -->
+                @if(!empty($historyChartLabels))
+                    <div class="p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs">
+                        <div class="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-gray-800">
+                            <span class="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                                <x-ts-icon name="arrow-trending-up" class="w-4 h-4 text-primary-500" />
+                                PO Unit Cost History Trend
+                            </span>
+                            <span class="text-[11px] text-gray-400 font-medium">Currency: PHP (₱)</span>
+                        </div>
+                        <x-ts-chart :labels="$historyChartLabels"
+                                 :series="$historyChartSeries"
+                                 line
+                                 grid
+                                 tooltip
+                                 markers
+                                 prefix="₱ "
+                                 height="240" />
+                    </div>
+                @endif
+
+                <!-- Chronological Log Table -->
+                <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+                    <div class="px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <x-ts-icon name="clock" class="w-4 h-4 text-gray-400" />
+                            Chronological Cost Adjustments & PO Receipts
+                        </span>
+                        <span class="text-xs text-gray-400">Most recent first</span>
+                    </div>
+                    <div class="max-h-60 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-gray-50/50 dark:bg-gray-900/50 text-gray-500 font-semibold border-b border-gray-100 dark:border-gray-800 sticky top-0">
+                                <tr>
+                                    <th class="py-2 px-3">Effective Date</th>
+                                    <th class="py-2 px-3">Supplier / Origin</th>
+                                    <th class="py-2 px-3 text-right">Cost</th>
+                                    <th class="py-2 px-3 text-right">Variance vs Prev</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @forelse($historyLogs as $log)
+                                    <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                                        <td class="py-2.5 px-3 font-mono text-gray-600 dark:text-gray-400">
+                                            {{ $log['date'] }}
+                                        </td>
+                                        <td class="py-2.5 px-3 font-medium text-gray-800 dark:text-gray-200">
+                                            {{ $log['supplier'] }}
+                                        </td>
+                                        <td class="py-2.5 px-3 text-right font-mono font-bold text-gray-900 dark:text-gray-100">
+                                            ₱ {{ number_format($log['amount'], 2) }}
+                                        </td>
+                                        <td class="py-2.5 px-3 text-right font-mono">
+                                            @if($log['variance'] > 0)
+                                                <span class="inline-flex items-center text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded text-[11px]">
+                                                    +₱{{ number_format($log['variance'], 2) }} ({{ $log['variance_pct'] }}%)
+                                                </span>
+                                            @elseif($log['variance'] < 0)
+                                                <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded text-[11px]">
+                                                    -₱{{ number_format(abs($log['variance']), 2) }} ({{ abs($log['variance_pct']) }}%)
+                                                </span>
+                                            @else
+                                                <span class="text-gray-400 text-[11px]">Initial / Baseline</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="py-6 text-center text-gray-400">
+                                            No historical price adjustments found for this item.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <x-slot:footer>
+                <x-ts-button flat wire:click="$set('itemCostHistoryModal', false)">Close</x-ts-button>
+            </x-slot:footer>
+        </x-ts-card>
+    </x-ts-modal>
 </div>

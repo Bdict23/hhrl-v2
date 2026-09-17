@@ -23,6 +23,7 @@ class ItemService
     protected $categoryModel;
     protected $classificationModel;
     protected $brandModel;
+    protected $unitConversionService;
 
     public function __construct(
         Item $itemModel,
@@ -31,7 +32,8 @@ class ItemService
         Price $priceModel,
         Category $categoryModel,
         Classification $classificationModel,
-        Brand $brandModel
+        Brand $brandModel,
+        UnitConversionService $unitConversionService
     ) {
         $this->itemModel = $itemModel;
         $this->measureModel = $measureModel;
@@ -40,6 +42,7 @@ class ItemService
         $this->categoryModel = $categoryModel;
         $this->classificationModel = $classificationModel;
         $this->brandModel = $brandModel;
+        $this->unitConversionService = $unitConversionService;
     }
 
     public function createItem(array $data): Item
@@ -68,7 +71,10 @@ class ItemService
                 ]
             );
 
-            // 4. Create Item using mass assignment selection
+            // 4. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
+            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
+
+            // 5. Create Item using mass assignment selection
             $itemData = Arr::only($data, [
                 'item_code',
                 'item_description',
@@ -85,10 +91,11 @@ class ItemService
             ]);
 
             $itemData['uom_id'] = $measure->id;
+            $itemData['measurement_type'] = strtoupper($measureTypeName);
 
             $item = $this->itemModel->create($itemData);
 
-            // 5. Create Price via Relationship or Model
+            // 6. Create Price via Relationship or Model
             if (filled($data['item_cost'] ?? null)) {
                 $item->cost()->create([
                     'price_type' => 'COST',
@@ -97,6 +104,10 @@ class ItemService
                     'branch_id'  => $data['branch_id'] ?? null,
                 ]);
             }
+
+            // 7. Generate unit conversion matrix
+            $item->load('unit');
+            $this->unitConversionService->generateConversionsForItem($item);
 
             return $item;
         });
@@ -128,7 +139,10 @@ class ItemService
                 ]
             );
 
-            // 4. Create Item using mass assignment selection
+            // 4. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
+            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
+
+            // 5. Update Item using mass assignment selection
             $itemData = Arr::only($data, [
                 'item_code',
                 'item_description',
@@ -145,13 +159,34 @@ class ItemService
             ]);
 
             $itemData['uom_id'] = $measure->id;
+            $itemData['measurement_type'] = strtoupper($measureTypeName);
+
             $item = $this->itemModel->findOrFail($data['item_id']);
             $item->update($itemData);
 
+            // 6. Record Cost Price if changed (maintaining historical audit trail)
+            if (filled($data['item_cost'] ?? null)) {
+                $newCost = (float) $data['item_cost'];
+                $currentCost = $item->cost ? (float) $item->cost->amount : null;
+                if ($currentCost === null || abs($currentCost - $newCost) > 0.0001) {
+                    $this->priceModel->create([
+                        'price_type' => 'COST',
+                        'item_id'    => $item->id,
+                        'amount'     => $newCost,
+                        'company_id' => $data['company_id'],
+                        'branch_id'  => $data['branch_id'] ?? null,
+                    ]);
+                }
+            }
+
+            // 7. Refresh unit conversion matrix
+            $item->load('unit');
+            $this->unitConversionService->generateConversionsForItem($item);
 
             return $item;
         });
     }
+
     public function changeItemStatus(int $id): Item
     {
         $item = $this->itemModel->findOrFail($id);
@@ -278,5 +313,67 @@ class ItemService
         $brand->status = ($brand->status === 'ACTIVE') ? 'INACTIVE' : 'ACTIVE';
         $brand->save();
         return $brand;
+    }
+
+    /**
+     * Get historical cost changes for an item formatted for TallStackUI chart and audit logs.
+     */
+    public function getItemCostHistory(Item $item): array
+    {
+        $prices = $item->costHistory()->get();
+
+        $labels = [];
+        $data = [];
+        $logs = [];
+        $prevAmount = null;
+
+        foreach ($prices as $p) {
+            $dateStr = $p->created_at ? $p->created_at->format('M d, Y') : 'Initial';
+            $labels[] = $dateStr;
+            $amt = (float) $p->amount;
+            $data[] = $amt;
+
+            $diff = $prevAmount !== null ? round($amt - $prevAmount, 2) : 0.0;
+            $pct = ($prevAmount !== null && $prevAmount > 0) ? round(($diff / $prevAmount) * 100, 1) : 0.0;
+
+            $logs[] = [
+                'id'           => $p->id,
+                'date'         => $dateStr,
+                'created_at'   => $p->created_at,
+                'amount'       => $amt,
+                'variance'     => $diff,
+                'variance_pct' => $pct,
+                'supplier'     => $p->supplier?->supplier_name ?? 'Standard / Manual',
+            ];
+
+            $prevAmount = $amt;
+        }
+
+        // If only 1 price record exists, create a 2-point baseline so the line chart can render cleanly
+        $chartLabels = $labels;
+        $chartData = $data;
+        if (count($chartData) === 1) {
+            $firstDate = $labels[0] ?? 'Initial';
+            $todayStr = now()->format('M d, Y');
+            if ($firstDate !== $todayStr) {
+                $chartLabels = [$firstDate, $todayStr];
+                $chartData = [$chartData[0], $chartData[0]];
+            } else {
+                $chartLabels = ['Baseline', 'Current'];
+                $chartData = [$chartData[0], $chartData[0]];
+            }
+        }
+
+        return [
+            'labels'       => $chartLabels,
+            'series'       => [
+                ['name' => 'PO Cost', 'data' => $chartData],
+            ],
+            'raw_count'    => count($prices),
+            'logs'         => array_reverse($logs),
+            'min_cost'     => !empty($data) ? min($data) : 0.0,
+            'max_cost'     => !empty($data) ? max($data) : 0.0,
+            'current_cost' => !empty($data) ? end($data) : 0.0,
+        ];
     }
 }

@@ -24,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     // RESTAURANT
     // RECIPE
     Volt::route('/restaurant/recipe-summary', 'restaurant.recipe.recipe-summary')->name('restaurant.recipe-summary');
+    Volt::route('/restaurant/recipe-create', 'restaurant.recipe.recipe-create')->name('restaurant.recipe-create');
+    Volt::route('/restaurant/recipe-edit/{id}', 'restaurant.recipe.recipe-edit')->name('restaurant.recipe-edit');
+    Volt::route('/restaurant/recipe-view/{id}', 'restaurant.recipe.recipe-view')->name('restaurant.recipe-view');
 
     //EVENTS
 

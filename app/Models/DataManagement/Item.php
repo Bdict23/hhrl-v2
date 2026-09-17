@@ -36,6 +36,10 @@ class Item extends Model
     {
         return $this->hasOne(Price::class, 'item_id')->where('price_type', 'Cost')->latest('created_at')->with('supplier');
     }
+    public function costHistory()
+    {
+        return $this->hasMany(Price::class, 'item_id')->where('price_type', 'Cost')->orderBy('created_at', 'asc')->with('supplier');
+    }
     public function brand()
     {
         return $this->belongsTo(Brand::class, 'brand_id');
