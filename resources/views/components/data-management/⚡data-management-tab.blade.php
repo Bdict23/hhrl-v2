@@ -1491,7 +1491,7 @@ public function with(): array
                             ]" required/>
                     </div>
                     <x-ts-number 
-                        :label="$this->isUnitType ? 'Packaging Count (e.g. 50 for 50-pack, or 1)' : 'Measured Value *'" 
+                        :label="'Measured Value *'" 
                         :hint="$this->isUnitType ? 'Piece count per pack (Defaults to 1 for individual item)' : null"
                         :disabled="!$measureTypeEdit" 
                         wire:model.live="measureValueEdit"
