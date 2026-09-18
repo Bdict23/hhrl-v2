@@ -48,16 +48,34 @@ class ItemService
     public function createItem(array $data): Item
     {
         return DB::transaction(function () use ($data) {
-            // 1. Safe default handling for measure attributes
-            $measureValue = $data['measure_value'] ?? 0.00;
-            $measureSymbol = $data['measure_symbol'] ?? '';
-            // 2. Resolve unit description safely
+            // 1. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
+            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
+            $isUnitType = strtoupper(trim($measureTypeName)) === 'UNIT';
+
+            // 2. Safe packaging quantity handling (e.g. 50 for a pack of 50 cups; defaults to 1 for discrete unit items)
+            $rawVal = $data['measure_value'] ?? null;
+            if (filled($rawVal) && (float)$rawVal > 0) {
+                $measureValue = (float) $rawVal;
+            } else {
+                $measureValue = $isUnitType ? 1.00 : 0.00;
+            }
+
+            $measureSymbol = $data['measure_symbol'] ?? ($isUnitType ? 'pc' : '');
+
+            // 3. Resolve unit description safely
             $symbolDescription = $this->systemParameterModel
                 ->where('key', 'measure_symbol')
                 ->where('name', $measureSymbol)
                 ->value('description') ?? $measureSymbol;
 
-            // 3. Get or create measure record
+            // 4. Get or create measure record
+            $unitName = trim("{$measureValue} {$symbolDescription}");
+            $unitSymbol = trim("{$measureValue} {$measureSymbol}");
+            if ($isUnitType && $measureValue == 1.0) {
+                $unitName = "1 {$symbolDescription}";
+                $unitSymbol = "1 {$measureSymbol}";
+            }
+
             $measure = $this->measureModel->firstOrCreate(
                 [
                     'measure_type_id' => $data['measure_type_id'],
@@ -65,14 +83,11 @@ class ItemService
                     'measure_value'   => $measureValue,
                 ],
                 [
-                    'unit_name'        => trim("{$measureValue} {$symbolDescription}"),
+                    'unit_name'        => $unitName,
                     'unit_description' => $symbolDescription,
-                    'unit_symbol'      => trim("{$measureValue} {$measureSymbol}"),
+                    'unit_symbol'      => $unitSymbol,
                 ]
             );
-
-            // 4. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
-            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
 
             // 5. Create Item using mass assignment selection
             $itemData = Arr::only($data, [
@@ -116,16 +131,34 @@ class ItemService
     public function updateItem(array $data): Item
     {
         return DB::transaction(function () use ($data) {
-            // 1. Safe default handling for measure attributes
-            $measureValue = $data['measure_value'] ?? 0.00;
-            $measureSymbol = $data['measure_symbol'] ?? '';
-            // 2. Resolve unit description safely
+            // 1. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
+            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
+            $isUnitType = strtoupper(trim($measureTypeName)) === 'UNIT';
+
+            // 2. Safe packaging quantity handling (e.g. 50 for a pack of 50 cups; defaults to 1 for discrete unit items)
+            $rawVal = $data['measure_value'] ?? null;
+            if (filled($rawVal) && (float)$rawVal > 0) {
+                $measureValue = (float) $rawVal;
+            } else {
+                $measureValue = $isUnitType ? 1.00 : 0.00;
+            }
+
+            $measureSymbol = $data['measure_symbol'] ?? ($isUnitType ? 'pc' : '');
+
+            // 3. Resolve unit description safely
             $symbolDescription = $this->systemParameterModel
                 ->where('key', 'measure_symbol')
                 ->where('name', $measureSymbol)
                 ->value('description') ?? $measureSymbol;
 
-            // 3. Get or create measure record
+            // 4. Get or create measure record
+            $unitName = trim("{$measureValue} {$symbolDescription}");
+            $unitSymbol = trim("{$measureValue} {$measureSymbol}");
+            if ($isUnitType && $measureValue == 1.0) {
+                $unitName = "1 {$symbolDescription}";
+                $unitSymbol = "1 {$measureSymbol}";
+            }
+
             $measure = $this->measureModel->firstOrCreate(
                 [
                     'measure_type_id' => $data['measure_type_id'],
@@ -133,14 +166,11 @@ class ItemService
                     'measure_value'   => $measureValue,
                 ],
                 [
-                    'unit_name'        => trim("{$measureValue} {$symbolDescription}"),
+                    'unit_name'        => $unitName,
                     'unit_description' => $symbolDescription,
-                    'unit_symbol'      => trim("{$measureValue} {$measureSymbol}"),
+                    'unit_symbol'      => $unitSymbol,
                 ]
             );
-
-            // 4. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
-            $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
 
             // 5. Update Item using mass assignment selection
             $itemData = Arr::only($data, [

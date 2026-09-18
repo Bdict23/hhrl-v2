@@ -87,6 +87,8 @@ class UnitConversionService
             'half dozen' => 6.0,
             'pair'       => 2.0,
             'set'        => 1.0,
+            'tray'       => 24.0,
+            'trays'      => 24.0,
         ],
         'LENGTH' => [
             'm'          => 1.0,
@@ -141,6 +143,7 @@ class UnitConversionService
             'base_unit' => 'pc',
             'units' => [
                 'pc'      => ['name' => 'Piece',       'symbol' => 'pc',    'label' => 'Piece (pc)',        'ratio' => 1.0],
+                'tray'    => ['name' => 'Tray',        'symbol' => 'tray',  'label' => 'Tray (24 pcs)',     'ratio' => 24.0],
                 'doz'     => ['name' => 'Dozen',       'symbol' => 'doz',   'label' => 'Dozen (doz)',       'ratio' => 12.0],
                 'halfdoz' => ['name' => 'Half Dozen',  'symbol' => '½ doz', 'label' => 'Half Dozen (½ doz)','ratio' => 6.0],
                 'pair'    => ['name' => 'Pair',        'symbol' => 'pair',  'label' => 'Pair (pair)',       'ratio' => 2.0],
@@ -201,6 +204,7 @@ class UnitConversionService
             if (str_contains($normalized, 'tsp')) return 4.928922;
             if (str_contains($normalized, 'cup')) return 236.588237;
         } elseif ($measureType === 'UNIT') {
+            if (str_contains($normalized, 'tray')) return 24.0;
             if (str_contains($normalized, 'doz')) return 12.0;
             if (str_contains($normalized, 'pair')) return 2.0;
             return 1.0;
@@ -553,6 +557,7 @@ class UnitConversionService
             if (str_contains($norm, 'l') || str_contains($norm, 'ltr')) return 1.0;
             return 1.0;
         } elseif ($measureType === 'UNIT') {
+            if (str_contains($norm, 'tray')) return 24.0;
             if (str_contains($norm, 'halfdoz') || str_contains($norm, '½doz')) return 6.0;
             if (str_contains($norm, 'doz')) return 12.0;
             if (str_contains($norm, 'pair')) return 2.0;

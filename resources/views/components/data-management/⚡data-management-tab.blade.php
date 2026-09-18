@@ -132,9 +132,10 @@ new class extends Component
             'measureType'    => 'required|exists:system_parameters,id',
             'measureSymbol'  => 'required',
             'measureValue'   => [
-                Rule::requiredIf(fn () => !$this->isUnitType()),
                 'nullable',
                 'numeric',
+                'min:0.0001',
+                Rule::requiredIf(fn () => !$this->isUnitType()),
             ],
         ]);
         $this->addItemModal = false;
@@ -161,9 +162,10 @@ new class extends Component
             'measureTypeEdit'    => 'required|exists:system_parameters,id',
             'measureSymbolEdit'  => 'required',
             'measureValueEdit'   => [
-                Rule::requiredIf(fn () => !$this->isUnitType()),
                 'nullable',
                 'numeric',
+                'min:0.0001',
+                Rule::requiredIf(fn () => !$this->isUnitType()),
             ],
         ]);
         $this->editItemModal = false;
@@ -779,14 +781,14 @@ new class extends Component
 
     public function updatedMeasureType($value): void
     {
-        if ($this->isUnitType) {
-            $this->measureValue = null;
+        if ($this->isUnitType && empty($this->measureValue)) {
+            $this->measureValue = 1;
         }
     }
-        public function updatedMeasureTypeEdit($value): void
+    public function updatedMeasureTypeEdit($value): void
     {
-        if ($this->isUnitType) {
-            $this->measureValueEdit = null;
+        if ($this->isUnitType && empty($this->measureValueEdit)) {
+            $this->measureValueEdit = 1;
         }
     }
 
@@ -808,9 +810,14 @@ new class extends Component
                 $this->optimalStockEdit = $item->optimal_stock;
                 $this->isForSaleEdit = $item->is_forsale;
 
-                $this->measureTypeEdit = $item->unit->measure_type_id;
-                $this->measureSymbolEdit = $item->unit->measure_symbol;
-                $this->measureValueEdit= $item->unit->measure_value == 0.00 ? null : $item->unit->measure_value;
+                $this->measureTypeEdit = $item->unit?->measure_type_id;
+                $this->measureSymbolEdit = $item->unit?->measure_symbol;
+                $rawVal = $item->unit?->measure_value;
+                if ($this->isUnitType) {
+                    $this->measureValueEdit = ($rawVal && (float)$rawVal > 0) ? (float)$rawVal : 1;
+                } else {
+                    $this->measureValueEdit = ($rawVal && (float)$rawVal > 0) ? (float)$rawVal : null;
+                }
                 $this->editItemModal = true;
 
             }
@@ -1349,8 +1356,9 @@ public function with(): array
                             ]" required/>
                     </div>
                     <x-ts-number 
-                        :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
-                        :disabled="$this->isUnitType || !$measureType" 
+                        label="Measured Value *"
+                        :hint="$this->isUnitType ? 'Piece count per pack (Defaults to 1 for individual item)' : null"
+                        :disabled="!$measureType" 
                         wire:model.live="measureValue"
                     />
                 </div>
@@ -1483,8 +1491,9 @@ public function with(): array
                             ]" required/>
                     </div>
                     <x-ts-number 
-                        :label="$this->isUnitType ? 'Measured Value' : 'Measured Value *'" 
-                        :disabled="$this->isUnitType" 
+                        :label="$this->isUnitType ? 'Packaging Count (e.g. 50 for 50-pack, or 1)' : 'Measured Value *'" 
+                        :hint="$this->isUnitType ? 'Piece count per pack (Defaults to 1 for individual item)' : null"
+                        :disabled="!$measureTypeEdit" 
                         wire:model.live="measureValueEdit"
                     />
                 </div>
