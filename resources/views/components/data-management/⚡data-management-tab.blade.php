@@ -1348,7 +1348,7 @@ public function with(): array
                             :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureType])"
                             select="label:label|value:label|description:description"
                             :disabled="!$measureType"
-                            wire:model.live="measureSymbol"
+                            wire:model="measureSymbol"
                             label="Symbol *"
                             :placeholders="[
                             'default' => 'Select',
@@ -1359,7 +1359,7 @@ public function with(): array
                         label="Measured Value *"
                         :hint="$this->isUnitType ? 'Piece count per pack (Defaults to 1 for individual item)' : null"
                         :disabled="!$measureType" 
-                        wire:model.live="measureValue"
+                        wire:model="measureValue"
                     />
                 </div>
                <div class="col-span-2">
@@ -1483,7 +1483,7 @@ public function with(): array
                             :request="route('api.item.measuredSymbol', ['measure_type_id' => $measureTypeEdit])"
                             select="label:label|value:label|description:description"
                             :disabled="!$measureTypeEdit"
-                            wire:model.live="measureSymbolEdit"
+                            wire:model="measureSymbolEdit"
                             label="Symbol *"
                             :placeholders="[
                             'default' => 'Select',
@@ -1494,7 +1494,7 @@ public function with(): array
                         :label="'Measured Value *'" 
                         :hint="$this->isUnitType ? 'Piece count per pack (Defaults to 1 for individual item)' : null"
                         :disabled="!$measureTypeEdit" 
-                        wire:model.live="measureValueEdit"
+                        wire:model="measureValueEdit"
                     />
                 </div>
                <div class="col-span-2">

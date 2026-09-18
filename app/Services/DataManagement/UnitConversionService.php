@@ -327,98 +327,64 @@ class UnitConversionService
             $matchingUoms->push($uom);
         }
 
-        $count = 0;
+        $now = now();
+        $records = [];
+        $seen = [];
 
-        DB::transaction(function () use ($item, $uom, $matchingUoms, $measureType, $totalPackagingInCanonical, &$count) {
-            // 1. Conversions between item's packaging UOM and all matching units
-            foreach ($matchingUoms as $targetUom) {
-                $targetSymbol = $targetUom->measure_symbol ?: $targetUom->unit_symbol ?: '';
-                $targetValue = (float) ($targetUom->measure_value > 0 ? $targetUom->measure_value : 1.0);
-                $targetCanonicalFactor = $this->getCanonicalFactor($measureType, $targetSymbol);
-                $targetCanonicalTotal = $targetValue * $targetCanonicalFactor;
+        // 1. Generate conversions between item's packaging UOM and all matching units
+        foreach ($matchingUoms as $targetUom) {
+            $targetSymbol = $targetUom->measure_symbol ?: $targetUom->unit_symbol ?: '';
+            $targetValue = (float) ($targetUom->measure_value > 0 ? $targetUom->measure_value : 1.0);
+            $targetCanonicalFactor = $this->getCanonicalFactor($measureType, $targetSymbol);
+            $targetCanonicalTotal = $targetValue * $targetCanonicalFactor;
 
-                if ($targetCanonicalTotal <= 0) {
-                    $targetCanonicalTotal = 1.0;
-                }
-
-                // Factor: How many target units are in 1 packaging unit?
-                // Example: 1 [25kg sack] = 25,000g => factor = 25000.
-                $factorFromPackaging = $totalPackagingInCanonical / $targetCanonicalTotal;
-                // Factor: How many packaging units are in 1 target unit?
-                // Example: 1g = 0.00004 [25kg sack]
-                $factorToPackaging = $targetCanonicalTotal / ($totalPackagingInCanonical ?: 1.0);
-
-                // Upsert packaging -> target
-                UnitConvertion::updateOrCreate(
-                    [
-                        'item_id'     => $item->id,
-                        'from_uom_id' => $uom->id,
-                        'to_uom_id'   => $targetUom->id,
-                    ],
-                    [
-                        'conversion_factor' => round($factorFromPackaging, 8),
-                    ]
-                );
-
-                // Upsert target -> packaging
-                UnitConvertion::updateOrCreate(
-                    [
-                        'item_id'     => $item->id,
-                        'from_uom_id' => $targetUom->id,
-                        'to_uom_id'   => $uom->id,
-                    ],
-                    [
-                        'conversion_factor' => round($factorToPackaging, 8),
-                    ]
-                );
-
-                $count += 2;
+            if ($targetCanonicalTotal <= 0) {
+                $targetCanonicalTotal = 1.0;
             }
 
-            // 2. Cross-conversions between all standard units of this type for this item
-            foreach ($matchingUoms as $uomA) {
-                $symbolA = $uomA->measure_symbol ?: $uomA->unit_symbol ?: '';
-                $valA = (float) ($uomA->measure_value > 0 ? $uomA->measure_value : 1.0);
-                $canonA = $valA * $this->getCanonicalFactor($measureType, $symbolA);
-                if ($canonA <= 0) $canonA = 1.0;
+            // Factor: How many target units are in 1 packaging unit?
+            $factorFromPackaging = $totalPackagingInCanonical / $targetCanonicalTotal;
+            // Factor: How many packaging units are in 1 target unit?
+            $factorToPackaging = $targetCanonicalTotal / ($totalPackagingInCanonical ?: 1.0);
 
-                foreach ($matchingUoms as $uomB) {
-                    $symbolB = $uomB->measure_symbol ?: $uomB->unit_symbol ?: '';
-                    $valB = (float) ($uomB->measure_value > 0 ? $uomB->measure_value : 1.0);
-                    $canonB = $valB * $this->getCanonicalFactor($measureType, $symbolB);
-                    if ($canonB <= 0) $canonB = 1.0;
+            $key1 = "{$uom->id}-{$targetUom->id}";
+            if (!isset($seen[$key1])) {
+                $seen[$key1] = true;
+                $records[] = [
+                    'item_id'           => $item->id,
+                    'from_uom_id'       => $uom->id,
+                    'to_uom_id'         => $targetUom->id,
+                    'conversion_factor' => round($factorFromPackaging, 8),
+                    'created_at'        => $now,
+                    'updated_at'        => $now,
+                ];
+            }
 
-                    $factorAB = $canonA / $canonB;
+            $key2 = "{$targetUom->id}-{$uom->id}";
+            if (!isset($seen[$key2])) {
+                $seen[$key2] = true;
+                $records[] = [
+                    'item_id'           => $item->id,
+                    'from_uom_id'       => $targetUom->id,
+                    'to_uom_id'         => $uom->id,
+                    'conversion_factor' => round($factorToPackaging, 8),
+                    'created_at'        => $now,
+                    'updated_at'        => $now,
+                ];
+            }
+        }
 
-                    UnitConvertion::updateOrCreate(
-                        [
-                            'item_id'     => $item->id,
-                            'from_uom_id' => $uomA->id,
-                            'to_uom_id'   => $uomB->id,
-                        ],
-                        [
-                            'conversion_factor' => round($factorAB, 8),
-                        ]
-                    );
-
-                    // Also maintain a global cross-conversion if none exists
-                    UnitConvertion::firstOrCreate(
-                        [
-                            'item_id'     => null,
-                            'from_uom_id' => $uomA->id,
-                            'to_uom_id'   => $uomB->id,
-                        ],
-                        [
-                            'conversion_factor' => round($factorAB, 8),
-                        ]
-                    );
-
-                    $count++;
+        // Wipe previous conversions for this specific item and bulk insert in a single transaction
+        DB::transaction(function () use ($item, $records) {
+            UnitConvertion::where('item_id', $item->id)->delete();
+            if (!empty($records)) {
+                foreach (array_chunk($records, 200) as $chunk) {
+                    UnitConvertion::insert($chunk);
                 }
             }
         });
 
-        return $count;
+        return count($records);
     }
 
     /**
