@@ -240,6 +240,7 @@ class ItemService
             $itemData = Arr::only($data, [
                 'category_name',
                 'category_description',
+                'category_code',
                 'updated_by',
             ]);
             $category->update($itemData);;

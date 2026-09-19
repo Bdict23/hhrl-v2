@@ -101,9 +101,9 @@ new class extends Component
             $isForSaleEdit=false;
 
     // CATEGORY REGISTRATION FORM
-        public $addCategoryName,$addCategoryDescription;
+        public $addCategoryName,$addCategoryDescription,$addCategoryCode;
     // UPDATE CATEGORY FORM
-        public $editCategoryName,$editCategoryDescription,$category_id;
+        public $editCategoryName,$editCategoryDescription,$editCategoryCode,$category_id;
     // CLASSIFICATION REGISTRATION
         public $addClassificationName,$addClassificationDescription;
     // UPDATE CLASSIFICATION
@@ -284,21 +284,23 @@ new class extends Component
         $this->validate([
                 'editCategoryName' => 'required|string|max:50',
                 'editCategoryDescription' => 'nullable|string|max:50',
+                'editCategoryCode' => 'nullable|string|max:10',
             ]);
             try {
                 $service = app(ItemService::class);
                 $payload = [
                     'category_name' => $this->editCategoryName,
                     'category_description' => $this->editCategoryDescription,
+                    'category_code' => $this->editCategoryCode,
                     'updated_by' => auth()->user()->emp_id,
                     'id' => $this->category_id,
                 ];
                 $service->updateCategory($payload);
                 $this->editItemCategoryModal = false;
                 $this->toast()->success('Success', "Category updated successfully!")->send();
-                $this->reset(['editCategoryName','editCategoryDescription','category_id']);
+                $this->reset(['editCategoryName','editCategoryDescription','editCategoryCode','category_id']);
             } catch (\Throwable $th) {
-                $this->banner()->error('Something went wrong while saving:'. $e->getMessage())->send();
+                $this->banner()->error('Something went wrong while saving:'. $th->getMessage())->send();
             }
     }
     public function updateClassification()
@@ -462,6 +464,7 @@ new class extends Component
         $validated = $this->validate([
             'addCategoryName'        => ['required', 'string', 'max:50'],
             'addCategoryDescription' => ['nullable', 'string', 'max:50'],
+            'addCategoryCode'        => ['nullable', 'string', 'max:10'],
         ]);
 
         try {
@@ -472,6 +475,7 @@ new class extends Component
             $data = $service->addNewCategory([
                 'category_name'        => $validated['addCategoryName'],
                 'category_description' => $validated['addCategoryDescription'],
+                'category_code'        => $validated['addCategoryCode'],
                 'category_type'        => 'ITEM',
                 'company_id'           => $user->branch?->company_id,
                 'created_by'           => $user->emp_id,
@@ -494,7 +498,7 @@ new class extends Component
                 }
 
             // 4. Reset properties and send notification
-            $this->reset(['addCategoryName', 'addCategoryDescription']);
+            $this->reset(['addCategoryName', 'addCategoryDescription', 'addCategoryCode']);
             
            
 
@@ -640,7 +644,9 @@ new class extends Component
                 return Item::query()
                     ->with(['brand','classification','subClassification','category','unit','cost'])
                     ->when($this->search, function (Builder $query) {
-                        return  $query->where('item_description', 'like', "%{$this->search}%");
+                        return  $query->where('item_description', 'like', "%{$this->search}%")
+                            ->orWhere('item_code', 'like', "%{$this->search}%")
+                            ->orWhere('item_barcode', 'like', "%{$this->search}%");
                     })
                     ->when($this->itemStatus, function (Builder $query) {
                         return $query->where('item_status', $this->itemStatus);
@@ -661,7 +667,10 @@ new class extends Component
             {
                 return Category::query()
                     ->when($this->search, function (Builder $query) {
-                        return  $query->where('category_name', 'like', "%{$this->search}%");
+                        return $query->where(function (Builder $query) {
+                            $query->where('category_name', 'like', "%{$this->search}%")
+                                ->orWhere('category_code', 'like', "%{$this->search}%");
+                        });
                     })
                     ->when($this->categoryStatus, function (Builder $query) {
                         return $query->where('status', $this->categoryStatus);
@@ -851,6 +860,7 @@ new class extends Component
             {
                 $this->editCategoryName = $cat->category_name;
                 $this->editCategoryDescription = $cat->category_description;
+                $this->editCategoryCode = $cat->category_code;
                 $this->editItemCategoryModal = true;
             }
 
@@ -912,6 +922,7 @@ public function with(): array
             ],
             'categoriesHeaders' => [
                 ['index' => 'status', 'label' => 'Status'],
+                ['index' => 'category_code', 'label' => 'category code', 'sortable' => false],
                 ['index' => 'category_name', 'label' => 'category name', 'sortable' => false],
                 ['index' => 'category_description', 'label' => 'description', 'sortable' => false],
                 ['index' => 'created_at', 'label' => 'created date'],
@@ -1086,6 +1097,9 @@ public function with(): array
                             @endinteract
                             @interact('column_created_at', $row)
                                 {{ ($row->created_at)->format('M. d, Y')}}
+                            @endinteract
+                            @interact('column_category_code', $row)
+                                {{ $row->category_code ?? 'N/A' }}
                             @endinteract
                             @interact('column_action', $row)
                                 <x-ts-dropdown icon="ellipsis-vertical" static lg>
@@ -1514,6 +1528,7 @@ public function with(): array
     <x-ts-modal title="ADD ITEM CATEGORY" size="4xl" wire="addItemCategoryModal" persistent center>
         <x-ts-card shadowless loading>
             <div class="grid gap-3">
+                <x-ts-input label="Category code" wire:model="addCategoryCode" maxlength="10"/>
                 <x-ts-input label="Category name *" wire:model="addCategoryName"/>
                 <x-ts-textarea maxlength="50" count label="Category Description" hint="Insert the description" wire:model="addCategoryDescription"/>
             </div>
@@ -1528,6 +1543,7 @@ public function with(): array
         <x-ts-banner wire close /> 
         <x-ts-card shadowless loading>
             <div class="grid gap-3">
+                <x-ts-input label="Category code" wire:model="editCategoryCode" maxlength="10"/>
                 <x-ts-input label="Category name *" wire:model="editCategoryName"/>
                 <x-ts-textarea maxlength="50" count label="Category Description" hint="Insert the description" wire:model="editCategoryDescription"/>
             </div>
