@@ -182,9 +182,27 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/pickle/operating-hours', 'pickle-court.operating-hours')->name('admin.operating-hours');
     Volt::route('/pickle/pricing-rules', 'pickle-court.pricing-rules')->name('admin.pricing-rules');
     Volt::route('/pickle/bookings', 'pickle-court.bookings')->name('admin.bookings');
-
+    Volt::route('/pickle/carousel/index', 'pickle-court.carousel.index')->name('admin.carousel');
     Volt::route('/booking/receipt/{referenceCode}', 'pickle-court.booking.receipt')->name('booking.receipt');
     Volt::route('/find-booking', 'pickle-court.booking.find-booking')->name('find-booking');
+
+    Route::get('/carousel/image/{slide}', function (int $slide) {
+        $slide = \App\Models\CarouselSlide::findOrFail($slide);
+        // If the image_path is already an external URL, redirect directly
+        if (str_starts_with($slide->image_path, 'http://') || str_starts_with($slide->image_path, 'https://')) {
+            return redirect($slide->image_path);
+        }
+        // If the image_path points to a public asset, redirect to that asset
+        if (str_starts_with($slide->image_path, 'assets/') || str_starts_with($slide->image_path, '/assets/')) {
+            return redirect('/' . ltrim($slide->image_path, '/'));
+        }
+        // Otherwise treat it as a storage path
+        $path = storage_path('app/public/' . $slide->image_path);
+        if (!file_exists($path)) {
+            abort(404, 'Image not found');
+        }
+        return response()->file($path);
+    })->name('carousel.image');
 });
 
 require __DIR__ . '/auth.php';

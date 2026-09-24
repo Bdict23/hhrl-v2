@@ -116,13 +116,11 @@ new class extends Component
                     ['label' => 'Restaurant', 'link' => route('restaurant.recipe-summary'), 'icon' => 'building-storefront'],
                     ['label' => 'Recipe Management', 'icon' => 'book-open'],
                 ]" />
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">Recipe Catalog & Costing</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Manage restaurant dishes, dynamic ingredient cost formulations, and recipe approval workflows.</p>
+                
             </div>
             <div>
-                <x-ts-button href="{{ route('restaurant.recipe-create') }}" icon="plus" color="emerald" navigate>
-                    Create New Recipe
-                </x-ts-button>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1 text-end">Recipe Catalog & Costing</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Manage restaurant dishes, dynamic ingredient cost formulations, and recipe approval workflows.</p>
             </div>
         </div>
 
@@ -150,7 +148,7 @@ new class extends Component
         </x-ts-card>
 
         <!-- Recipes Table -->
-        <x-ts-table :$headers :$rows :$sort paginate loading striped filter compact>
+        <x-ts-table :$headers :$rows :$sort paginate loading striped compact>
             @interact('column_menu_image', $row)
                 @if($row->menu_image)
                     <x-ts-avatar image="{{ asset('storage/'.$row->menu_image) }}" md square />

@@ -175,6 +175,11 @@
                                 <x-icon-dot class="w-5 h-5" />
                             </x-slot:icon>
                         </x-ts-side-bar.item>
+                        <x-ts-side-bar.item text="Hero Carousel" :route="route('admin.carousel')" >
+                            <x-slot:icon>
+                                <x-icon-dot class="w-5 h-5" />
+                            </x-slot:icon>
+                        </x-ts-side-bar.item>
                     </x-ts-side-bar.item>
 
                     <!-- Inventory -->

@@ -35,6 +35,7 @@ new class extends Component
     public $approver_id;
     public $status;
     public bool $isApprovedLocked = false;
+    public float $laborCostPercent = 0.0;
 
     // Ingredients list
     public array $ingredients = [];
@@ -81,6 +82,7 @@ new class extends Component
         $this->reviewer_id      = $recipe->reviewer_id;
         $this->approver_id      = $recipe->approver_id;
         $this->status           = $recipe->status;
+        $this->laborCostPercent = $conversionService->getLaborCostPercentage();
 
         // Restriction: if approved (AVAILABLE), lock editing unless user explicitly unlocks or requests revision
         if ($recipe->status === 'AVAILABLE') {
@@ -276,27 +278,41 @@ new class extends Component
         $this->ingredients[$index]['uom_symbol'] = $resolvedSymbol;
     }
 
+    public function getBaseIngredientsCostProperty(): float
+    {
+        return round((float) array_sum(array_column($this->ingredients, 'line_cost')), 2);
+    }
+
+    public function getLaborCostAmountProperty(): float
+    {
+        return round($this->baseIngredientsCost * ($this->laborCostPercent / 100), 2);
+    }
+
     public function getTotalCostProperty(): float
     {
-        return array_sum(array_column($this->ingredients, 'line_cost'));
+        return round($this->baseIngredientsCost + $this->laborCostAmount, 2);
     }
 
     public function getCostPerServingProperty(): float
     {
-        $servings = (float) ($this->serving_size > 0 ? $this->serving_size : 1.0);
+        $servings = (float) ($this->serving_size ?? 0);
+        if ($servings <= 0) {
+            return 0.0;
+        }
         return round($this->totalCost / $servings, 2);
     }
 
     public function getFoodCostPercentProperty(): float
     {
-        $price = (float) $this->selling_price;
+        $price = (float) ($this->selling_price ?? 0);
         if ($price <= 0) return 0.0;
         return round(($this->costPerServing / $price) * 100, 1);
     }
 
     public function getGrossMarginProperty(): float
     {
-        $price = (float) $this->selling_price;
+        $price = (float) ($this->selling_price ?? 0);
+        if ($price <= 0 && $this->costPerServing <= 0) return 0.0;
         return round($price - $this->costPerServing, 2);
     }
 
@@ -417,29 +433,13 @@ new class extends Component
                 ['label' => 'Recipes', 'link' => route('restaurant.recipe-summary'), 'icon' => 'book-open'],
                 ['label' => 'Edit: ' . $menu_name, 'icon' => 'pencil-square'],
             ]" />
-            <div class="flex items-center gap-3 mt-1">
+            
+        </div>
+        <div class="flex items-center gap-3 mt-1">
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Edit Recipe: {{ $menu_name }}</h1>
                 <x-ts-badge :text="$status" :color="$status === 'AVAILABLE' ? 'green' : ($status === 'FOR APPROVAL' ? 'purple' : 'gray')" />
             </div>
-        </div>
-        <div class="flex items-center gap-2">
-            <x-ts-button href="{{ route('restaurant.recipe-summary') }}" color="secondary" light navigate>
-                Back to Summary
-            </x-ts-button>
 
-            @if($isApprovedLocked)
-                <x-ts-button wire:click="unlockForRevision" icon="lock-open" color="amber">
-                    Unlock for Revision
-                </x-ts-button>
-            @else
-                <x-ts-button wire:click="updateRecipe('PENDING')" color="slate" light>
-                    Save Changes
-                </x-ts-button>
-                <x-ts-button wire:click="updateRecipe('FOR APPROVAL')" color="emerald">
-                    Submit for Approval
-                </x-ts-button>
-            @endif
-        </div>
     </div>
 
     @if($isApprovedLocked)
@@ -611,23 +611,50 @@ new class extends Component
         <div class="space-y-6">
             <x-ts-card header="Financial Cost Breakdown">
                 <div class="space-y-4">
+                    <!-- Base Ingredients Cost -->
                     <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-                        <span class="text-sm text-gray-500">Total Batch Cost:</span>
+                        <span class="text-sm text-gray-500">Base Ingredients Cost:</span>
+                        <span class="text-base font-semibold text-gray-800 dark:text-gray-200">
+                            ₱ {{ number_format($this->baseIngredientsCost, 2) }}
+                        </span>
+                    </div>
+
+                    <!-- Labor Cost -->
+                    <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 block">
+                                Labor Cost ({{ rtrim(rtrim(number_format($this->laborCostPercent, 2), '0'), '.') }}%):
+                            </span>
+                            <span class="text-xs text-gray-400">System Parameter (Module 51)</span>
+                        </div>
+                        <span class="text-base font-semibold text-blue-600 dark:text-blue-400">
+                            ₱ {{ number_format($this->laborCostAmount, 2) }}
+                        </span>
+                    </div>
+
+                    <!-- Total Batch Cost -->
+                    <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 block">Total Batch Cost:</span>
+                            <span class="text-xs text-gray-400">Base Cost + Labor Cost</span>
+                        </div>
                         <span class="text-xl font-bold text-gray-900 dark:text-gray-100">
                             ₱ {{ number_format($this->totalCost, 2) }}
                         </span>
                     </div>
 
+                    <!-- Cost Per Serving -->
                     <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
                         <div>
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-300 block">Cost Per Serving:</span>
-                            <span class="text-xs text-gray-400">Batch Cost / {{ number_format($this->serving_size, 0) }} servings</span>
+                            <span class="text-xs text-gray-400">Batch Cost / {{ (float)$this->serving_size > 0 ? number_format((float)$this->serving_size, 0) : 0 }} servings</span>
                         </div>
                         <span class="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                             ₱ {{ number_format($this->costPerServing, 2) }}
                         </span>
                     </div>
 
+                    <!-- Selling Price -->
                     <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
                         <span class="text-sm text-gray-500">Selling Price:</span>
                         <span class="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -635,6 +662,7 @@ new class extends Component
                         </span>
                     </div>
 
+                    <!-- Food Cost % -->
                     <div class="bg-gray-50 dark:bg-gray-800/60 p-3.5 rounded-xl space-y-2">
                         <div class="flex justify-between items-center">
                             <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Food Cost %:</span>
@@ -656,6 +684,7 @@ new class extends Component
                         <span class="text-[11px] text-gray-400 block">Industry target: 28% - 35%</span>
                     </div>
 
+                    <!-- Gross Margin -->
                     <div class="flex justify-between items-center pt-2">
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Gross Margin:</span>
                         <span class="text-base font-bold {{ $this->grossMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500' }}">

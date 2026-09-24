@@ -117,6 +117,9 @@ new class extends Component
         return [
             'metrics'                  => $metrics,
             'ingredientsData'          => $metrics['ingredients'] ?? [],
+            'baseIngredientsCost'      => $metrics['base_ingredients_cost'] ?? 0.0,
+            'laborCostPercent'         => $metrics['labor_cost_percent'] ?? 0.0,
+            'laborCostAmount'          => $metrics['labor_cost_amount'] ?? 0.0,
             'approvedCost'             => $metrics['approved_cost'] ?? 0.0,
             'currentCost'              => $metrics['current_cost'] ?? 0.0,
             'varianceAmount'           => $metrics['variance_amount'] ?? 0.0,
@@ -414,8 +417,24 @@ new class extends Component
                                 </tr>
                             @endforelse
                         </tbody>
-                        <tfoot class="bg-gray-50 dark:bg-gray-900/60 font-semibold border-t-2 border-gray-200 dark:border-gray-800">
+                        <tfoot class="bg-gray-50 dark:bg-gray-900/60 font-semibold border-t-2 border-gray-200 dark:border-gray-800 text-xs">
                             <tr>
+                                <td colspan="5" class="py-2 px-3 text-right text-gray-500">Base Ingredients Cost:</td>
+                                <td class="py-2 px-3 text-right font-mono text-gray-700 dark:text-gray-300">
+                                    ₱ {{ number_format($baseIngredientsCost, 2) }}
+                                </td>
+                            </tr>
+                            @if($laborCostPercent > 0)
+                                <tr>
+                                    <td colspan="5" class="py-2 px-3 text-right text-blue-600 dark:text-blue-400">
+                                        Labor Cost ({{ rtrim(rtrim(number_format($laborCostPercent, 2), '0'), '.') }}%):
+                                    </td>
+                                    <td class="py-2 px-3 text-right font-mono text-blue-600 dark:text-blue-400">
+                                        ₱ {{ number_format($laborCostAmount, 2) }}
+                                    </td>
+                                </tr>
+                            @endif
+                            <tr class="text-sm border-t border-gray-200 dark:border-gray-700">
                                 <td colspan="4" class="py-3 px-3 text-right text-gray-700 dark:text-gray-300">Total Recipe Batch Cost:</td>
                                 <td class="py-3 px-3 text-right font-mono text-sm text-gray-600 dark:text-gray-400">₱ {{ number_format($approvedCost, 2) }}</td>
                                 <td class="py-3 px-3 text-right text-base font-bold text-emerald-600 dark:text-emerald-400">

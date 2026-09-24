@@ -704,6 +704,31 @@ class UnitConversionService
     }
 
     /**
+     * Get labor cost percentage configured in system_parameters.
+     * Condition: module_id = 51 AND key = 'LABOR_COST'
+     * Column 'name' stores numeric value (e.g. '30' represents 30%).
+     */
+    public function getLaborCostPercentage(): float
+    {
+        $val = DB::table('system_parameters')
+            ->where('module_id', 51)
+            ->where('key', 'LABOR_COST')
+            ->value('name');
+
+        if ($val === null || $val === '') {
+            return 0.0;
+        }
+
+        $cleaned = str_replace(['%', ' '], '', (string) $val);
+
+        if (!is_numeric($cleaned)) {
+            return 0.0;
+        }
+
+        return max(0.0, (float) $cleaned);
+    }
+
+    /**
      * Calculate dual-cost metrics comparing the approved baseline cost
      * against the live current market cost derived from the latest PO deliveries.
      */
@@ -744,12 +769,16 @@ class UnitConversionService
             ];
         }
 
-        $currentTotalCost = round($currentTotalCost, 2);
+        $baseIngredientsCost = round($currentTotalCost, 2);
+        $laborCostPercent = $this->getLaborCostPercentage();
+        $laborCostAmount = round($baseIngredientsCost * ($laborCostPercent / 100), 2);
+        $currentBatchCost = round($baseIngredientsCost + $laborCostAmount, 2);
+
         if ($approvedTotalCost <= 0) {
-            $approvedTotalCost = $currentTotalCost;
+            $approvedTotalCost = $currentBatchCost;
         }
 
-        $diff = round($currentTotalCost - $approvedTotalCost, 2);
+        $diff = round($currentBatchCost - $approvedTotalCost, 2);
         $diffPercent = $approvedTotalCost > 0 ? round(($diff / $approvedTotalCost) * 100, 1) : 0.0;
 
         $status = 'STABLE';
@@ -759,7 +788,7 @@ class UnitConversionService
 
         $servings = (float) ($recipe->serving_size > 0 ? $recipe->serving_size : 1.0);
         $approvedCostPerServing = round($approvedTotalCost / $servings, 2);
-        $currentCostPerServing = round($currentTotalCost / $servings, 2);
+        $currentCostPerServing = round($currentBatchCost / $servings, 2);
 
         $sellingPrice = (float) ($recipe->rate?->amount ?? 0.0);
         $approvedFoodCostPercent = $sellingPrice > 0 ? round(($approvedCostPerServing / $sellingPrice) * 100, 1) : 0.0;
@@ -768,8 +797,11 @@ class UnitConversionService
         $currentGrossMargin = round($sellingPrice - $currentCostPerServing, 2);
 
         return [
+            'base_ingredients_cost'      => $baseIngredientsCost,
+            'labor_cost_percent'         => $laborCostPercent,
+            'labor_cost_amount'          => $laborCostAmount,
             'approved_cost'              => $approvedTotalCost,
-            'current_cost'               => $currentTotalCost,
+            'current_cost'               => $currentBatchCost,
             'variance_amount'            => $diff,
             'variance_percent'           => $diffPercent,
             'variance_status'            => $status, // 'STABLE', 'INCREASED', 'DECREASED'
