@@ -10,6 +10,9 @@ use App\Models\Business\Branch;
 use App\Models\Business\Employee;
 use Laravel\Sanctum\HasApiTokens;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
+
 /**
  * @property string $name
  * @property string $email
@@ -52,5 +55,53 @@ class User extends Authenticatable
     public function employee()
     {
         return $this->hasOne(Employee::class, 'id', 'emp_id');
+    }
+
+    /**
+     * @return HasMany<Booking, $this>
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isManager(): bool
+    {
+        return in_array($this->role, ['admin', 'manager'], true);
+    }
+
+    public function isCustomer(): bool
+    {
+        return ! $this->isManager();
+    }
+
+    public function canManageCourts(): bool
+    {
+        return $this->isManager();
+    }
+
+    public function hasVerifiedPhone(): bool
+    {
+        return $this->phone_verified_at !== null;
+    }
+
+    public function getAvatarUrlAttribute(): string
+    {
+        if ($this->avatar_path && Storage::disk('public')->exists($this->avatar_path)) {
+            return Storage::disk('public')->url($this->avatar_path);
+        }
+
+        if ($this->google_avatar_url) {
+            return $this->google_avatar_url;
+        }
+
+        $name = urlencode($this->name ?: 'User');
+
+        return "https://ui-avatars.com/api/?name={$name}&color=84cc16&background=0f172a&bold=true";
     }
 }

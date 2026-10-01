@@ -4,8 +4,8 @@ use Livewire\Component;
 
 use Carbon\Carbon;
 use App\Models\User;
-use App\Models\AI\AiMessage;
-use App\Models\AI\AiConversation;
+use App\Models\Ai\AiMessage;
+use App\Models\Ai\AiConversation;
 use App\Services\Ai\AiService;
 use App\Services\Ai\McpFunctionRegistry;
 use Illuminate\Support\Facades\Auth;
