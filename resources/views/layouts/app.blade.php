@@ -77,6 +77,9 @@
                     <!-- Dashboard -->
                     <x-ts-side-bar.item text="Dashboard" icon="home" :route="route('dashboard')" />
 
+                    <!-- AI Assistant Page -->
+                    <x-ts-side-bar.item text="AI Assistant" :route="route('ai.assistant')" icon="sparkles" />
+
                     <!-- Front Desk Section -->
                     <x-ts-side-bar.item text="Front Desk" disabled>
                         <x-slot:icon>
