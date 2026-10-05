@@ -11,6 +11,7 @@ use App\Models\DataManagement\Item;
 use App\Models\DataManagement\UnitOfMeasure;
 use App\Models\Settings\SystemParameter;
 use App\Models\DataManagement\Price;
+use App\Models\Business\Company;
 
 
 
@@ -24,6 +25,7 @@ class ItemService
     protected $classificationModel;
     protected $brandModel;
     protected $unitConversionService;
+    protected $companyModel;
 
     public function __construct(
         Item $itemModel,
@@ -33,7 +35,8 @@ class ItemService
         Category $categoryModel,
         Classification $classificationModel,
         Brand $brandModel,
-        UnitConversionService $unitConversionService
+        UnitConversionService $unitConversionService,
+        Company $companyModel
     ) {
         $this->itemModel = $itemModel;
         $this->measureModel = $measureModel;
@@ -43,11 +46,16 @@ class ItemService
         $this->classificationModel = $classificationModel;
         $this->brandModel = $brandModel;
         $this->unitConversionService = $unitConversionService;
+        $this->companyModel = $companyModel;
     }
 
     public function createItem(array $data): Item
     {
         return DB::transaction(function () use ($data) {
+            $this->categoryModel->findOrFail($data['category_id'] ?? null);
+            $categoryCount = $this->categoryModel->count() + 1;
+            $categoryCode = $this->categoryModel->where('id', $data['category_id'] ?? null)->value('category_code') ?? 'CAT';
+            $companyCode = $this->companyModel->where('id', $data['company_id'])->value('company_code') ?? 'COMP';
             // 1. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
             $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
             $isUnitType = strtoupper(trim($measureTypeName)) === 'UNIT';
@@ -91,7 +99,6 @@ class ItemService
 
             // 5. Create Item using mass assignment selection
             $itemData = Arr::only($data, [
-                'item_code',
                 'item_description',
                 'company_id',
                 'item_barcode',
@@ -107,6 +114,7 @@ class ItemService
 
             $itemData['uom_id'] = $measure->id;
             $itemData['measurement_type'] = strtoupper($measureTypeName);
+            $itemData['item_code'] = strtoupper("{$companyCode}-{$categoryCode}-") . str_pad((string) $categoryCount, 4, '0', STR_PAD_LEFT);
 
             $item = $this->itemModel->create($itemData);
 
@@ -131,6 +139,15 @@ class ItemService
     public function updateItem(array $data): Item
     {
         return DB::transaction(function () use ($data) {
+
+            $currentCategoryId = $this->itemModel->where('id', $data['item_id'])->value('category_id');
+            $updateCategoryId = $data['category_id'] !== $currentCategoryId ? true : false;
+            if ($updateCategoryId) {
+                $this->categoryModel->findOrFail($data['category_id'] ?? null);
+                $categoryCount = $this->categoryModel->count() + 1;
+                $categoryCode = $this->categoryModel->where('id', $data['category_id'] ?? null)->value('category_code') ?? 'CAT';
+                $companyCode = $this->companyModel->where('id', $data['company_id'])->value('company_code') ?? 'COMP';
+            }
             // 1. Resolve measurement type name ('WEIGHT', 'VOLUME', 'UNIT', 'LENGTH')
             $measureTypeName = $this->systemParameterModel->where('id', $data['measure_type_id'])->value('name') ?? 'UNIT';
             $isUnitType = strtoupper(trim($measureTypeName)) === 'UNIT';
@@ -174,7 +191,6 @@ class ItemService
 
             // 5. Update Item using mass assignment selection
             $itemData = Arr::only($data, [
-                'item_code',
                 'item_description',
                 'company_id',
                 'item_barcode',
@@ -190,6 +206,9 @@ class ItemService
 
             $itemData['uom_id'] = $measure->id;
             $itemData['measurement_type'] = strtoupper($measureTypeName);
+            if ($updateCategoryId) {
+                $itemData['item_code'] = strtoupper("{$companyCode}-{$categoryCode}-") . str_pad((string) $categoryCount, 4, '0', STR_PAD_LEFT);
+            }
 
             $item = $this->itemModel->findOrFail($data['item_id']);
             $item->update($itemData);

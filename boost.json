@@ -1,0 +1,23 @@
+{
+    "agents": [
+        "antigravity"
+    ],
+    "cloud": true,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "sail": false,
+    "skills": [
+        "infer-conventions",
+        "deploying-to-cloud",
+        "ai-sdk-development",
+        "laravel-best-practices",
+        "testing-best-practices",
+        "mcp-development",
+        "livewire-development",
+        "volt-development",
+        "tailwindcss-development",
+        "echo-development",
+        "php-mcp-server-generator"
+    ]
+}

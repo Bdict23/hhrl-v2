@@ -67,7 +67,7 @@ new class extends Component
 
     // ITEM REGISTRATION DECLARATION
         public 
-            $itemCode,
+            // $itemCode,
             $itemName,
             $itemBarcode,
             $itemCost,
@@ -84,7 +84,7 @@ new class extends Component
         
     // ITEM UPDATE DECLARATION
         public 
-            $itemCodeEdit,
+            // $itemCodeEdit,
             $itemNameEdit,
             $itemBarcodeEdit,
             $itemCostEdit,
@@ -122,7 +122,7 @@ new class extends Component
     public function saveItemAction()
     {
         $this->validate([
-            'itemCode'       => 'required|unique:items,item_code',
+            // 'itemCode'       => 'required|unique:items,item_code',
             'itemName'       => 'required',
             'itemOrderPoint' => 'required|numeric',
             'itemCategory'   => 'required|exists:categories,id',
@@ -152,7 +152,7 @@ new class extends Component
     public function updateItemAction()
     {
       $this->validate([
-            'itemCodeEdit'       => 'required|unique:items,item_code,'. $this->item_id,
+            // 'itemCodeEdit'       => 'required|unique:items,item_code,'. $this->item_id,
             'itemNameEdit'       => 'required',
             'itemOrderPointEdit' => 'required|numeric',
             'itemCategoryEdit'   => 'required|exists:categories,id',
@@ -190,7 +190,7 @@ new class extends Component
     {
         try {
             $payload = [
-                'item_code'         => $this->itemCode,
+                // 'item_code'         => $this->itemCode,
                 'item_description'  => $this->itemName,
                 'item_barcode'      => $this->itemBarcode,
                 'company_id'        => auth()->user()->branch->company_id,
@@ -211,7 +211,7 @@ new class extends Component
             ];
             $item = $service->createItem($payload);
             $this->reset([
-                'itemCode',
+                // 'itemCode',
                 'itemName',
                 'itemBarcode',
                 'itemClass',
@@ -237,7 +237,7 @@ new class extends Component
     {
         try {
             $payload = [
-                'item_code'         => $this->itemCodeEdit,
+                // 'item_code'         => $this->itemCodeEdit,
                 'item_description'  => $this->itemNameEdit,
                 'item_barcode'      => $this->itemBarcodeEdit,
                 'company_id'        => auth()->user()->branch->company_id,
@@ -259,7 +259,7 @@ new class extends Component
             ];
             $item = $service->updateItem($payload);
             $this->reset([
-                'itemCodeEdit',
+                // 'itemCodeEdit',
                 'itemNameEdit',
                 'itemBarcodeEdit',
                 'itemClassEdit',
@@ -808,7 +808,7 @@ new class extends Component
             $this->item_id = $id;
             if($item)
             {
-                $this->itemCodeEdit = $item->item_code;
+                // $this->itemCodeEdit = $item->item_code;
                 $this->itemNameEdit = $item->item_description;
                 $this->itemBarcodeEdit = $item->item_barcode;
                 $this->itemClassEdit = $item->classification_id;
@@ -1259,8 +1259,10 @@ public function with(): array
         <x-ts-banner wire close /> 
         <x-ts-card shadowless loading>
             <div class="grid grid-cols-2 gap-3">
-                <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/>
-                <x-ts-input label="Name *" wire:model="itemName"/>
+                {{-- <x-ts-input label="SKU / Item Code *" wire:model="itemCode"/> --}}
+                <div class="col-span-2">
+                    <x-ts-input label="Name *" wire:model="itemName"/>
+                </div>
                 <x-ts-input label="Barcode Value" wire:model="itemBarcode"/>
                 <x-ts-currency decimal label="Cost" clearable currency wire:model="itemCost"/>
                 <x-ts-number label="Re-order Point *" wire:model="itemOrderPoint"/>
@@ -1393,8 +1395,10 @@ public function with(): array
         <x-ts-banner wire close /> 
         <x-ts-card shadowless loading>
             <div class="grid grid-cols-2 gap-3">
-                <x-ts-input label="SKU / Item Code *" wire:model="itemCodeEdit"/>
-                <x-ts-input label="Name *" wire:model="itemNameEdit"/>
+                {{-- <x-ts-input label="SKU / Item Code *" wire:model="itemCodeEdit"/> --}}
+                <div class="col-span-2">
+                    <x-ts-input label="Name *" wire:model="itemNameEdit"/>
+                </div>
                 <div class="col-span-2">
                     <x-ts-input label="Barcode Value" wire:model="itemBarcodeEdit"/>
                 </div>

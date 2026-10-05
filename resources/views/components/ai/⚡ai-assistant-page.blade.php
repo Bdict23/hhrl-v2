@@ -343,33 +343,7 @@ new class extends Component
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    // public function render(): \Illuminate\View\View
-    // {
-    //     /** @var User $user */
-    //     $user = Auth::user();
 
-    //     // Usage stats
-    //     $allConvs = AiConversation::where('user_id', $user->id)->get();
-    //     $usageStats = [
-    //         'total_conversations'   => $allConvs->count(),
-    //         'total_prompt_tokens'   => $allConvs->sum('total_prompt_tokens'),
-    //         'total_completion_tokens' => $allConvs->sum('total_completion_tokens'),
-    //         'total_tokens'          => $allConvs->sum('total_prompt_tokens') + $allConvs->sum('total_completion_tokens'),
-    //         'estimated_cost_php'    => ($allConvs->sum('total_prompt_tokens') + $allConvs->sum('total_completion_tokens')) * 0.000000075 * 56,
-    //         'model'                 => config('deepseek.model'),
-    //     ];
-
-    //     // Sidebar: recent conversations (last 30)
-    //     $this->conversations = AiConversation::where('user_id', $user->id)
-    //         ->latest()
-    //         ->limit(30)
-    //         ->get();
-
-    //     return view('livewire.admin.ai-assistant-page', [
-    //         'conversations' => $this->conversations,
-    //         'usageStats'    => $usageStats,
-    //     ]);
-    // }
 };
 ?>
 

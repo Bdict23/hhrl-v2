@@ -6,6 +6,8 @@ namespace App\Services\Ai;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Sleep;
 
 /**
  * OpenAI-compatible chat service.
@@ -61,10 +63,18 @@ class AiService
             $payload['tool_choice'] = 'auto';
         }
 
-        $response = Http::withToken($this->apiKey)
+        $sendRequest = fn(): Response => Http::withToken($this->apiKey)
             ->withHeaders(['Accept' => 'application/json'])
             ->timeout($this->timeout)
             ->post("{$this->baseUrl}/chat/completions", $payload);
+
+        $response = $sendRequest();
+        $retryDelay = $this->rateLimitRetryDelay($response);
+
+        if ($retryDelay !== null) {
+            Sleep::for($retryDelay)->milliseconds();
+            $response = $sendRequest();
+        }
 
         if (! $response->successful()) {
             $error = $response->json('error.message') ?? $response->body();
@@ -101,7 +111,31 @@ class AiService
             'prompt_tokens'     => (int) ($usage['prompt_tokens'] ?? 0),
             'completion_tokens' => (int) ($usage['completion_tokens'] ?? 0),
         ];
+    }
 
+    private function rateLimitRetryDelay(Response $response): ?int
+    {
+        if ($response->status() !== 429) {
+            return null;
+        }
+
+        $retryAfter = $response->header('Retry-After');
+
+        if (is_numeric($retryAfter)) {
+            $delayMilliseconds = (int) ceil((float) $retryAfter * 1000);
+        } else {
+            $error = (string) ($response->json('error.message') ?? $response->body());
+
+            if (preg_match('/try again in\s+([\d.]+)s\b/i', $error, $matches) !== 1) {
+                return null;
+            }
+
+            $delayMilliseconds = (int) ceil((float) $matches[1] * 1000);
+        }
+
+        return $delayMilliseconds > 0 && $delayMilliseconds <= 20_000
+            ? $delayMilliseconds
+            : null;
     }
 
     /**
@@ -124,7 +158,7 @@ class AiService
         if (! $response->successful()) {
             throw new \RuntimeException(
                 "AI API error ({$response->status()}): " .
-                ($response->json('error.message') ?? $response->body())
+                    ($response->json('error.message') ?? $response->body())
             );
         }
 
