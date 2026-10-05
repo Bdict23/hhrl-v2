@@ -48,6 +48,7 @@ new class extends Component
                 ->when($this->batchStatus, function (Builder $query) {
                     return $query->where('status', $this->batchStatus);
                 })
+                ->where('branch_id', auth()->user()->branch_id) // Filter by the current user's branch
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString(),
@@ -55,6 +56,7 @@ new class extends Component
             'assetListRows' => Item::query()
                 ->with('assetCardex')
                 ->whereHas('assetCardex') // Only items that exist in the cardex
+                ->where('company_id', auth()->user()->branch->company_id) // Filter by the current user's branch
                 ->when($this->search, function ($query) {
                     $query->where('item_description', 'like', "%{$this->search}%")
                         ->orWhere('item_code', 'like', "%{$this->search}%");

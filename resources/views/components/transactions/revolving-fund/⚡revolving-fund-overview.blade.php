@@ -40,7 +40,7 @@ new class extends Component {
 
     public function mount()
     {
-        $activeRevolvingFund = RevolvingFund::where('status', 'OPEN')->first() ?? null;
+        $activeRevolvingFund = RevolvingFund::where('status', 'OPEN')->where('branch_id', Auth::user()->branch_id)->first() ?? null;
         $myBranch = Branch::find(Auth::user()->branch_id);
         $this->revolvingFundId = $activeRevolvingFund->id ?? null;
         $this->reference = $activeRevolvingFund->reference ?? 'NOT AVAILABLE';

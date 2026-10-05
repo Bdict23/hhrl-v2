@@ -39,7 +39,7 @@ new class extends Component
                 ->with('preparedBy','purchaseOrder') // Eager load the relationship
                 ->when($this->search, function (Builder $query) {
                     return $query->whereHas('purchaseOrder', function (Builder $query) {
-                        $query->where('requisition_number', 'like', "%{$this->search}%");
+                        $query->where('requisition_number', 'like', "%{$this->search}%")->orWhere('reference', 'like', "%{$this->search}%");
                     });
                 })
                 ->when($this->dates, function (Builder $query) {
@@ -50,6 +50,7 @@ new class extends Component
                 ->when($this->status, function (Builder $query) {
                     return $query->where('RECEIVING_STATUS', $this->status);
                 })
+                ->where('branch_id', auth()->user()->branch_id) // Filter by the current user's branch
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()

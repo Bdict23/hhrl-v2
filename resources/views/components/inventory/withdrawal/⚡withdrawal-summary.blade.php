@@ -47,6 +47,7 @@ new class extends Component
                 ->when($this->status, function (Builder $query) {
                     return $query->where('withdrawal_status', $this->status);
                 })
+                ->where('source_branch_id', auth()->user()->branch_id) // Filter by the current user's branch
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()

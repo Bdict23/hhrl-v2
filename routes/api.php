@@ -15,15 +15,13 @@ use App\Http\Controllers\Api\RevolvingFundApiController;
 use App\Http\Controllers\Api\CustomerApiController;
 use App\Http\Controllers\Api\DataManagement\BankApiController;
 use App\Http\Controllers\Api\Transaction\AflApiController;
-use App\Models\Transaction\AdvancesForLiquidation;
 use App\Http\Controllers\Api\Business\EmployeeApiController;
 use App\Http\Controllers\Api\Transaction\EmployeeCashAdvanceApiController;
 use App\Http\Controllers\Api\Event\EventLiquidationApiController;
 use App\Http\Controllers\Api\Event\EventBudgetApiController;
 use App\Http\Controllers\Api\Inventory\ReceivingApiController;
 use App\Http\Controllers\Api\DataManagement\ItemApiController;
-
-
+use App\Http\Controllers\Api\Business\CompanyApiController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -131,3 +129,6 @@ Route::middleware('auth:sanctum')->get('/item/active-classification', [ItemApiCo
 Route::middleware('auth:sanctum')->get('/item/parent-class-subclassification', [ItemApiController::class, 'parentSubClassifications'])->name('api.item.active.subclassification');
 Route::middleware('auth:sanctum')->get('/item/measured-type', [ItemApiController::class, 'measuredType'])->name('api.item.measuredType');
 Route::middleware('auth:sanctum')->get('/item/measured-symbol', [ItemApiController::class, 'measuredSymbol'])->name('api.item.measuredSymbol');
+
+//BRANCHES
+Route::middleware('auth:sanctum')->get('/branches/active', [CompanyApiController::class, 'myBranches'])->name('api.my-branches');

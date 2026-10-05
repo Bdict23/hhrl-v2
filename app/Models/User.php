@@ -9,7 +9,6 @@ use Illuminate\Support\Carbon;
 use App\Models\Business\Branch;
 use App\Models\Business\Employee;
 use Laravel\Sanctum\HasApiTokens;
-
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
@@ -33,6 +32,10 @@ class User extends Authenticatable
         'email',
         'password',
         'photo_url',
+        'google_avatar_url',
+        'role',
+        'emp_id',
+        'branch_id',
     ];
 
     protected $hidden = [

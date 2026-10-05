@@ -44,6 +44,7 @@ new class extends Component
                         return $query->whereBetween('check_date', $this->dates);
                     }
                 })
+                ->where('branch_id', auth()->user()->branch_id) // Filter by the current user's branch
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString(),

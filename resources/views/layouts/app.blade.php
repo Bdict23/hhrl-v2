@@ -29,6 +29,9 @@
         </x-slot:top>
         <x-slot:header>
             <x-ts-layout.header class="print:hidden">
+                <x-slot:left>
+                    <livewire:switch-branch />
+                </x-slot:left>
                 <x-slot:right>
                     <div class="mr-1 sm:mr-4 lg:mr-8 flex items-center gap-1.5 sm:gap-2">
                         {{-- Real-time Bell Notifications Dropdown --}}
@@ -48,6 +51,7 @@
                                 <img :src="avatar"  class="w-10 h-10 rounded-full object-cover"  gravatar="nobody@tallstackui.com" gravatar-default="monsterid"/>
                                 <span class="text-base font-semibold text-primary-500" x-text="name"></span>
                             </button>
+
                         </x-slot:action>
                         <x-slot:header>
                             <x-ts-theme-switch block />
@@ -402,9 +406,6 @@
                         @csrf
                         <x-ts-side-bar.item text="Logout" icon="arrow-left-start-on-rectangle" onclick="event.preventDefault(); this.closest('form').submit();" />
                     </form> --}}
-                    <x-slot:footer>
-                        <p class="text-sm text-gray-500">v1.0.0</p>
-                    </x-slot:footer>
                 </x-ts-side-bar>
         </x-slot:menu>
         {{ $slot }}

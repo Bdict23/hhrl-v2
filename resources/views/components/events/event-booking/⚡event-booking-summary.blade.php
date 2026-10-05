@@ -200,16 +200,17 @@ new class extends Component
                 : [],
             'rows' => Event::query()
                 ->when($this->search, function (Builder $query) {
-                    return $query->where('reference', 'like', "%{$this->search}%");
+                    return $query->where('reference', 'like', "%{$this->search}%")->where('branch_id', auth()->user()->branch_id);
                 })
                 ->when($this->dates, function (Builder $query) {
                     if (is_array($this->dates) && count($this->dates) === 2 && !empty($this->dates[0]) && !empty($this->dates[1])) {
-                        return $query->whereBetween('start_date', $this->dates);
+                        return $query->whereBetween('start_date', $this->dates)->where('branch_id', auth()->user()->branch_id);
                     }
                 })
                 ->when($this->status, function (Builder $query) {
-                    return $query->where('status', $this->status);
+                    return $query->where('status', $this->status)->where('branch_id', auth()->user()->branch_id);
                 })
+                ->where('branch_id', auth()->user()->branch_id)
                 ->orderBy(...array_values($this->sort))
                 ->paginate($this->quantity)
                 ->withQueryString()
