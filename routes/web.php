@@ -6,12 +6,6 @@ use App\Livewire\Users\Index;
 use App\Livewire\Home\Dashboard;
 use Livewire\Volt\Volt;
 
-
-
-
-
-
-
 Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware(['auth'])->group(function () {
@@ -125,7 +119,7 @@ Route::middleware(['auth'])->group(function () {
     //EVENT
     Volt::route('/cash-return/event-crs-create', 'transactions.cash-return.cash-return-event.cash-return-event-create')->name('cash-return.event-crs.create');
     Volt::route('/cash-return/event-crs-edit/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-edit')->name('cash-return.event-crs.edit');
-    Volt::route('/cash-return/event-crs-view/{id}',  'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
+    Volt::route('/cash-return/event-crs-view/{id}', 'transactions.cash-return.cash-return-event.cash-return-event-view')->name('cash-return.event-crs.view');
     //CRS AFL
     Volt::route('/cash-return/advances-for-liquidation-crs-create', 'transactions.cash-return.cash-return-afl.cash-return-afl-create')->name('cash-return.afl-crs.create');
     Volt::route('/cash-return/advances-for-liquidation-crs-view/{id}', 'transactions.cash-return.cash-return-afl.cash-return-afl-view')->name('cash-return.afl-crs.view');
@@ -150,7 +144,8 @@ Route::middleware(['auth'])->group(function () {
     // REVOLVING FUND
     Volt::route('/revolving-fund/overview', 'transactions.revolving-fund.revolving-fund-overview')->name('revolving-fund.overview');
 
-
+    // ACESS MANAGEMENT
+    Volt::route('/access-management', 'access-management.access-management')->name('access-management');
 
 
     // VALIDATION
@@ -173,7 +168,7 @@ Route::middleware(['auth'])->group(function () {
     volt::route('/event-budget/validation-summary', 'events.event-budget.event-budget-validation-summary')->name('event-budget.validation-summary');
     volt::route('/event-budget/validation-approval-view/{id}', 'events.event-budget.event-budget-validation-approval-view')->name('event-budget-validation-approval-view');
 
-    // DATE MANAGEMENT
+    // DATA MANAGEMENT
     volt::route('/data-management/data-management-tab', 'data-management.data-management-tab')->name('data-management.tab');
 });
 

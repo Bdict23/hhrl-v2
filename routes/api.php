@@ -132,3 +132,7 @@ Route::middleware('auth:sanctum')->get('/item/measured-symbol', [ItemApiControll
 
 //BRANCHES
 Route::middleware('auth:sanctum')->get('/branches/active', [CompanyApiController::class, 'myBranches'])->name('api.my-branches');
+
+// EMPLOYEE
+Route::middleware('auth:sanctum')->get('/employee/active', [EmployeeApiController::class, 'getActiveBranchEmployees'])->name('api.employee.all');
+Route::middleware('auth:sanctum')->get('/employee/positions', [EmployeeApiController::class, 'getActiveBranchEmployeePosition'])->name('api.employee.positions');

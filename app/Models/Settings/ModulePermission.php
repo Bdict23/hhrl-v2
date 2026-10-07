@@ -16,4 +16,9 @@ class ModulePermission extends Model
         'full_access',
         'restrict',
     ];
+
+    public function module()
+    {
+        return $this->belongsTo(Module::class, 'module_id');
+    }
 }

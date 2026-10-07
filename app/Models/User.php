@@ -11,6 +11,8 @@ use App\Models\Business\Employee;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Settings\ModulePermission;
+use App\Models\Settings\Module;
 
 /**
  * @property string $name
@@ -91,6 +93,27 @@ class User extends Authenticatable
     public function hasVerifiedPhone(): bool
     {
         return $this->phone_verified_at !== null;
+    }
+
+    public function hasPermission($module)
+    {
+        $moduleId = Module::where('module_name', $module)->value('id');
+
+        if (!$moduleId) {
+            return false; // or handle the case when the module is not found
+        }
+        $access = ModulePermission::where([['module_id', $moduleId], ['employee_id', $this->emp_id]])->first();
+        return $access->access ?? false;
+    }
+
+    public function hasAccess($moduleGroup)
+    {
+        $moduleId = Module::where('group_name', $moduleGroup)->get('id');
+        if (!$moduleId) {
+            return false; // or handle the case when the module is not found
+        }
+        $access = ModulePermission::whereIn('module_id', $moduleId)->where('employee_id', $this->emp_id)->first();
+        return $access->access ?? false;
     }
 
     public function getAvatarUrlAttribute(): string
