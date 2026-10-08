@@ -108,11 +108,16 @@ class User extends Authenticatable
 
     public function hasAccess($moduleGroup)
     {
-        $moduleId = Module::where('group_name', $moduleGroup)->get('id');
-        if (!$moduleId) {
-            return false; // or handle the case when the module is not found
+        $moduleIds = Module::where('group_name', $moduleGroup)->pluck('id');
+
+        if ($moduleIds->isEmpty()) {
+            return false;
         }
-        $access = ModulePermission::whereIn('module_id', $moduleId)->where('employee_id', $this->emp_id)->first();
+
+        $access = ModulePermission::whereIn('module_id', $moduleIds)
+            ->where('employee_id', $this->emp_id)
+            ->first();
+
         return $access->access ?? false;
     }
 
