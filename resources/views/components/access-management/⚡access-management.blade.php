@@ -87,7 +87,7 @@ new class extends Component
         //   no record  → 'restrict'   (no access at all)
         //   access = 0 → 'readonly'
         //   access = 1 → 'full_access'
-        Module::all()->each(function (Module $module) use ($employeeId) {
+        Module::where('status', 'ACTIVE')->each(function (Module $module) use ($employeeId) {
             $perm = ModulePermission::where('employee_id', $employeeId)
                 ->where('module_id', $module->id)
                 ->first();
@@ -155,6 +155,7 @@ new class extends Component
         $modules = Module::query()
             ->when($groupName === 'General', fn ($q) => $q->whereNull('group_name')->orWhere('group_name', ''))
             ->when($groupName !== 'General', fn ($q) => $q->where('group_name', $groupName))
+            ->where('status', 'ACTIVE')
             ->pluck('id');
 
         foreach ($modules as $id) {
@@ -307,7 +308,7 @@ new class extends Component
 
     public function with(): array
     {
-        $modules              = Module::orderBy('group_name')->orderBy('module_name')->get();
+        $modules              = Module::orderBy('group_name')->orderBy('module_name')->where('status', 'ACTIVE')->get();
         $branches             = Branch::where('branch_status', 'ACTIVE')->get();
         $modulesWithSignatory = Module::where('has_signatory', true)->get();
 
