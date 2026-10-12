@@ -27,6 +27,7 @@
         "livewire/livewire": "^4.0.0",
         "livewire/volt": "^1.10",
         "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-pdf": "^2.14",
         "tallstackui/tallstackui": "^4.0"
     },
     "require-dev": {

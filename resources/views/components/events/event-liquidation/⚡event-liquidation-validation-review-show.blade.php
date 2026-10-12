@@ -84,7 +84,7 @@ new class extends Component
             $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
             $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
             $this->notes = $this->liquidationData->note;
-            $this->liquidationTotalAmount = $this->pcvTotal - $this->receiveOrderTotal;
+            $this->liquidationTotalAmount = ($this->checkData->check_amount ?? 0,2) - $this->receiveOrderTotal;
             $this->eventExpenseTotalAmount = $this->liquidationTotalAmount - $this->withdrawalTotal;
 
             if($this->liquidationData->status == 'DRAFT'){

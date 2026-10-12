@@ -285,7 +285,7 @@ new class extends Component
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="START DATE" wire:model="eventStartDate" readonly/>
-                    <x-ts-currency mutate symbol currency label="ARRIVAL TIME" wire:model="eventArrivalTime" readonly/>
+                    <x-ts-input   label="ARRIVAL TIME" wire:model="eventArrivalTime" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="END DATE" readonly wire:model="eventEndDate"/>

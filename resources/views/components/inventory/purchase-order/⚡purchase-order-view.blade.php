@@ -35,6 +35,7 @@ new class extends Component
     // Mounted Data
     public $purchase_order_id;
     public $puchaseOrderData;
+    public bool $printPreviewModal = false;
 
     public function mount($id){
         $this->purchase_order_id = $id;
@@ -94,6 +95,41 @@ new class extends Component
     }
     public function edit(){
         return redirect()->route('purchase-order-edit', ['id' => $this->purchase_order_id]);
+    }
+
+    public function exportPdf()
+    {
+        $logo = 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('assets/images/1772440510.png')));
+        $supplierModel = \App\Models\Business\Supplier::find($this->supplier_id);
+        $typeModel = \App\Models\Settings\SystemParameter::find($this->type_id);
+        $termModel = \App\Models\Settings\SystemParameter::find($this->term_id);
+        $eventModel = \App\Models\BanquetEvent\Event::find($this->event_id);
+        $reviewerEmp = \App\Models\Business\Employee::find($this->reviewedBy);
+        $approverEmp = \App\Models\Business\Employee::find($this->approvedBy);
+        $preparerEmp = $this->puchaseOrderData?->preparedBy ?? (auth()->user()->employee);
+
+        return response()->streamDownload(function () use ($logo, $supplierModel, $typeModel, $termModel, $eventModel, $reviewerEmp, $approverEmp, $preparerEmp) {
+            echo \Spatie\LaravelPdf\Facades\Pdf::view('pdf.purchase-order', [
+                'reference' => $this->reference,
+                'merchandisePONumber' => $this->merchandisePONumber,
+                'status' => $this->status,
+                'created_at' => $this->puchaseOrderData?->created_at,
+                'supplier' => $supplierModel,
+                'type' => $typeModel,
+                'term' => $termModel,
+                'event' => $eventModel,
+                'selectedRows' => $this->selectedRows,
+                'grand_total' => $this->grand_total,
+                'notes' => $this->notes,
+                'preparer' => $preparerEmp,
+                'reviewer' => $reviewerEmp,
+                'approver' => $approverEmp,
+                'logo' => $logo,
+                'company' => auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure',
+                'branch' => auth()->user()->branch?->branch_name ?? 'Main Branch',
+                'branch_address' => auth()->user()->branch?->branch_address ?? '',
+            ])->format('a4')->generatePdfContent();
+        }, 'Purchase-Order-' . $this->reference . '.pdf');
     }
 
     public function with(): array
@@ -243,7 +279,7 @@ new class extends Component
                                 @if($status == 'DRAFT')
                                     <x-ts-button icon="pencil-square" class="underline"  flat  wire:click="edit()">Edit</x-ts-button>
                                 @endif
-                                <x-ts-button icon="printer"  flat class="underline-offset-1 underline" disabled>Print</x-ts-button>
+                                <x-ts-button icon="document-arrow-down" flat class="underline-offset-1 underline cursor-pointer" wire:click="$set('printPreviewModal', true)">Export to PDF</x-ts-button>
                             </x-slot:right>
                     </x-ts-stats>
                 </div>
@@ -310,5 +346,233 @@ new class extends Component
             </div>
         </x-ts-card>
     </div>
+
+    {{-- PRINTABLE PREVIEW MODAL --}}
+    <x-ts-modal wire="printPreviewModal" size="6xl" center>
+        <x-slot:title>
+            <div class="flex items-center gap-2">
+                <x-ts-icon name="document-arrow-down" class="w-5 h-5 text-primary-600" />
+                <span class="font-bold text-slate-800 dark:text-slate-100">Export to PDF - Purchase Order ({{ $reference }})</span>
+            </div>
+        </x-slot:title>
+
+        <div class="space-y-4">
+            {{-- Toolbar / Screen Controls (Hidden in Print) --}}
+            <div class="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 print:hidden">
+                <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <x-ts-badge text="PDF Ready" color="green" light />
+                    <span>Formatted for export via Spatie Laravel PDF.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <x-ts-button flat sm text="Close" wire:click="$set('printPreviewModal', false)" />
+                    <x-ts-button sm icon="document-arrow-down" text="Export to PDF" wire:click="exportPdf" color="primary" />
+                </div>
+            </div>
+
+            {{-- Document Sheet --}}
+            <div id="printable-po-preview" class="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
+                {{-- Header with Company Logo --}}
+                <div class="flex items-start justify-between border-b-2 border-slate-900 pb-5 mb-6">
+                    <div class="flex items-center gap-4">
+                        <img src="{{ asset('assets/images/1772440510.png') }}" alt="Company Logo" class="h-20 w-auto object-contain" />
+                        <div>
+                            <h1 class="text-xl sm:text-2xl font-black uppercase tracking-wide text-slate-900">
+                                {{ auth()->user()->branch?->company?->company_name ?? '' }}
+                            </h1>
+                            <p class="text-xs text-slate-600 font-medium">
+                                {{ auth()->user()->branch?->branch_name ?? 'Main Branch' }}
+                                @if(auth()->user()->branch?->branch_address)
+                                    • {{ auth()->user()->branch->branch_address }}
+                                @endif
+                            </p>
+                            <p class="text-xs text-slate-500 font-medium">
+                                Official Procurement & Purchase Requisition
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-block px-3 py-1 rounded bg-slate-900 text-white text-xs font-bold uppercase tracking-wider">
+                            PURCHASE ORDER
+                        </span>
+                        <div class="mt-2 text-lg font-black font-mono text-slate-900">
+                            {{ $reference }}
+                        </div>
+                        <div class="text-xs text-slate-500">
+                            Date: {{ $puchaseOrderData?->created_at ? $puchaseOrderData->created_at->format('M d, Y') : now()->format('M d, Y') }}
+                        </div>
+                        <div class="mt-1">
+                            <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded {{ $status === 'FINALIZED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                                {{ $status }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Order Details Meta (NO logged in user section) --}}
+                @php
+                    $supplierModel = \App\Models\Business\Supplier::find($supplier_id);
+                    $typeModel = \App\Models\Settings\SystemParameter::find($type_id);
+                    $termModel = \App\Models\Settings\SystemParameter::find($term_id);
+                    $eventModel = \App\Models\BanquetEvent\Event::find($event_id);
+                @endphp
+                <div class="grid grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div>
+                        <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
+                            Supplier Information
+                        </h4>
+                        <div class="space-y-1">
+                            <div><span class="text-slate-500 font-medium">Supplier:</span> <strong class="text-slate-900">{{ $supplierModel?->supp_name ?? 'N/A' }}</strong></div>
+                            @if($supplierModel?->contact_no_1)
+                                <div><span class="text-slate-500 font-medium">Contact:</span> <span class="text-slate-800">{{ $supplierModel->contact_person ? $supplierModel->contact_person . ' (' . $supplierModel->contact_no_1 . ')' : $supplierModel->contact_no_1 }}</span></div>
+                            @endif
+                            @if($supplierModel?->supp_address)
+                                <div><span class="text-slate-500 font-medium">Address:</span> <span class="text-slate-800">{{ $supplierModel->supp_address }}</span></div>
+                            @endif
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
+                            Requisition Details
+                        </h4>
+                        <div class="space-y-1">
+                            <div><span class="text-slate-500 font-medium">Merchandise P.O #:</span> <span class="text-slate-800 font-mono">{{ $merchandisePONumber ?: 'N/A' }}</span></div>
+                            <div><span class="text-slate-500 font-medium">Type / Terms:</span> <span class="text-slate-800">{{ $typeModel?->name ?? 'N/A' }} • {{ $termModel?->name ?? 'N/A' }}</span></div>
+                            @if($eventModel)
+                                <div><span class="text-slate-500 font-medium">Associated Event:</span> <span class="text-slate-800">{{ $eventModel->event_name }} ({{ $eventModel->reference }})</span></div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Items Table --}}
+                <div class="mb-6 overflow-hidden rounded-lg border border-slate-200">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-2.5 px-3 w-10 text-center">#</th>
+                                <th class="py-2.5 px-3">Item Code</th>
+                                <th class="py-2.5 px-3">Description</th>
+                                <th class="py-2.5 px-3">Category</th>
+                                <th class="py-2.5 px-3 text-center">Unit</th>
+                                <th class="py-2.5 px-3 text-right">Cost</th>
+                                <th class="py-2.5 px-3 text-right">Qty</th>
+                                <th class="py-2.5 px-3 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            @forelse($selectedRows as $index => $row)
+                                <tr class="hover:bg-slate-50/50">
+                                    <td class="py-2 px-3 text-center text-slate-400">{{ $index + 1 }}</td>
+                                    <td class="py-2 px-3 font-mono font-semibold text-slate-900">{{ $row['item_code'] ?? 'N/A' }}</td>
+                                    <td class="py-2 px-3 text-slate-900 font-medium">{{ $row['item_description'] ?? 'N/A' }}</td>
+                                    <td class="py-2 px-3 text-slate-600">{{ $row['category'] ?? 'N/A' }}</td>
+                                    <td class="py-2 px-3 text-center text-slate-700">{{ $row['unit'] ?? 'N/A' }}</td>
+                                    <td class="py-2 px-3 text-right font-mono">₱{{ number_format((float) ($row['cost'] ?? 0), 2) }}</td>
+                                    <td class="py-2 px-3 text-right font-mono font-semibold text-slate-900">{{ $row['quantity'] ?? 0 }}</td>
+                                    <td class="py-2 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) ($row['sub_total'] ?? 0), 2) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="py-6 text-center text-slate-400 italic">No line items in this purchase order.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-50 border-t-2 border-slate-800 font-bold">
+                                <td colspan="7" class="py-3 px-3 text-right text-xs uppercase tracking-wider text-slate-700">Total Purchase Order Cost:</td>
+                                <td class="py-3 px-3 text-right text-sm font-mono text-emerald-700">₱{{ number_format((float) $grand_total, 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                {{-- Notes / Remarks --}}
+                @if($notes)
+                    <div class="mb-6 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                        <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Notes / Instructions:</span>
+                        <p class="mt-1 text-slate-800 whitespace-pre-line">{{ $notes }}</p>
+                    </div>
+                @endif
+
+                {{-- Signatures Section --}}
+                @php
+                    $reviewerEmp = \App\Models\Business\Employee::find($reviewedBy);
+                    $approverEmp = \App\Models\Business\Employee::find($approvedBy);
+                    $preparerEmp = $puchaseOrderData?->preparedBy ?? (auth()->user()->employee);
+                @endphp
+                <div class="grid grid-cols-3 gap-6 pt-6 mt-6 border-t border-slate-200 text-xs">
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ $preparerEmp?->full_name ?? auth()->user()->name }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Prepared By</div>
+                        <div class="text-[10px] text-slate-400">{{ $preparerEmp?->position_name ?? 'Purchaser / Staff' }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ $reviewerEmp?->full_name ?? '_________________________' }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Reviewed By</div>
+                        <div class="text-[10px] text-slate-400">{{ $reviewerEmp?->position_name ?? 'Designated Reviewer' }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ $approverEmp?->full_name ?? '_________________________' }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Approved By</div>
+                        <div class="text-[10px] text-slate-400">{{ $approverEmp?->position_name ?? 'Designated Approver' }}</div>
+                    </div>
+                </div>
+
+                {{-- Document Footer --}}
+                <div class="mt-8 pt-4 border-t border-dashed border-slate-200 flex justify-between items-center text-[10px] text-slate-400">
+                    <div>{{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }} • Requisition Management System</div>
+                    <div>Generated on {{ now()->format('M d, Y h:i:s A') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <div class="flex justify-end gap-2">
+                <x-ts-button flat text="Close" wire:click="$set('printPreviewModal', false)" />
+                <x-ts-button icon="document-arrow-down" text="Export to PDF" wire:click="exportPdf" color="primary" />
+            </div>
+        </x-slot:footer>
+    </x-ts-modal>
+
+    <style>
+        @media print {
+            body, html {
+                background: #ffffff !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            body * {
+                visibility: hidden !important;
+            }
+            #printable-po-preview, #printable-po-preview * {
+                visibility: visible !important;
+            }
+            #printable-po-preview {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 1.5cm !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: #ffffff !important;
+            }
+            .print\:hidden {
+                display: none !important;
+            }
+        }
+    </style>
+
     <x-ts-back-to-top lg/>
 </div>

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\BanquetEvent\Event;
 use App\Models\BanquetEvent\EventLiquidation;
 use App\Models\Inventory\Cardex;
+use App\Models\Transaction\AdditionalFund;
+use App\Models\Transaction\AdvancesForLiquidation;
 
 
 class BanquetEventService
@@ -185,5 +187,10 @@ class BanquetEventService
     {
         $data = EventLiquidation::findOrFail($id);
         return $data;
+    }
+    public static function getEventAddedFunds(int $eventID)
+    {
+        $data = AdvancesForLiquidation::where('event_id', $eventID);
+        return AdditionalFund::whereIn('advances_liquidation_id', $data->pluck('id'))->get();
     }
 }

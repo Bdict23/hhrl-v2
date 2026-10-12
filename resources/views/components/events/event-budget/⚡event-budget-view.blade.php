@@ -43,6 +43,7 @@ new class extends Component
     $eventReference,
     $budgetId,
     $step; 
+    public bool $printPreviewModal = false; 
 
     public function mount($id)
     {
@@ -165,6 +166,48 @@ new class extends Component
 
       public function edit(){
         return redirect()->route('event-budget-edit', ['id' => $this->budgetId]);
+    }
+
+    public function exportPdf()
+    {
+        $logoPath = public_path('assets/images/1772440510.png');
+        $logo = '';
+        if (file_exists($logoPath)) {
+            $logo = 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath));
+        }
+
+        $reviewerEmp = \App\Models\Business\Employee::find($this->reviewedBy);
+        $approverEmp = \App\Models\Business\Employee::find($this->approvedBy);
+        $preparerEmp = auth()->user()->employee;
+
+        return response()->streamDownload(function () use ($logo, $reviewerEmp, $approverEmp, $preparerEmp) {
+            echo \Spatie\LaravelPdf\Facades\Pdf::view('pdf.event-budget', [
+                'reference' => $this->reference,
+                'eventReference' => $this->eventReference,
+                'status' => $this->status,
+                'customerName' => $this->customerName,
+                'addToGross' => $this->addToGross,
+                'eventStartDate' => $this->eventStartDate,
+                'eventEndDate' => $this->eventEndDate,
+                'eventArrivalTime' => $this->eventArrivalTime,
+                'eventDepartureTime' => $this->eventDepartureTime,
+                'menuTotal' => $this->menuTotal,
+                'serviceTotal' => $this->serviceTotal,
+                'totalGrossOrder' => $this->totalGrossOrder,
+                'allocatedBudget' => $this->allocatedBudget,
+                'budgetPercentage' => $this->budgetPercentage,
+                'menuList' => $this->menuList,
+                'servicesList' => $this->servicesList,
+                'notes' => $this->notes,
+                'preparer' => $preparerEmp,
+                'reviewer' => $reviewerEmp,
+                'approver' => $approverEmp,
+                'logo' => $logo,
+                'company' => auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure',
+                'branch' => auth()->user()->branch?->branch_name ?? 'Main Branch',
+                'branch_address' => auth()->user()->branch?->branch_address ?? '',
+            ])->format('a4')->generatePdfContent();
+        }, 'Event-Budget-' . ($this->reference ?: 'export') . '.pdf');
     }
     public function with(): array
     {
@@ -289,7 +332,7 @@ new class extends Component
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="START DATE" wire:model="eventStartDate" readonly/>
-                    <x-ts-currency mutate symbol currency label="ARRIVAL TIME" wire:model="eventArrivalTime" readonly/>
+                    <x-ts-input   label="ARRIVAL TIME" wire:model="eventArrivalTime" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="END DATE" readonly wire:model="eventEndDate"/>
@@ -465,13 +508,275 @@ new class extends Component
                         @else
                             <x-ts-button icon="pencil-square" class="underline"  flat  disabled>Edit</x-ts-button>
                         @endif
-                            <x-ts-button icon="printer" class="underline"    disabled>Print</x-ts-button>
-
+                        <div class="flex items-center gap-2">
+                            <x-ts-button icon="document-arrow-down" class="underline cursor-pointer" wire:click="exportPdf">Export to PDF</x-ts-button>
+                            <x-ts-button icon="eye" class="underline cursor-pointer" wire:click="$set('printPreviewModal', true)">Preview</x-ts-button>
+                        </div>
                     </div>
                 </div>
             </div>
         </x-ts-card>
     </div>
+
+    {{-- BANQUET EVENT BUDGET PRINTABLE PREVIEW MODAL --}}
+    <x-ts-modal wire="printPreviewModal" size="6xl" center>
+        <x-slot:title>
+            <div class="flex items-center gap-2">
+                <x-ts-icon name="document-arrow-down" class="w-5 h-5 text-primary-600" />
+                <span class="font-bold text-slate-800 dark:text-slate-100">
+                    Export to PDF - Event Budget Allocation ({{ $reference }})
+                </span>
+            </div>
+        </x-slot:title>
+
+        <div class="space-y-4">
+            {{-- Toolbar / Screen Controls (Hidden in Print) --}}
+            <div class="flex items-center justify-end p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 print:hidden">
+                
+                <div class="flex items-center gap-2">
+                    <x-ts-button flat sm text="Close" wire:click="$set('printPreviewModal', false)" />
+                    <x-ts-button sm icon="document-arrow-down" text="Export to PDF" wire:click="exportPdf" color="primary" />
+                </div>
+            </div>
+
+            {{-- Document Sheet --}}
+            <div id="printable-budget-view-preview" class="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
+                {{-- Header with Company Logo --}}
+                <div class="flex items-start justify-between border-b-2 border-slate-900 pb-5 mb-6">
+                    <div class="flex items-center gap-4">
+                        <img src="{{ asset('assets/images/1772440510.png') }}" alt="Company Logo" class="h-20 w-auto object-contain" />
+                        <div>
+                            <h1 class="text-xl sm:text-2xl font-black uppercase tracking-wide text-slate-900">
+                                {{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }}
+                            </h1>
+                            <p class="text-xs text-slate-600 font-medium">
+                                {{ auth()->user()->branch?->branch_name ?? 'Main Branch' }}
+                                @if(auth()->user()->branch?->branch_address)
+                                    • {{ auth()->user()->branch->branch_address }}
+                                @endif
+                            </p>
+                            <p class="text-xs text-slate-500 font-medium">
+                                Banquet Event Procurement / Budget Allocation
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-block px-3 py-1 rounded bg-slate-900 text-white text-xs font-bold uppercase tracking-wider">
+                            EVENT BUDGET
+                        </span>
+                        <div class="mt-2 text-lg font-black font-mono text-slate-900">
+                            {{ $reference }}
+                        </div>
+                        <div class="text-xs text-slate-500">
+                            Event Ref: <span class="font-mono font-bold">{{ $eventReference }}</span>
+                        </div>
+                        <div class="mt-1">
+                            <!-- <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded {{ $status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : ($status === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">
+                                {{ $status }}
+                            </span> -->
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Event Logistics Meta (NO logged in user info) --}}
+                <div class="grid grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div>
+                        <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
+                            Customer & Configuration
+                        </h4>
+                        <div class="space-y-1">
+                            <div><span class="text-slate-500 font-medium">Customer / Client:</span> <strong class="text-slate-900">{{ $customerName ?: 'N/A' }}</strong></div>
+                            <div><span class="text-slate-500 font-medium">Include Services in Gross:</span> <span class="text-slate-800 font-semibold">{{ $addToGross ? 'Yes (Included)' : 'No' }}</span></div>
+                            <div><span class="text-slate-500 font-medium">Event Reference:</span> <span class="text-slate-800 font-mono">{{ $eventReference }}</span></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
+                            Event Schedule & Timing
+                        </h4>
+                        <div class="space-y-1">
+                            <div><span class="text-slate-500 font-medium">Event Dates:</span> <span class="text-slate-800">{{ $eventStartDate }} to {{ $eventEndDate }}</span></div>
+                            <div><span class="text-slate-500 font-medium">Event Schedule:</span> <span class="text-slate-800">{{ $eventArrivalTime }} to {{ $eventDepartureTime }}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Financial & Budget Allocation Highlight Cards --}}
+                <div class="grid grid-cols-4 gap-3 mb-6">
+                    <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Menu Subtotal</span>
+                        <div class="text-sm font-mono font-bold text-slate-900 mt-1">₱{{ number_format((float) $menuTotal, 2) }}</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Services Subtotal</span>
+                        <div class="text-sm font-mono font-bold text-slate-900 mt-1">₱{{ number_format((float) $serviceTotal, 2) }}</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Gross Order Total</span>
+                        <div class="text-sm font-mono font-bold text-slate-900 mt-1">₱{{ number_format((float) $totalGrossOrder, 2) }}</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">Allocated Budget ({{ $budgetPercentage }}%)</span>
+                        <div class="text-base font-mono font-black text-emerald-700 mt-1">₱{{ number_format((float) str_replace(',', '', $allocatedBudget), 2) }}</div>
+                    </div>
+                </div>
+
+                {{-- 1. Menu Items Table --}}
+                @if(!empty($menuList))
+                    <div class="mb-5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between border-b border-slate-200 pb-1">
+                            <span>1. Menu Items Breakdown</span>
+                            <span class="text-slate-500 font-mono font-normal">Subtotal: ₱{{ number_format((float) $menuTotal, 2) }}</span>
+                        </h3>
+                        <div class="overflow-hidden rounded-lg border border-slate-200">
+                            <table class="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
+                                        <th class="py-2 px-3 w-10 text-center">#</th>
+                                        <th class="py-2 px-3">Menu / Recipe</th>
+                                        <th class="py-2 px-3">Category</th>
+                                        <th class="py-2 px-3 text-right">Rate</th>
+                                        <th class="py-2 px-3 text-right">Qty</th>
+                                        <th class="py-2 px-3 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    @foreach($menuList as $mIdx => $mItem)
+                                        <tr>
+                                            <td class="py-1.5 px-3 text-center text-slate-400">{{ $mIdx + 1 }}</td>
+                                            <td class="py-1.5 px-3 font-semibold text-slate-900">{{ $mItem['menu_name'] ?? 'N/A' }}</td>
+                                            <td class="py-1.5 px-3 text-slate-600">{{ $mItem['category'] ?? 'N/A' }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono">₱{{ number_format((float) ($mItem['amount'] ?? 0), 2) }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono font-medium">{{ $mItem['qty'] ?? 0 }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) ($mItem['total'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- 2. Services Breakdown --}}
+                @if(!empty($servicesList))
+                    <div class="mb-5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between border-b border-slate-200 pb-1">
+                            <span>2. Services & Miscellaneous Breakdown</span>
+                            <span class="text-slate-500 font-mono font-normal">Subtotal: ₱{{ number_format((float) collect($servicesList)->sum('total'), 2) }}</span>
+                        </h3>
+                        <div class="overflow-hidden rounded-lg border border-slate-200">
+                            <table class="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
+                                        <th class="py-2 px-3 w-10 text-center">#</th>
+                                        <th class="py-2 px-3">Service Name</th>
+                                        <th class="py-2 px-3 text-right">Rate / Income</th>
+                                        <th class="py-2 px-3 text-right">Qty</th>
+                                        <th class="py-2 px-3 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    @foreach($servicesList as $sIdx => $sItem)
+                                        <tr>
+                                            <td class="py-1.5 px-3 text-center text-slate-400">{{ $sIdx + 1 }}</td>
+                                            <td class="py-1.5 px-3 font-semibold text-slate-900">{{ $sItem['title'] ?? 'N/A' }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono">₱{{ number_format((float) ($sItem['income'] ?? 0), 2) }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono font-medium">{{ $sItem['qty'] ?? 0 }}</td>
+                                            <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) ($sItem['total'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Notes --}}
+                @if($notes)
+                    <div class="mb-6 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                        <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Notes / Justification:</span>
+                        <p class="mt-1 text-slate-800 whitespace-pre-line">{{ $notes }}</p>
+                    </div>
+                @endif
+
+                {{-- Signatures Section --}}
+                @php
+                    $reviewerEmp = \App\Models\Business\Employee::find($reviewedBy);
+                    $approverEmp = \App\Models\Business\Employee::find($approvedBy);
+                @endphp
+                <div class="grid grid-cols-3 gap-6 pt-6 mt-6 border-t border-slate-200 text-xs">
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ auth()->user()->employee?->full_name ?? auth()->user()->name }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Prepared By</div>
+                        <div class="text-[10px] text-slate-400">{{ auth()->user()->employee?->position_name ?? 'Procurement Officer' }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ $reviewerEmp?->full_name ?? '_________________________' }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Reviewed / Noted By</div>
+                        <div class="text-[10px] text-slate-400">{{ $reviewerEmp?->position_name ?? 'Financial Reviewer' }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="h-10"></div>
+                        <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
+                            {{ $approverEmp?->full_name ?? '_________________________' }}
+                        </div>
+                        <div class="text-[11px] font-semibold text-slate-600 mt-1 uppercase">Approved By</div>
+                        <div class="text-[10px] text-slate-400">{{ $approverEmp?->position_name ?? 'General Manager' }}</div>
+                    </div>
+                </div>
+
+                {{-- Document Tracking Footer --}}
+                <div class="mt-8 pt-4 border-t border-dashed border-slate-200 flex justify-between items-center text-[10px] text-slate-400">
+                    <div>{{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }} • Banquet Event Budget</div>
+                    <div>Generated on {{ now()->format('M d, Y h:i:s A') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <div class="flex justify-end gap-2">
+                <x-ts-button flat text="Close" wire:click="$set('printPreviewModal', false)" />
+                <x-ts-button icon="document-arrow-down" text="Export to PDF" wire:click="exportPdf" color="primary" />
+            </div>
+        </x-slot:footer>
+    </x-ts-modal>
+
+    <style>
+        @media print {
+            body, html {
+                background: #ffffff !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            body * {
+                visibility: hidden !important;
+            }
+            #printable-budget-view-preview, #printable-budget-view-preview * {
+                visibility: visible !important;
+            }
+            #printable-budget-view-preview {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 1.5cm !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: #ffffff !important;
+            }
+            .print\:hidden {
+                display: none !important;
+            }
+        }
+    </style>
 
     <x-ts-back-to-top />
 </div>

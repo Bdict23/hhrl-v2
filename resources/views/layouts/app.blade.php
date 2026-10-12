@@ -103,8 +103,64 @@
                         <x-slot:icon>
                             <x-icon-door class="w-5 h-5" />
                         </x-slot:icon>
+                        @if(auth()->user()->hasPermission('Overview'))
+                         <x-ts-side-bar.item text="Overview">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('Reservation Matrix'))
+                             <x-ts-side-bar.item text="Reservation Matrix">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
                         @if(auth()->user()->hasPermission('Room Bookings'))
                             <x-ts-side-bar.item text="Room Bookings">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('Rooms'))
+                            <x-ts-side-bar.item text="Rooms">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('House Keeping'))
+                            <x-ts-side-bar.item text="House Keeping">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('House keeping Dashboard'))
+                            <x-ts-side-bar.item text="House Keeping Dashboard">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('Customer History'))
+                            <x-ts-side-bar.item text="Customer History">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('Discounts'))
+                            <x-ts-side-bar.item text="Discounts">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+                        @if(auth()->user()->hasPermission('Carousel'))
+                            <x-ts-side-bar.item text="Carousel">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
