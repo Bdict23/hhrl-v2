@@ -136,7 +136,7 @@ new class extends Component
                            <x-ts-select.styled searchable
                                             :request="route('api.get.active-employees-advances', ['branch_id' => auth()->user()->branch_id])"
                                             label="PREPARED BY"
-                                            select="label:full_name|value:id|description:position_name"
+                                            select="label:label|value:id|description:description"
                                             wire:model.live="preparedById"
                                             disabled
                                             required/>
