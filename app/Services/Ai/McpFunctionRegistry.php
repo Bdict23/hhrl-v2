@@ -133,85 +133,43 @@ DESC,
             // 3. list_bookings  — paginated booking list with filters
             // ─────────────────────────────────────────────────────────────────
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'list_bookings',
+                    'name' => 'list_bookings',
                     'description' => <<<'DESC'
-ALWAYS call this tool — NEVER guess — when the admin wants to browse or filter multiple bookings:
-• "show me all pending bookings", "list unpaid GCash bookings"
-• "bookings for today / for October 1", "show cancelled bookings"
-• "search bookings for Juan dela Cruz / 09171234567"
-• "how many bookings are paid vs unpaid?", "ipakita ang mga pending booking"
-• Any listing, count, or filter question about bookings
-
-All parameters are optional and combinable. Default page size is 10.
-
-PARAMETERS:
-  status         (string enum) — filter by lifecycle status:
-      "pending"   = awaiting payment from customer
-      "confirmed" = payment verified, booking is active
-      "cancelled" = booking was declined or cancelled
-      "completed" = court session has ended
-  payment_status (string enum) — filter by payment state:
-      "unpaid"  = no payment yet
-      "paid"    = payment confirmed
-      "refunded" = payment was refunded (usually after cancellation)
-  payment_method (string enum) — how the customer pays:
-      "cash" | "gcash" | "maya" | "bank_transfer"
-  date           (string "Y-m-d") — only bookings with at least one slot on this date
-      Example: "2026-10-01"
-  search         (string) — free-text across:
-      reference_code (e.g. LYR-A1B2C3), customer_name, customer_phone
-  per_page       (integer, default 10, max 100) — results per page
-
-Returns a JSON object:
-  total    (integer) — total matching records across all pages
-  showing  (integer) — number of records returned in this response
-  bookings (array)  — list of booking objects, each with:
-    reference_code  (string, e.g. "LYR-A1B2C3")
-    customer_name   (string)
-    customer_phone  (string)
-    status          (string: pending|confirmed|cancelled|completed)
-    payment_status  (string: unpaid|paid|refunded)
-    payment_method  (string: cash|gcash|maya|bank_transfer)
-    total_amount    (float, PHP ₱)
-    slots_summary   (array of {court, date Y-m-d, time string})
-    created_at      (string "Y-m-d H:i")
-
-FORMAT: Present as a table or bullet list. Always show total count upfront.
-DESC,
+                ALWAYS call this tool when browsing, counting, or filtering multiple bookings (e.g., by status, payment, date, search term, or in Cebuano).
+                Parameters: status, payment_status, payment_method, date (Y-m-d), search, per_page (default 10).
+                Returns total, showing count, and an array of booking summaries. Format as a table or bullet list, showing total count upfront.
+                DESC,
                     'parameters' => [
-                        'type'       => 'object',
+                        'type' => 'object',
                         'properties' => [
                             'status' => [
-                                'type'        => 'string',
-                                'enum'        => ['pending', 'confirmed', 'cancelled', 'completed'],
-                                'description' => 'Booking lifecycle status. pending=awaiting payment; confirmed=active/paid; cancelled=declined; completed=done.',
+                                'type' => 'string',
+                                'enum' => ['pending', 'confirmed', 'cancelled', 'completed'],
+                                'description' => 'Filter by booking lifecycle status.',
                             ],
                             'payment_status' => [
-                                'type'        => 'string',
-                                'enum'        => ['unpaid', 'paid', 'refunded'],
-                                'description' => 'Payment state of the booking.',
+                                'type' => 'string',
+                                'enum' => ['unpaid', 'paid', 'refunded'],
+                                'description' => 'Filter by payment state.',
                             ],
                             'payment_method' => [
-                                'type'        => 'string',
-                                'enum'        => ['cash', 'gcash', 'maya', 'bank_transfer'],
-                                'description' => 'Customer payment method.',
+                                'type' => 'string',
+                                'enum' => ['cash', 'gcash', 'maya', 'bank_transfer'],
+                                'description' => 'Filter by customer payment method.',
                             ],
                             'date' => [
-                                'type'        => 'string',
-                                'description' => 'Return only bookings with at least one court slot on this date (Y-m-d). Example: "2026-10-01".',
+                                'type' => 'string',
+                                'description' => 'Return bookings with slots on this date (Y-m-d).',
                             ],
                             'search' => [
-                                'type'        => 'string',
-                                'description' => 'Full-text search on reference_code (LYR-XXXXXX), customer_name, or customer_phone.',
+                                'type' => 'string',
+                                'description' => 'Search across reference_code, customer_name, or customer_phone.',
                             ],
                             'per_page' => [
-                                'type'        => 'integer',
-                                'description' => 'Number of results per page. Default 10, maximum 100.',
-                                'default'     => 10,
-                                'minimum'     => 1,
-                                'maximum'     => 100,
+                                'type' => 'integer',
+                                'description' => 'Results per page (default 10, max 100).',
                             ],
                         ],
                         'required' => [],
@@ -223,53 +181,20 @@ DESC,
             // 4. find_booking  — look up ONE specific booking or customer
             // ─────────────────────────────────────────────────────────────────
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'find_booking',
+                    'name' => 'find_booking',
                     'description' => <<<'DESC'
-ALWAYS call this tool — NEVER guess — when the admin wants to look up a SPECIFIC booking:
-• "find booking LYR-A1B2C3", "lookup reference code LYR-XXXXXX"
-• "search for the booking of 09171234567"
-• "what is the status of LYR-XYZ123?", "hanapi ang booking ni 0917-xxx-xxxx"
-• "check booking [reference code]", any single-booking lookup
-
-Use this instead of list_bookings when a specific reference code or phone is given.
-
-Reference code format: LYR- followed by exactly 6 alphanumeric characters (e.g. LYR-A1B2C3).
-Phone searches may return multiple bookings for the same customer.
-
-PARAMETER (required):
-  query (string) — a reference code (e.g. "LYR-A1B2C3", case-insensitive)
-                   OR a phone number / fragment (e.g. "09171234567", "1234")
-
-Returns a JSON object:
-  found    (boolean) — whether any matching booking was found
-  count    (integer) — number of matched bookings
-  message  (string)  — present directly to admin if found=false
-  bookings (array, when found=true) — each object contains:
-    reference_code  (string)
-    customer_name   (string)
-    customer_phone  (string)
-    customer_email  (string)
-    status          (string: pending|confirmed|cancelled|completed)
-    payment_status  (string: unpaid|paid|refunded)
-    payment_method  (string)
-    total_amount    (float, PHP ₱)
-    subtotal_amount (float, PHP ₱)
-    notes           (string|null) — customer notes
-    admin_notes     (string|null) — staff internal notes
-    created_at      (string "Y-m-d H:i")
-    slots (array of {court, date Y-m-d, time string, slot_price float PHP ₱})
-
-If found=false, inform the admin and suggest double-checking the reference code format.
-FORMAT: Display total_amount as ₱X,XXX.00.
-DESC,
+            ALWAYS call this tool when searching for a specific booking by reference code (e.g., LYR-A1B2C3) or phone number (English or Cebuano/Tagalog).
+            Parameter: query (string, reference code or phone number/fragment).
+            Returns booking details, status, payment info, and booked slots. Display amounts as ₱X,XXX.00.
+            DESC,
                     'parameters' => [
-                        'type'       => 'object',
+                        'type' => 'object',
                         'properties' => [
                             'query' => [
-                                'type'        => 'string',
-                                'description' => 'Booking reference code (e.g. "LYR-A1B2C3") or customer phone number (e.g. "09171234567"). Case-insensitive for reference codes.',
+                                'type' => 'string',
+                                'description' => 'Booking reference code (e.g., "LYR-A1B2C3") or customer phone number.',
                             ],
                         ],
                         'required' => ['query'],
@@ -281,56 +206,20 @@ DESC,
             // 5. get_availability  — court schedule matrix for a date
             // ─────────────────────────────────────────────────────────────────
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'get_availability',
+                    'name' => 'get_availability',
                     'description' => <<<'DESC'
-ALWAYS call this tool — NEVER guess — when the admin asks about court availability or schedules:
-• "available courts today / tomorrow / on October 5"
-• "is Court 1 free at 3 PM?", "show the schedule for Saturday"
-• "how many slots are still open today?", "unsay available courts karon"
-• "show me the availability matrix", "check schedule for [any date]"
-• "anong libre na time slot sa [date]?"
-• "bakante ang court 5 karun 4pm?", "naay bakante sa court X?", "available ba ang court"
-
-PARAMETER (required):
-  date (string "Y-m-d") — the date to check. Example: "2026-10-01".
-       Always infer from context; use today's date if the admin does not specify.
-
-Returns a JSON object:
-  date            (string "Y-m-d") — the queried date
-  date_formatted  (string) — human-readable, e.g. "Thursday, October 1, 2026"
-  is_closed       (boolean) — if true, the facility is CLOSED that day; inform admin and stop
-  total_available (integer) — total number of available slot×court combinations
-  courts (array) — active courts, each with:
-      id           (integer)
-      name         (string)
-      hourly_rate  (float, PHP ₱ per hour)
-      surface_type (string|null)
-      is_indoor    (boolean|null)
-  time_slots (array) — hourly slots for that day, each with:
-      key          (string "HH:00", e.g. "08:00")
-      label        (string, e.g. "8:00 AM - 9:00 AM")
-      start_label  (string)
-      end_label    (string)
-      hour         (integer)
-      is_next_day  (boolean) — true if slot crosses midnight
-  slot_states (array) — per-time summary of each court's state:
-      time         (string, e.g. "8:00 AM - 9:00 AM")
-      courts (array of {court_id, court_name, state, state_label}):
-        state values: "available" | "pending" (awaiting payment) |
-                      "booked" (confirmed) | "blocked" (maintenance/private event) |
-                      "open_play"
-
-FORMAT: Present as a grid/table per court. Show hourly_rate as ₱X,XXX.00/hr.
-        If is_closed=true, tell the admin the venue is closed that day.
+ALWAYS call this tool for court availability/schedules (e.g., today, specific dates, times, or in Cebuano/Tagalog).
+Parameter: date (string "Y-m-d", defaults to today).
+Returns venue status, courts list, time slots, and slot states (available, pending, booked, blocked, open_play). Display as a grid with ₱X,XXX.00/hr rates.
 DESC,
                     'parameters' => [
-                        'type'       => 'object',
+                        'type' => 'object',
                         'properties' => [
                             'date' => [
-                                'type'        => 'string',
-                                'description' => 'Date to check availability for (Y-m-d). Example: "2026-10-01". Defaults to today if omitted.',
+                                'type' => 'string',
+                                'description' => 'Date to check (Y-m-d). Defaults to today.',
                             ],
                         ],
                         'required' => ['date'],
@@ -342,69 +231,31 @@ DESC,
             // 6. update_booking_status  — confirm / cancel / complete a booking
             // ─────────────────────────────────────────────────────────────────
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'update_booking_status',
+                    'name' => 'update_booking_status',
                     'description' => <<<'DESC'
-ONLY call this tool when the admin EXPLICITLY instructs a status change on a specific booking.
-Valid explicit triggers (reference code must be present):
-• "confirm booking LYR-XXXXXX" → status = "confirmed"
-• "approve LYR-XXXXXX"         → status = "confirmed"
-• "cancel booking LYR-XXXXXX"  → status = "cancelled"
-• "decline LYR-XXXXXX"         → status = "cancelled"
-• "mark LYR-XXXXXX as completed" → status = "completed"
-• "reset LYR-XXXXXX to pending"  → status = "pending"
-
-IMPORTANT RULES:
-1. NEVER call this without an explicit reference_code AND target status from the admin.
-2. If the admin only ASKS about a booking (not changing it), use find_booking instead.
-3. Side effects handled automatically by the system:
-   - "confirmed" → payment_status becomes "paid"
-   - "completed" → payment_status becomes "paid"
-   - "cancelled" → payment_status becomes "refunded"
-   - "pending"   → payment_status unchanged
-
-PARAMETERS:
-  reference_code (string, required) — booking reference in format LYR-XXXXXX.
-      Case-insensitive; automatically normalised to uppercase.
-      Pattern: LYR- followed by exactly 6 alphanumeric characters.
-  status         (string enum, required) — new status to apply:
-      "pending"   — reset to awaiting payment (rare, admin discretion)
-      "confirmed" — approve the booking (marks payment as paid)
-      "cancelled" — cancel/decline the booking (marks payment as refunded)
-      "completed" — mark the court session as done (marks payment as paid)
-  admin_notes    (string, optional) — internal staff note attached to the booking.
-      Visible only to admins. Recommend max ~500 characters.
-
-Returns a JSON object:
-  success        (boolean) — true if the update succeeded
-  error          (string)  — present to admin if success=false
-  reference_code (string)  — the booking that was updated
-  customer_name  (string)  — the customer's name
-  new_status     (string)  — status after the update
-  payment_status (string)  — payment status after the update
-  message        (string)  — human-readable confirmation; present this verbatim to the admin
-
-On success: confirm in a friendly Bisaya-English tone.
-On failure: show the error and suggest verifying the reference code.
-DESC,
+            ONLY call when the admin explicitly instructs a status change for a booking (e.g., "confirm", "cancel", "approve", "decline", or in Bisaya). Requires reference code and target status.
+            Side effects: confirmed/completed sets payment to paid; cancelled sets payment to refunded.
+            Parameters: reference_code (required, LYR-XXXXXX), status (required enum), admin_notes (optional).
+            Returns update result, new status, and a confirmation message.
+            DESC,
                     'parameters' => [
-                        'type'       => 'object',
+                        'type' => 'object',
                         'properties' => [
                             'reference_code' => [
-                                'type'        => 'string',
-                                'description' => 'Booking reference code in format LYR-XXXXXX (6 alphanumeric chars). Example: "LYR-A1B2C3". Case-insensitive.',
-                                'pattern'     => '^[Ll][Yy][Rr]-[A-Za-z0-9]{6}$',
-                                'example'     => 'LYR-A1B2C3',
+                                'type' => 'string',
+                                'description' => 'Booking reference code in format LYR-XXXXXX (6 alphanumeric chars). Case-insensitive.',
+                                'pattern' => '^[Ll][Yy][Rr]-[A-Za-z0-9]{6}$',
                             ],
                             'status' => [
-                                'type'        => 'string',
-                                'enum'        => ['pending', 'confirmed', 'cancelled', 'completed'],
-                                'description' => 'New lifecycle status. confirmed/completed → payment=paid. cancelled → payment=refunded.',
+                                'type' => 'string',
+                                'enum' => ['pending', 'confirmed', 'cancelled', 'completed'],
+                                'description' => 'New lifecycle status.',
                             ],
                             'admin_notes' => [
-                                'type'        => 'string',
-                                'description' => 'Optional internal staff note. Not visible to the customer. Max ~500 chars.',
+                                'type' => 'string',
+                                'description' => 'Optional internal staff note (max ~500 chars).',
                             ],
                         ],
                         'required' => ['reference_code', 'status'],
@@ -502,7 +353,7 @@ DESC,
         $monthEnd   = $date->copy()->endOfMonth();
 
         $applyDateFilter = fn ($query, string $column = 'created_at') =>
-            $query->whereBetween($column, [$monthStart, $monthEnd]);
+        $query->whereBetween($column, [$monthStart, $monthEnd]);
 
         return [
             'target_month'       => $date->format('F Y'),

@@ -16,6 +16,35 @@ Route::middleware(['auth'])->group(function () {
 
     // AI Assistant
     Volt::route('/ai/ai-assistant', 'ai.ai-assistant-page')->name('ai.assistant');
+    //Room Booking
+    Volt::route('/room-booking/summary', 'suites.rooms.rooms-list')->name('rooms.list');
+    Volt::route('/room-booking/create', 'suites.rooms.room-create')->name('room.create');
+    Volt::route('/room-booking/edit/{id}', 'suites.rooms.room-edit')->name('room.edit');
+    Volt::route('/room-booking/show/{id}', 'suites.rooms.room-show')->name('room.show');
+
+    Volt::route('/bookings/summary', 'suites.booking.booking-list')->name('room-booking.list');
+    Volt::route('/bookings/show/{id}', 'suites.booking.booking-show')->name('room-booking.show');
+    Volt::route('/bookings/create-walkin', 'suites.booking.booking-walkin')->name('room-booking.create');
+    Volt::route('/bookings/reservation-matrix', 'suites.matrix')->name('reservation.matrix');
+    Volt::route('/bookings/suite-dashboard', 'suites.dashboard')->name('suite.dashboard');
+    // housekeeping
+    Volt::route('/bookings/housekeeping-dashboard', 'suites.housekeeping.housekeeping-dashboard')->name('suite.housekeeping.dashboard');
+    // customer history
+    Volt::route('/bookings/customer-history', 'suites.customer.customer-history')->name('suite.customer.history');
+    Volt::route('/bookings/customer-show/{user}', 'suites.customer.customer-history-show')->name('suite.customer.history-show');
+    // Discounts
+    Volt::route('/bookings/discounts/list', 'suites.discount.discounts-list')->name('suite.discounts.list');
+    //carousel
+    Volt::route('/bookings/carousel/list', 'suites.carousel.suite-carousel-list')->name('suite.carousel-list');
+    // settings
+    Volt::route('/bookings/settings', 'suites.suite-settings')->name('suite.settings');
+    // generate qr
+    Volt::route('/bookings/generate-qr', 'suites.qr-generator')->name('generate-qr');
+
+
+
+
+
 
     // RESTAURANT
     // RECIPE

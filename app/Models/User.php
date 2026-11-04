@@ -8,6 +8,8 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use App\Models\Business\Branch;
 use App\Models\Business\Employee;
+use App\Models\Suite\RoomBooking;
+use App\Models\Suite\HousekeepingLog;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
@@ -50,6 +52,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_visited_at' => 'datetime',
+            'visit_count' => 'integer',
+
         ];
     }
 
@@ -69,6 +74,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Booking::class);
     }
+    public function roomBookings(): HasMany
+    {
+        return $this->hasMany(RoomBooking::class);
+    }
 
     public function isAdmin(): bool
     {
@@ -78,6 +87,19 @@ class User extends Authenticatable
     public function isManager(): bool
     {
         return in_array($this->role, ['admin', 'manager'], true);
+    }
+    public function isDeskStaff(): bool
+    {
+        return $this->role === 'desk_staff';
+    }
+    public function isHousekeeper(): bool
+    {
+        return $this->role === 'housekeeper';
+    }
+
+    public function housekeepingLogs(): HasMany
+    {
+        return $this->hasMany(HousekeepingLog::class);
     }
 
     public function isCustomer(): bool

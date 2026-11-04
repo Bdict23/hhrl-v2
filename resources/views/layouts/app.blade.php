@@ -104,68 +104,69 @@
                             <x-icon-door class="w-5 h-5" />
                         </x-slot:icon>
                         @if(auth()->user()->hasPermission('Overview'))
-                         <x-ts-side-bar.item text="Overview">
+                         <x-ts-side-bar.item text="Overview" :route="route('suite.dashboard')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Reservation Matrix'))
-                             <x-ts-side-bar.item text="Reservation Matrix">
+                             <x-ts-side-bar.item text="Reservation Matrix" :route="route('reservation.matrix')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Room Bookings'))
-                            <x-ts-side-bar.item text="Room Bookings">
+                            <x-ts-side-bar.item text="Room Bookings" :route="route('room-booking.list')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Rooms'))
-                            <x-ts-side-bar.item text="Rooms">
+                            <x-ts-side-bar.item text="Rooms" :route="route('rooms.list')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('House Keeping'))
-                            <x-ts-side-bar.item text="House Keeping">
-                                <x-slot:icon>
-                                        <x-icon-dot class="w-5 h-5" />
-                                </x-slot:icon>
-                            </x-ts-side-bar.item>
-                        @endif
-                        @if(auth()->user()->hasPermission('House keeping Dashboard'))
-                            <x-ts-side-bar.item text="House Keeping Dashboard">
+                            <x-ts-side-bar.item text="House Keeping" :route="route('suite.housekeeping.dashboard')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Customer History'))
-                            <x-ts-side-bar.item text="Customer History">
+                            <x-ts-side-bar.item text="Customer History" :route="route('suite.customer.history')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Discounts'))
-                            <x-ts-side-bar.item text="Discounts">
+                            <x-ts-side-bar.item text="Discounts" :route="route('suite.discounts.list')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
                         @if(auth()->user()->hasPermission('Carousel'))
-                            <x-ts-side-bar.item text="Carousel">
+                            <x-ts-side-bar.item text="Carousel" :route="route('suite.carousel-list')">
                                 <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
                         @endif
+                        @if(auth()->user()->hasPermission('Suite Settings'))
+                            <x-ts-side-bar.item text="Suite Settings" :route="route('suite.settings')">
+                                <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                </x-slot:icon>
+                            </x-ts-side-bar.item>
+                        @endif
+
                     </x-ts-side-bar.item>
                     @endif
 
@@ -497,6 +498,7 @@
                                     </x-slot:icon>
                                 </x-ts-side-bar.item>
                             @endif
+                            
                         </x-ts-side-bar.item>
                     @endif
 
