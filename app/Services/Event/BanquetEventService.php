@@ -185,7 +185,7 @@ class BanquetEventService
 
     public static function getLiquidationData(int $id)
     {
-        $data = EventLiquidation::findOrFail($id);
+        $data = EventLiquidation::with('cashReturn')->findOrFail($id);
         return $data;
     }
     public static function getEventAddedFunds(int $eventID)

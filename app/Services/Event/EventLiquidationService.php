@@ -19,6 +19,7 @@ class EventLiquidationService
     protected $cashReturn;
     protected $reimbursement;
 
+
     public function __construct(
         EventLiquidation $liquidation,
         Event $event,
@@ -44,18 +45,45 @@ class EventLiquidationService
                 ->whereYear('created_at', $currentYear)
                 ->count() + 1;
             $reference = 'ELQ-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            while ($this->liquidation->where('reference', $reference)->exists()) {
+                $yearlyCount++;
+                $reference = 'ELQ-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCount, 2, '0', STR_PAD_LEFT);
+            }
 
             $liquidate = $this->liquidation->create([
                 'reference'         => $reference,
                 'branch_id'         => $branchId,
                 'created_by'        => $data['prepared_by'],
                 'event_id'          => $data['event_id'],
-                'status'            =>   $data['status'] == 'FINAL' ? 'FOR REVIEW' : 'DRAFT',
+                'status'            => $data['status'] == 'FINAL' ? 'FOR REVIEW' : 'DRAFT',
                 'note'              => $data['notes'],
                 'total_incurred'    => $data['total_incurred'],
                 'reviewed_by'       => $data['reviewed_by'],
                 'approved_by'       => $data['approved_by'],
             ]);
+
+            // create cash return automatically if total incurred is less than the total advance
+            $yearlyCountCrs = $this->cashReturn
+                ->where('branch_id', $branchId)
+                ->whereYear('created_at', $currentYear)
+                ->count() + 1;
+            $referenceCrs = 'CRE-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCountCrs, 2, '0', STR_PAD_LEFT);
+            while ($this->cashReturn->where('reference', $referenceCrs)->exists()) {
+                $yearlyCountCrs++;
+                $referenceCrs = 'CRE-' . $branchCode . '-' . now()->format('my') . '-' . str_pad($yearlyCountCrs, 2, '0', STR_PAD_LEFT);
+            }
+            $this->cashReturn->create([
+                'branch_id' => $branchId,
+                'reference' => $referenceCrs,
+                'status' => $data['status'],
+                'event_liquidation_id' => $liquidate->id,
+                'event_id' => $data['event_id'],
+                'prepared_by' => $data['prepared_by'],
+                'amount_returned' => $data['amount_returned'] ?? 0,
+                'notes' => 'Cash return for event liquidation ' . $reference,
+            ]);
+
+
 
             return $liquidate;
         });
@@ -75,6 +103,22 @@ class EventLiquidationService
                 'reviewed_by'       => $data['reviewed_by'],
                 'approved_by'       => $data['approved_by'],
             ]);
+
+            $cashReturn = $this->cashReturn->where('event_liquidation_id', $data['liquidation_id'])->first();
+            if ($data['status'] == 'FINAL') {
+                if ($cashReturn->status !== 'FINAL') {
+                    $cashReturn->update([
+                        'status' => 'FINAL',
+                        'amount_returned' => $data['amount_returned'] ?? 0,
+                    ]);
+                }
+            } else {
+                if ($cashReturn->status == 'DRAFT') {
+                    $cashReturn->update([
+                        'amount_returned' => $data['amount_returned'] ?? 0,
+                    ]);
+                }
+            }
 
             return $liquidation;
         });

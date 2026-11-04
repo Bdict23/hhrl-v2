@@ -49,10 +49,15 @@ new class extends Component
     $checkData,
     $reviewedBy,
     $status,
+    $addedFundTotal = 0.00,
+    $fundLists = [],
     $notes,
     $approvedBy,
     $liquidationId,
-    $liquidationData;
+    $liquidationData,
+    $crsNumber,
+    $crsAmount,
+    $liquidationTotalAmount=0.00;
 
 
     public function mount($id)
@@ -66,6 +71,8 @@ new class extends Component
         $id = $this->liquidationData?->event_id;
         
         if($id){
+            $this->crsNumber = $this->liquidationData?->cashReturn?->reference ?? '';
+            $this->crsAmount = number_format($this->liquidationData?->cashReturn?->amount_returned ?? 0, 2);
             $this->checkData = AcknowledgementReceiptService::eventCheckData( $id, Auth::user()->branch_id);
             $this->checkNumber = $this->checkData?->check_number ?? '';
             $this->approvedBudget = number_format($this->checkData->check_amount ?? 0,2);
@@ -84,6 +91,11 @@ new class extends Component
             $this->notes = $this->liquidationData->note;
             $this->reviewedBy = $this->liquidationData->reviewed_by;
             $this->approvedBy = $this->liquidationData->approved_by;
+            $this->fundLists = BanquetEventService::getEventAddedFunds($id);
+            $this->addedFundTotal = $this->fundLists->sum('amount');
+            $this->liquidationTotalAmount = ($this->checkData?->check_amount ?? 0 ) + $this->addedFundTotal - $this->receiveOrderTotal;
+            $this->eventExpenseTotalAmount = $this->liquidationTotalAmount - $this->withdrawalTotal;
+
 
   
 
@@ -202,6 +214,13 @@ new class extends Component
                 ['index' => 'prepared_by', 'label' => 'withdrawer'],
                 ['index' => 'approved_by', 'label' => 'approver'],
             ],
+            'fundsSummaryHeader' => [
+                ['index' => 'status', 'label' => 'status' ],
+                ['index' => 'reference', 'label' => 'reference' ],
+                ['index' => 'amount', 'label' => 'amount'],
+                ['index' => 'prepared_by', 'label' => 'Prepared by'],
+                ['index' => 'created_at', 'label' => 'Date'],
+            ]
         ];
     }
 
@@ -250,6 +269,7 @@ new class extends Component
                 'reviewed_by' => $this->reviewedBy,
                 'approved_by' => $this->approvedBy,
                 'liquidation_id' => $this->liquidationId,
+                'amount_returned' => $this->liquidationTotalAmount,
             ];
 
             // 4. Call the Service
@@ -311,8 +331,8 @@ new class extends Component
                     <x-ts-currency mutate symbol currency label="TOTAL INCURRED AMOUNT" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="CRS No̱." readonly/>
-                    <x-ts-input label="RETURN AMOUNT" readonly/>
+                    <x-ts-input label="CRS No̱."  readonly wire:model="crsNumber"/>
+                    <x-ts-currency mutate symbol currency label="RETURN AMOUNT" wire:model="crsAmount" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="RMB No̱." readonly/>
@@ -596,6 +616,51 @@ new class extends Component
                         </x-slot:footer>
                 </x-ts-card>
             </x-ts-tab.items>
+            <x-ts-tab.items tab="ADDED FUNDS SUMMARY">
+                <x-ts-card shadowless>
+                    <x-ts-table :headers="$fundsSummaryHeader" :rows="$fundLists" striped loading compact>
+                        @interact('column_status', $row)
+                            <div class="flex items-center gap-2">
+                                @if ($row->withdrawal_status == 'PREPARING')
+                                    <x-ts-badge :text="$row->withdrawal_status" color="grey" />
+                                 @elseif($row->status == 'FINAL')
+                                    <x-ts-badge text="FINAL" color="green" />
+                                @else
+                                    <x-ts-badge :text="$row->status" color="rose" />
+                                @endif
+                            </div>
+                        @endinteract
+                        @interact('column_amount', $row)
+                             ₱ {{ number_format($row->amount, 2) }}
+                        @endinteract
+                        @interact('column_prepared_by', $row)
+                            <div class="flex items-center gap-2">
+                                <x-ts-badge :text="$row->preparedBy?->full_name ?? 'Unknown'" outline />
+                            </div>
+                        @endinteract
+                        @interact('column_reference', $row)
+                            {{ $row->reference }}
+                        @endinteract
+                        @interact('column_total_received_amount', $row)
+                            ₱ {{  number_format(($row->cost_amount ) ?? 0 , 2) }}
+                        @endinteract
+                        @interact('column_created_at', $row)
+                            {{ \Illuminate\Support\Carbon::parse($row->created_at)->format('M. d, Y')  }}
+                        @endinteract
+                    </x-ts-table>
+                    <x-slot:footer>
+                            <div class="flex justify-end mt-3">
+                                <x-ts-stats
+                                    title="Total amount">
+                                    <x-slot:icon>
+                                        <x-icon-peso class="w-6 h-6" />
+                                    </x-slot:icon>
+                                    <div class="font-semibold text-3xl"><span>{{ number_format($addedFundTotal, 2)}}</span></div>
+                                </x-ts-stats>
+                            </div>
+                        </x-slot:footer>
+                </x-ts-card>
+            </x-ts-tab.items>
         </x-ts-tab>
 
         {{-- FORM 2 --}}
@@ -603,28 +668,64 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
-                    <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
-                    <div class="grid grid-cols-4">
-                        <div class="grid">
-                            <span class="font-bold">Petty Cash Voucher</span>
-                            <span>₱ {{number_format($pcvTotal, 2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Purchase Order</span>
-                            <span>₱ {{number_format($purchaseOrderTotal,2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Purchase received</span>
-                            <span>₱ {{number_format($receiveOrderTotal,2)}}</span>
-                        </div>
-                        <div class="grid">
-                            <span class="font-bold">Withdrawal</span>
-                            <span>₱ {{number_format($withdrawalTotal,2)}}</span>
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 gap-6 md:grid-cols-12">
+                            
+                            <!-- Financial Summary Card (Takes up 7 cols on medium screens) -->
+                            <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden md:col-span-7">
+                                <div class="flex items-center  px-5 py-4 bg-gray-50/75 border-b border-gray-200">
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">Financial Summary</h3>
+                                    
+                                </div>
+
+                                <ul class="divide-y divide-gray-100 text-sm">
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Petty Cash Voucher</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($pcvTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Purchase Order</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($purchaseOrderTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Purchase Received</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($receiveOrderTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Withdrawal</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($withdrawalTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Added Funds</span>
+                                        <span class="font-semibold tabular-nums text-emerald-600">+ ₱ {{ number_format($addedFundTotal, 2) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- KPI / Total Liquidation Card (Takes up 5 cols on medium screens) -->
+                            <div class="flex flex-col justify-between rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 p-6 shadow-sm md:col-span-5">
+                                <div>
+                                    <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Total Overview</span>
+                                    <h4 class="text-base font-semibold text-gray-900 mt-1">Liquidation Total Amount</h4>
+                                </div>
+                                
+                                <div class="my-6">
+                                    <span class="text-3xl font-extrabold tracking-tight tabular-nums text-gray-900">
+                                        ₱ {{ number_format($liquidationTotalAmount, 2) }}
+                                    </span>
+                                </div>
+
+                                <p class="text-xs text-gray-500">
+                                    (Approved Budget + Added Funds) - Purchase Received.
+                                </p>
+                            </div>
+
                         </div>
                     </div>
                 </div>
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
+                        <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
                         <div class="col-span-2 grid grid-cols-2 gap-2">
                             <x-ts-select.styled
                             :request="route('api.liquidate-event.active.reviewers', ['branch_id' => auth()->user()->branch_id ])"

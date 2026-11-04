@@ -71,10 +71,11 @@ new class extends Component
     {
         $this->liquidationData  = BanquetEventService::getLiquidationData($this->liquidationId);
         $id = $this->liquidationData?->event_id;
+       
         
         if($id){
             $this->crsNumber = $this->liquidationData?->cashReturn?->reference ?? '';
-            $this->crsAmount = $this->liquidationData?->cashReturn?->amount_returned ?? 0;
+            $this->crsAmount = number_format($this->liquidationData?->cashReturn?->amount_returned ?? 0, 2);
             $this->checkData = AcknowledgementReceiptService::eventCheckData( $id, Auth::user()->branch_id);
             $this->checkNumber = $this->checkData?->check_number ?? '';
             $this->approvedBudget = number_format($this->checkData->check_amount ?? 0,2);
@@ -92,7 +93,7 @@ new class extends Component
             $this->addedFundTotal = $this->fundLists->sum('amount');
             $this->withdrawalTotal = ItemWithdrawalService::getEventWithdrawalTotal($id, Auth::user()->branch_id);
             $receivingAttachment= PurchaseOrderService::getEventReceivingAttachments($id, Auth::user()->branch_id);
-            $this->liquidationTotalAmount = ($this->checkData?->check_amount ?? 0) - $this->receiveOrderTotal;
+            $this->liquidationTotalAmount = ($this->checkData?->check_amount ?? 0 ) + $this->addedFundTotal - $this->receiveOrderTotal;
             $this->eventExpenseTotalAmount = $this->liquidationTotalAmount - $this->withdrawalTotal;
             $this->notes = $this->liquidationData->note;
             if($this->liquidationData->status == 'DRAFT'){
@@ -339,8 +340,8 @@ new class extends Component
                     <x-ts-currency mutate symbol currency label="INCURRED TOTAL" wire:model="pcvTotalMutate" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
-                    <x-ts-input label="CRS No̱." readonly />
-                    <x-ts-input label="CASH RETURN" readonly/>
+                    <x-ts-input label="CRS No̱." readonly wire:model="crsNumber"/>
+                    <x-ts-currency mutate symbol currency label="CASH RETURN" wire:model="crsAmount" readonly/>
                 </div>
                 <div class="grid gap-3 p-2">
                     <x-ts-input label="RMB No̱." readonly/>
@@ -688,59 +689,59 @@ new class extends Component
                 <div class="grid gap-2 p-3">
                     <x-ts-upload label="Receiving Attachments" multiple static wire:model="photos" :placeholder="count($photos) . ' attached'" />
                     <div class="space-y-6">
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-12">
-        
-        <!-- Financial Summary Card (Takes up 7 cols on medium screens) -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden md:col-span-7">
-            <div class="flex items-center  px-5 py-4 bg-gray-50/75 border-b border-gray-200">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">Financial Summary</h3>
-                
-            </div>
+                        <div class="grid grid-cols-1 gap-6 md:grid-cols-12">
+                            
+                            <!-- Financial Summary Card (Takes up 7 cols on medium screens) -->
+                            <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden md:col-span-7">
+                                <div class="flex items-center  px-5 py-4 bg-gray-50/75 border-b border-gray-200">
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">Financial Summary</h3>
+                                    
+                                </div>
 
-            <ul class="divide-y divide-gray-100 text-sm">
-                <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <span class="text-gray-600 font-medium">Petty Cash Voucher</span>
-                    <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($pcvTotal, 2) }}</span>
-                </li>
-                <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <span class="text-gray-600 font-medium">Purchase Order</span>
-                    <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($purchaseOrderTotal, 2) }}</span>
-                </li>
-                <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <span class="text-gray-600 font-medium">Purchase Received</span>
-                    <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($receiveOrderTotal, 2) }}</span>
-                </li>
-                <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <span class="text-gray-600 font-medium">Withdrawal</span>
-                    <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($withdrawalTotal, 2) }}</span>
-                </li>
-                <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <span class="text-gray-600 font-medium">Added Funds</span>
-                    <span class="font-semibold tabular-nums text-emerald-600">+ ₱ {{ number_format($addedFundTotal, 2) }}</span>
-                </li>
-            </ul>
-        </div>
+                                <ul class="divide-y divide-gray-100 text-sm">
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Petty Cash Voucher</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($pcvTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Purchase Order</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($purchaseOrderTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Purchase Received</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($receiveOrderTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Withdrawal</span>
+                                        <span class="font-semibold tabular-nums text-gray-900">₱ {{ number_format($withdrawalTotal, 2) }}</span>
+                                    </li>
+                                    <li class="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                                        <span class="text-gray-600 font-medium">Added Funds</span>
+                                        <span class="font-semibold tabular-nums text-emerald-600">+ ₱ {{ number_format($addedFundTotal, 2) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
 
-        <!-- KPI / Total Liquidation Card (Takes up 5 cols on medium screens) -->
-        <div class="flex flex-col justify-between rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 p-6 shadow-sm md:col-span-5">
-            <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Total Overview</span>
-                <h4 class="text-base font-semibold text-gray-900 mt-1">Liquidation Total Amount</h4>
-            </div>
-            
-            <div class="my-6">
-                <span class="text-3xl font-extrabold tracking-tight tabular-nums text-gray-900">
-                    ₱ {{ number_format($liquidationTotalAmount, 2) }}
-                </span>
-            </div>
+                            <!-- KPI / Total Liquidation Card (Takes up 5 cols on medium screens) -->
+                            <div class="flex flex-col justify-between rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 p-6 shadow-sm md:col-span-5">
+                                <div>
+                                    <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Total Overview</span>
+                                    <h4 class="text-base font-semibold text-gray-900 mt-1">Liquidation Total Amount</h4>
+                                </div>
+                                
+                                <div class="my-6">
+                                    <span class="text-3xl font-extrabold tracking-tight tabular-nums text-gray-900">
+                                        ₱ {{ number_format($liquidationTotalAmount, 2) }}
+                                    </span>
+                                </div>
 
-            <p class="text-xs text-gray-500">
-                (Approved Budget - Purchase Received).
-            </p>
-        </div>
+                                <p class="text-xs text-gray-500">
+                                    (Approved Budget + Added Funds) - Purchase Received.
+                                </p>
+                            </div>
 
-    </div>
-</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="grid gap-2 p-3">
                     <div class="grid grid-cols-1 gap-2">
