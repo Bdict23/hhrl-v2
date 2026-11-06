@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
@@ -9,8 +10,11 @@ use App\Models\DataManagement\Recipe;
 use App\Models\DataManagement\Category;
 use App\Models\DataManagement\Price;
 use App\Models\Business\Employee;
+use App\Models\Restaurant\RecipePackage;
 use App\Services\DataManagement\UnitConversionService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Validation\ValidationException;
 
 new class extends Component
 {
@@ -18,6 +22,7 @@ new class extends Component
     use WithPagination;
     use Interactions;
 
+    #[Locked]
     public int $recipeId;
     public ?Recipe $recipeModel = null;
 
@@ -33,15 +38,24 @@ new class extends Component
     public $existing_image;
     public $reviewer_id;
     public $approver_id;
+    #[Locked]
     public $status;
+    public $packageList = [];
+    #[Locked]
     public bool $isApprovedLocked = false;
     public float $laborCostPercent = 0.0;
+    public $tab = 'INGREDIENTS';
+    public array $selectedRecipeIds = [];
+    public array $packageQuantities = [];
+    public string $recipeSearch = '';
+    public string $recipeTypeFilter = '';
 
     // Ingredients list
     public array $ingredients = [];
 
     // Modal state for multi-item selection
     public bool $itemPickerModal = false;
+    public bool $recipePickerModal = false;
     public string $itemSearch = '';
     public $itemCategoryFilter = null;
     public array $selectedItemIds = [];
@@ -62,6 +76,10 @@ new class extends Component
             'ingredients.*.item_id' => 'required|exists:items,id',
             'ingredients.*.qty'     => 'required|numeric|min:0.0001',
             'ingredients.*.uom_id'  => 'required',
+            'selectedRecipeIds' => 'array',
+            'selectedRecipeIds.*' => 'required|integer|distinct',
+            'packageQuantities' => 'array',
+            'packageQuantities.*' => 'numeric|gt:0',
         ];
     }
 
@@ -83,6 +101,15 @@ new class extends Component
         $this->approver_id      = $recipe->approver_id;
         $this->status           = $recipe->status;
         $this->laborCostPercent = $conversionService->getLaborCostPercentage();
+        $this->packageList = $recipe->packages()->with('recipe')->orderBy('id')->get()->map(fn (RecipePackage $package): array => [
+            'recipe_id' => $package->recipe_id,
+            'menu_code' => $package->recipe?->menu_code ?? 'N/A',
+            'menu_name' => $package->recipe?->menu_name ?? 'Recipe unavailable',
+            'recipe_type' => $package->recipe?->recipe_type ?? 'N/A',
+            'quantity' => (float) $package->quantity,
+        ])->all();
+        $this->selectedRecipeIds = array_column($this->packageList, 'recipe_id');
+        $this->packageQuantities = array_column($this->packageList, 'quantity', 'recipe_id');
 
         // Restriction: if approved (AVAILABLE), lock editing unless user explicitly unlocks or requests revision
         if ($recipe->status === 'AVAILABLE') {
@@ -163,6 +190,35 @@ new class extends Component
         $this->resetPage('pickerPage');
     }
 
+    public function updatingRecipeSearch(): void
+    {
+        $this->resetPage('recipePickerPage');
+    }
+
+    public function updatingRecipeTypeFilter(): void
+    {
+        $this->resetPage('recipePickerPage');
+    }
+
+    public function updatedRecipeType(): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->selectedRecipeIds = [];
+            $this->packageQuantities = [];
+            $this->packageList = [];
+        }
+    }
+
+    public function updatedSelectedRecipeIds(): void
+    {
+        $selectedIds = array_map('strval', $this->selectedRecipeIds);
+        $this->packageQuantities = array_filter(
+            $this->packageQuantities,
+            fn ($quantity, $recipeId): bool => in_array((string) $recipeId, $selectedIds, true),
+            ARRAY_FILTER_USE_BOTH
+        );
+    }
+
     public function openItemPicker(): void
     {
         if ($this->isApprovedLocked) {
@@ -172,6 +228,124 @@ new class extends Component
         $this->selectedItemIds = array_column($this->ingredients, 'item_id');
         $this->resetPage('pickerPage');
         $this->itemPickerModal = true;
+    }
+
+    public function openRecipePicker(): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->banner()->warning('Recipe packages can only be added to banquet recipes.')->send();
+            return;
+        }
+
+        if (!$this->canEditPackageRecipes()) {
+            $this->banner()->warning('This recipe is approved and locked for editing. Unlock it to make changes.')->send();
+            return;
+        }
+
+        $this->resetPage('recipePickerPage');
+        $this->recipePickerModal = true;
+    }
+
+    public function addSelectedRecipes(): void
+    {
+        if (!$this->canEditPackageRecipes()) {
+            $this->banner()->warning('Recipe packages can only be changed on an unlocked banquet recipe.')->send();
+            return;
+        }
+
+        $this->validate([
+            'selectedRecipeIds' => 'array',
+            'selectedRecipeIds.*' => 'required|integer|distinct',
+            'packageQuantities' => 'array',
+            'packageQuantities.*' => 'numeric|gt:0',
+        ]);
+
+        $recipes = $this->resolvePackageRecipes();
+        $this->packageList = $this->formatPackageRecipes($recipes);
+        $this->recipePickerModal = false;
+    }
+
+    public function removePackageRecipe(int $recipeId): void
+    {
+        if (!$this->canEditPackageRecipes()) {
+            $this->banner()->warning('Unlock this banquet recipe before changing its package recipes.')->send();
+            return;
+        }
+
+        $this->selectedRecipeIds = array_values(array_filter(
+            $this->selectedRecipeIds,
+            fn ($selectedId): bool => (int) $selectedId !== $recipeId
+        ));
+        unset($this->packageQuantities[$recipeId]);
+        $this->packageList = array_values(array_filter(
+            $this->packageList,
+            fn (array $package): bool => (int) $package['recipe_id'] !== $recipeId
+        ));
+    }
+
+    private function canEditPackageRecipes(): bool
+    {
+        return $this->recipe_type === 'Banquet' && $this->canEditRecipe();
+    }
+
+    private function canEditRecipe(): bool
+    {
+        if ($this->isApprovedLocked) {
+            return false;
+        }
+        $currentStatus = Recipe::query()->whereKey($this->recipeId)->value('status');
+
+        return $currentStatus !== 'AVAILABLE' || $this->status === 'FOR REVIEW';
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function resolvePackageRecipes(): Collection
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            return new Collection();
+        }
+
+        $recipeIds = array_map('intval', $this->selectedRecipeIds);
+        if (count(array_unique($recipeIds)) !== count($recipeIds)) {
+            throw ValidationException::withMessages([
+                'selectedRecipeIds' => 'A recipe can only be added to a package once.',
+            ]);
+        }
+
+        $companyId = $this->recipeModel?->company_id ?? auth()->user()?->branch?->company_id;
+        $existingRecipeIds = $this->recipeModel?->packages()->pluck('recipe_id')->all() ?? [];
+        $recipes = Recipe::query()
+            ->whereIn('id', $recipeIds)
+            ->where(function ($query) use ($existingRecipeIds): void {
+                $query->where('status', 'AVAILABLE')
+                    ->when($existingRecipeIds !== [], fn ($existingQuery) => $existingQuery->orWhereIn('id', $existingRecipeIds));
+            })
+            ->where('id', '!=', $this->recipeId)
+            ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+            ->orderBy('menu_name')
+            ->orderBy('id')
+            ->get();
+
+        if ($recipes->count() !== count($recipeIds)) {
+            throw ValidationException::withMessages([
+                'selectedRecipeIds' => 'Select only active recipes from your company.',
+            ]);
+        }
+
+        return $recipes;
+    }
+
+    private function formatPackageRecipes(Collection $recipes): array
+    {
+        return $recipes->map(fn (Recipe $recipe): array => [
+            'recipe_id' => $recipe->id,
+            'menu_code' => $recipe->menu_code,
+            'menu_name' => $recipe->menu_name,
+            'recipe_type' => $recipe->recipe_type,
+            'quantity' => (float) ($this->packageQuantities[$recipe->id] ?? 1),
+        ])->values()->all();
     }
 
     public function addSelectedItems(UnitConversionService $conversionService): void
@@ -318,15 +492,16 @@ new class extends Component
 
     public function updateRecipe(?string $targetStatus = null): void
     {
-        if ($this->isApprovedLocked) {
+        if (!$this->canEditRecipe()) {
             $this->banner()->warning('Cannot save: This recipe is locked. Unlock it for revision first.')->send();
             return;
         }
 
         $this->validate();
+        $packageRecipes = $this->resolvePackageRecipes();
 
         try {
-            DB::transaction(function () use ($targetStatus) {
+            DB::transaction(function () use ($targetStatus, $packageRecipes) {
                 $recipe = Recipe::findOrFail($this->recipeId);
 
                 $imagePath = $this->existing_image;
@@ -343,6 +518,7 @@ new class extends Component
                     'category_id'       => $this->category_id,
                     'recipe_type'       => $this->recipe_type,
                     'menu_type'         => $this->recipe_type === 'Banquet' ? 'Banquet' : 'Ala Carte',
+                    'is_package'        => $this->recipe_type === 'Banquet' && $packageRecipes->isNotEmpty(),
                     'menu_description'  => $this->menu_description,
                     'menu_image'        => $imagePath,
                     'serving_size'      => $this->serving_size,
@@ -362,6 +538,15 @@ new class extends Component
                         'cost'           => $row['line_cost'],
                         'uom_id'         => $row['uom_id'],
                         'price_level_id' => $item?->cost?->id,
+                    ]);
+                }
+
+                $recipe->packages()->delete();
+                foreach ($packageRecipes as $packageRecipe) {
+                    RecipePackage::query()->create([
+                        'recipe_id' => $packageRecipe->id,
+                        'package_id' => $recipe->id,
+                        'quantity' => (float) ($this->packageQuantities[$packageRecipe->id] ?? 1),
                     ]);
                 }
 
@@ -395,13 +580,14 @@ new class extends Component
             $this->redirect(route('restaurant.recipe-summary'), navigate: true);
 
         } catch (\Throwable $e) {
-            $this->banner()->error('Error updating recipe: ' . $e->getMessage())->send();
+            report($e);
+            $this->banner()->error('Unable to save the recipe. Please try again or contact support if the problem continues.')->send();
         }
     }
 
     public function with(): array
     {
-        $companyId = auth()->user()?->branch?->company_id;
+        $companyId = $this->recipeModel?->company_id ?? auth()->user()?->branch?->company_id;
 
         return [
             'categories' => Category::where('category_type', 'MENU')
@@ -417,6 +603,18 @@ new class extends Component
                 }))
                 ->when($this->itemCategoryFilter, fn($q) => $q->where('category_id', $this->itemCategoryFilter))
                 ->paginate(10, pageName: 'pickerPage'),
+            'pickerRecipes' => Recipe::query()
+                ->where('status', 'AVAILABLE')
+                ->where('id', '!=', $this->recipeId)
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+                ->when($this->recipeTypeFilter !== '', fn ($query) => $query->where('recipe_type', $this->recipeTypeFilter))
+                ->when($this->recipeSearch !== '', fn ($query) => $query->where(function ($subQuery) {
+                    $subQuery->where('menu_name', 'like', "%{$this->recipeSearch}%")
+                        ->orWhere('menu_code', 'like', "%{$this->recipeSearch}%");
+                }))
+                ->orderBy('menu_name')
+                ->orderBy('id')
+                ->paginate(10, pageName: 'recipePickerPage'),
         ];
     }
 };
@@ -424,6 +622,17 @@ new class extends Component
 
 <div class="mb-12 space-y-6">
     <x-ts-banner wire close />
+
+    @if ($errors->any())
+        <div role="alert" aria-live="polite" class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+            <p class="mb-2 text-sm font-semibold text-red-800 dark:text-red-200">Please correct the following before saving:</p>
+            <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
+                @foreach ($errors->all() as $error)
+                    <li wire:key="recipe-edit-error-{{ $loop->index }}">{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <!-- Navigation Breadcrumbs -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -504,107 +713,174 @@ new class extends Component
             </x-ts-card>
 
             <!-- Ingredients Table Card -->
-            <x-ts-card>
-                <x-slot:header>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Recipe Ingredients</h2>
-                            <p class="text-xs text-gray-500">Formulated ingredient portions with real-time UOM unit cost conversions.</p>
+            <x-ts-tab wire:model="tab" class="mt-6">
+                <x-ts-tab.items tab="INGREDIENTS">
+                <x-ts-card>
+                    <x-slot:header>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Recipe Ingredients</h2>
+                                <p class="text-xs text-gray-500">Formulated ingredient portions with real-time UOM unit cost conversions.</p>
+                            </div>
+                            @if(!$isApprovedLocked)
+                                <x-ts-button wire:click="openItemPicker" icon="plus" color="emerald" sm>
+                                    Add Ingredients
+                                </x-ts-button>
+                            @endif
                         </div>
-                        @if(!$isApprovedLocked)
-                            <x-ts-button wire:click="openItemPicker" icon="plus" color="emerald" sm>
-                                Add Ingredients
-                            </x-ts-button>
-                        @endif
-                    </div>
-                </x-slot:header>
+                    </x-slot:header>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
-                            <tr>
-                                <th class="py-3 px-3">Item</th>
-                                <th class="py-3 px-2">Package Reference</th>
-                                <th class="py-3 px-2 w-32">Portion Qty</th>
-                                <th class="py-3 px-2 w-44">Recipe Unit</th>
-                                <th class="py-3 px-3 min-w-44">Base Eqv. (Fixed Unit)</th>
-                                <th class="py-3 px-3 text-right">Line Cost</th>
-                                <th class="py-3 px-2 text-center w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach($ingredients as $index => $row)
-                                <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors" wire:key="edit-ing-{{ $row['item_id'] }}">
-                                    <!-- Item details -->
-                                    <td class="py-3 px-3">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100 block">{{ $row['item_description'] }}</span>
-                                        <span class="font-mono text-xs text-gray-400">{{ $row['item_code'] }}</span>
-                                    </td>
-
-                                    <!-- Packaging & Base Cost info -->
-                                    <td class="py-3 px-2 text-xs text-gray-500">
-                                        <span class="block text-gray-700 dark:text-gray-300 font-medium">
-                                            {{ $row['package_value'] }} {{ $row['base_symbol'] }}
-                                        </span>
-                                        <span>@ ₱ {{ number_format($row['package_cost'], 2) }}</span>
-                                    </td>
-
-                                    <!-- Quantity Input -->
-                                    <td class="py-3 px-2">
-                                        <input type="number" step="any" min="0" 
-                                               @disabled($isApprovedLocked)
-                                               wire:model.live.debounce.150ms="ingredients.{{ $index }}.qty" 
-                                               class="w-full text-right text-sm font-semibold rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 disabled:bg-gray-100 disabled:opacity-75 focus:ring-emerald-500 focus:border-emerald-500 py-1.5 px-2.5 shadow-sm" 
-                                               placeholder="0.00" />
-                                    </td>
-
-                                    <!-- Unit Dropdown -->
-                                    <td class="py-3 px-2">
-                                        <select wire:model.live="ingredients.{{ $index }}.uom_id" 
-                                                @disabled($isApprovedLocked)
-                                                class="w-full text-xs font-medium rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 disabled:bg-gray-100 disabled:opacity-75 py-1.5 px-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
-                                            @foreach($row['available_units'] as $unit)
-                                                <option value="{{ $unit['id'] }}">{{ $unit['label'] }}</option>
-                                            @endforeach
-                                        </select>
-                                    </td>
-
-                                    <!-- Base Equivalent with Fixed Base Symbol -->
-                                    <td class="py-3 px-3">
-                                        <div class="flex items-center">
-                                            <span class="font-bold text-gray-900 dark:text-gray-100 text-sm font-mono">
-                                                {{ number_format((float)$row['qty_in_base'], 4) }}
-                                            </span>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 ml-1.5 shadow-xs">
-                                                {{ $row['base_symbol'] }}
-                                            </span>
-                                        </div>
-                                        <div class="text-[11px] text-gray-400 mt-0.5 font-medium">
-                                            {{ (float)$row['qty'] }} {{ $row['uom_symbol'] ?? '' }} &rarr; {{ number_format((float)$row['qty_in_base'], 4) }} {{ $row['base_symbol'] }}
-                                        </div>
-                                    </td>
-
-                                    <!-- Computed Line Cost -->
-                                    <td class="py-3 px-3 text-right">
-                                        <span class="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                                            ₱ {{ number_format((float)$row['line_cost'], 2) }}
-                                        </span>
-                                    </td>
-
-                                    <!-- Delete action -->
-                                    <td class="py-3 px-2 text-center">
-                                        @if(!$isApprovedLocked)
-                                            <button type="button" wire:click="removeIngredient({{ $index }})" class="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors" title="Remove ingredient">
-                                                <x-ts-icon name="trash" class="w-4 h-4" />
-                                            </button>
-                                        @endif
-                                    </td>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                                <tr>
+                                    <th class="py-3 px-3">Item</th>
+                                    <th class="py-3 px-2">Package Reference</th>
+                                    <th class="py-3 px-2 w-32">Portion Qty</th>
+                                    <th class="py-3 px-2 w-44">Recipe Unit</th>
+                                    <th class="py-3 px-3 min-w-44">Base Eqv. (Fixed Unit)</th>
+                                    <th class="py-3 px-3 text-right">Line Cost</th>
+                                    <th class="py-3 px-2 text-center w-10"></th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </x-ts-card>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach($ingredients as $index => $row)
+                                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors" wire:key="edit-ing-{{ $row['item_id'] }}">
+                                        <!-- Item details -->
+                                        <td class="py-3 px-3">
+                                            <span class="font-medium text-gray-900 dark:text-gray-100 block">{{ $row['item_description'] }}</span>
+                                            <span class="font-mono text-xs text-gray-400">{{ $row['item_code'] }}</span>
+                                        </td>
+
+                                        <!-- Packaging & Base Cost info -->
+                                        <td class="py-3 px-2 text-xs text-gray-500">
+                                            <span class="block text-gray-700 dark:text-gray-300 font-medium">
+                                                {{ $row['package_value'] }} {{ $row['base_symbol'] }}
+                                            </span>
+                                            <span>@ ₱ {{ number_format($row['package_cost'], 2) }}</span>
+                                        </td>
+
+                                        <!-- Quantity Input -->
+                                        <td class="py-3 px-2">
+                                            <input type="number" step="any" min="0"
+                                                @disabled($isApprovedLocked)
+                                                wire:model.live.debounce.150ms="ingredients.{{ $index }}.qty"
+                                                class="w-full text-right text-sm font-semibold rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 disabled:bg-gray-100 disabled:opacity-75 focus:ring-emerald-500 focus:border-emerald-500 py-1.5 px-2.5 shadow-sm"
+                                                placeholder="0.00" />
+                                        </td>
+
+                                        <!-- Unit Dropdown -->
+                                        <td class="py-3 px-2">
+                                            <select wire:model.live="ingredients.{{ $index }}.uom_id"
+                                                    @disabled($isApprovedLocked)
+                                                    class="w-full text-xs font-medium rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 disabled:bg-gray-100 disabled:opacity-75 py-1.5 px-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm">
+                                                @foreach($row['available_units'] as $unit)
+                                                    <option value="{{ $unit['id'] }}">{{ $unit['label'] }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+
+                                        <!-- Base Equivalent with Fixed Base Symbol -->
+                                        <td class="py-3 px-3">
+                                            <div class="flex items-center">
+                                                <span class="font-bold text-gray-900 dark:text-gray-100 text-sm font-mono">
+                                                    {{ number_format((float)$row['qty_in_base'], 4) }}
+                                                </span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 ml-1.5 shadow-xs">
+                                                    {{ $row['base_symbol'] }}
+                                                </span>
+                                            </div>
+                                            <div class="text-[11px] text-gray-400 mt-0.5 font-medium">
+                                                {{ (float)$row['qty'] }} {{ $row['uom_symbol'] ?? '' }} &rarr; {{ number_format((float)$row['qty_in_base'], 4) }} {{ $row['base_symbol'] }}
+                                            </div>
+                                        </td>
+
+                                        <!-- Computed Line Cost -->
+                                        <td class="py-3 px-3 text-right">
+                                            <span class="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                                                ₱ {{ number_format((float)$row['line_cost'], 2) }}
+                                            </span>
+                                        </td>
+
+                                        <!-- Delete action -->
+                                        <td class="py-3 px-2 text-center">
+                                            @if(!$isApprovedLocked)
+                                                <button type="button" wire:click="removeIngredient({{ $index }})" class="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors" title="Remove ingredient">
+                                                    <x-ts-icon name="trash" class="w-4 h-4" />
+                                                </button>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </x-ts-card>
+                </x-ts-tab.items>
+                 @if($recipe_type === 'Banquet')
+                    <x-ts-tab.items tab="PACKAGE RECIPES">
+                        <x-ts-card>
+                            <x-slot:header>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Recipes in this banquet package</h2>
+                                        <p class="text-xs text-gray-500">Only active recipes can be added. Save the recipe to persist package changes.</p>
+                                    </div>
+                                    @if(!$isApprovedLocked && $status !== 'AVAILABLE')
+                                        <x-ts-button wire:click="openRecipePicker" icon="plus" color="emerald" sm>
+                                            Add Recipes
+                                        </x-ts-button>
+                                    @endif
+                                </div>
+                            </x-slot:header>
+
+                            @if(count($packageList))
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                            <tr>
+                                                <th class="py-3 px-3">Recipe Code</th>
+                                                <th class="py-3 px-3">Recipe Name</th>
+                                                <th class="py-3 px-3">Type</th>
+                                                <th class="py-3 px-3 text-right">Quantity</th>
+                                                @if(!$isApprovedLocked && $status !== 'AVAILABLE')
+                                                    <th class="py-3 px-3 text-right">Action</th>
+                                                @endif
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                            @foreach($packageList as $package)
+                                                <tr wire:key="package-recipe-{{ $package['recipe_id'] }}">
+                                                    <td class="py-3 px-3 font-mono text-xs">{{ $package['menu_code'] }}</td>
+                                                    <td class="py-3 px-3 font-medium">{{ $package['menu_name'] }}</td>
+                                                    <td class="py-3 px-3">{{ $package['recipe_type'] }}</td>
+                                                    <td class="py-3 px-3 text-right">{{ number_format((float) $package['quantity'], 2) }}</td>
+                                                    @if(!$isApprovedLocked && $status !== 'AVAILABLE')
+                                                        <td class="py-3 px-3 text-right">
+                                                            <x-ts-button wire:click="removePackageRecipe({{ $package['recipe_id'] }})" color="rose" sm light>
+                                                                Remove
+                                                            </x-ts-button>
+                                                        </td>
+                                                    @endif
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <p class="py-8 text-center text-sm text-gray-500">No recipes have been added to this package.</p>
+                            @endif
+                            @error('selectedRecipeIds')
+                                <p class="text-sm text-rose-600">{{ $message }}</p>
+                            @enderror
+                            @error('packageQuantities.*')
+                                <p class="text-sm text-rose-600">{{ $message }}</p>
+                            @enderror
+                        </x-ts-card>
+                    </x-ts-tab.items>
+                @endif
+            </x-ts-tab>
+
         </div>
 
         <!-- Right Section: Financial Summary Dashboard -->
@@ -625,7 +901,6 @@ new class extends Component
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-300 block">
                                 Labor Cost ({{ rtrim(rtrim(number_format($this->laborCostPercent, 2), '0'), '.') }}%):
                             </span>
-                            <span class="text-xs text-gray-400">System Parameter (Module 51)</span>
                         </div>
                         <span class="text-base font-semibold text-blue-600 dark:text-blue-400">
                             ₱ {{ number_format($this->laborCostAmount, 2) }}
@@ -808,4 +1083,85 @@ new class extends Component
             <x-ts-button color="emerald" wire:click="addSelectedItems">Add Selected to Recipe</x-ts-button>
         </x-slot:footer>
     </x-ts-modal>
+
+    <x-ts-modal title="Add Recipes to Banquet Package" wire="recipePickerModal" size="5xl" center>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                    <x-ts-input wire:model.live.debounce.300ms="recipeSearch" placeholder="Search recipes by code or name..." icon="magnifying-glass" clearable />
+                </div>
+                <div>
+                    <x-ts-select.native wire:model.live="recipeTypeFilter" :options="[
+                        ['label' => 'All Recipe Types', 'value' => ''],
+                        ['label' => 'Ala carte', 'value' => 'Ala carte'],
+                        ['label' => 'Banquet', 'value' => 'Banquet'],
+                    ]" select="label:label|value:value" />
+                </div>
+            </div>
+
+            <div class="max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-lg">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0 text-xs font-semibold text-gray-500 border-b border-gray-100 dark:border-gray-800">
+                        <tr>
+                            <th class="py-2.5 px-3 w-10">Select</th>
+                            <th class="py-2.5 px-3">Recipe Code</th>
+                            <th class="py-2.5 px-3">Recipe Name</th>
+                            <th class="py-2.5 px-3">Type</th>
+                            <th class="py-2.5 px-3">Status</th>
+                            <th class="py-2.5 px-3 text-right">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse($pickerRecipes as $candidate)
+                            <tr wire:key="recipe-picker-{{ $candidate->id }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                                <td class="py-2.5 px-3">
+                                    <input type="checkbox" wire:model="selectedRecipeIds" value="{{ $candidate->id }}" class="rounded text-emerald-600 focus:ring-emerald-500 border-gray-300" />
+                                </td>
+                                <td class="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-300">{{ $candidate->menu_code }}</td>
+                                <td class="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{{ $candidate->menu_name }}</td>
+                                <td class="py-2.5 px-3 text-xs text-gray-500">{{ $candidate->recipe_type }}</td>
+                                <td class="py-2.5 px-3 text-xs text-emerald-600">{{ $candidate->status }}</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <input type="number" min="0.01" step="0.01"
+                                        wire:model="packageQuantities.{{ $candidate->id }}"
+                                        value="{{ $packageQuantities[$candidate->id] ?? 1 }}"
+                                        class="w-24 rounded-lg border-gray-300 text-right text-sm dark:border-gray-700 dark:bg-gray-800" />
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="py-6 text-center text-xs text-gray-400">
+                                    No active recipes found matching those filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @error('selectedRecipeIds')
+                <p class="text-sm text-rose-600">{{ $message }}</p>
+            @enderror
+            @error('packageQuantities.*')
+                <p class="text-sm text-rose-600">{{ $message }}</p>
+            @enderror
+
+            <!-- Pagination & Selection counter -->
+            <div class="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div class="text-xs text-gray-500">
+                    <span class="font-bold text-emerald-600 dark:text-emerald-400">{{ count($selectedRecipeIds) }}</span> recipe(s) selected across all pages.
+                </div>
+                <div class="w-full sm:w-auto text-xs">
+                    {{ $pickerRecipes->links() }}
+                </div>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <x-ts-button color="secondary" wire:click="$set('recipePickerModal', false)" light>Cancel</x-ts-button>
+            <x-ts-button color="emerald" wire:click="addSelectedRecipes">Save Package Selection</x-ts-button>
+        </x-slot:footer>
+    </x-ts-modal>
+
+
 </div>

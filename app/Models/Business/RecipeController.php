@@ -39,4 +39,12 @@ class RecipeController extends Model
     {
         return $this->hasMany(BranchRecipe::class, 'branch_menu_id');
     }
+    public function preparedBy()
+    {
+        return $this->belongsTo(Employee::class, 'created_by');
+    }
+    public function recipes()
+    {
+        return $this->hasMany(Recipe::class, 'menu_id');
+    }
 }

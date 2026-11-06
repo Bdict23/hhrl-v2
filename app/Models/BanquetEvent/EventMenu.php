@@ -4,9 +4,8 @@ namespace App\Models\BanquetEvent;
 
 use App\Models\DataManagement\Recipe;
 use App\Models\DataManagement\Price;
-
-
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventMenu extends Model
 {
@@ -37,5 +36,10 @@ class EventMenu extends Model
     public function discounts()
     {
         return $this->hasMany(EventDiscount::class, 'event_menu_id');
+    }
+
+    public function packageRecipes(): HasMany
+    {
+        return $this->hasMany(EventMenuPackage::class, 'event_menu_id');
     }
 }

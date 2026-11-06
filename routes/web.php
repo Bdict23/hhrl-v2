@@ -52,6 +52,11 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/restaurant/recipe-create', 'restaurant.recipe.recipe-create')->name('restaurant.recipe-create');
     Volt::route('/restaurant/recipe-edit/{id}', 'restaurant.recipe.recipe-edit')->name('restaurant.recipe-edit');
     Volt::route('/restaurant/recipe-view/{id}', 'restaurant.recipe.recipe-view')->name('restaurant.recipe-view');
+    // menu controller
+    Volt::route('/restaurant/menu-summary', 'restaurant.menu-controller.menu-controller-summary')->name('restaurant.menu-controller-summary');
+    Volt::route('/restaurant/menu-create', 'restaurant.menu-controller.menu-controller-create')->name('restaurant.menu-controller-create');
+    Volt::route('/restaurant/menu-edit/{id}', 'restaurant.menu-controller.menu-controller-edit')->name('restaurant.menu-controller-edit');
+    Volt::route('/restaurant/menu-view/{id}', 'restaurant.menu-controller.menu-controller-view')->name('restaurant.menu-controller-view');
 
     //EVENTS
 

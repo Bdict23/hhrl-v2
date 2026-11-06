@@ -101,6 +101,44 @@
             border-bottom: 1px solid #f1f5f9;
             font-size: 9.5px;
         }
+        .package-row {
+            page-break-inside: avoid;
+        }
+        .package-content {
+            border-left: 2px solid #334155;
+            background: #f8fafc;
+            padding: 5px 8px;
+        }
+        .package-heading {
+            width: 100%;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 4px;
+            padding-bottom: 3px;
+            color: #1e293b;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .package-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5px;
+        }
+        .package-table th {
+            padding: 3px 4px;
+            border-bottom: 1px solid #cbd5e1;
+            color: #64748b;
+            font-size: 7.5px;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        .package-table td {
+            padding: 3px 4px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 8.5px;
+            vertical-align: top;
+        }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .summary-table {
@@ -231,6 +269,42 @@
                         <td class="text-right">{{ $menuItem->qty }}</td>
                         <td class="text-right" style="font-weight: bold;">P{{ number_format((float) $menuItem->total_amount, 2) }}</td>
                     </tr>
+                    @if($menuItem->packageRecipes->isNotEmpty())
+                        <tr class="package-row">
+                            <td colspan="6" style="padding: 2px 6px 7px;">
+                                <div class="package-content">
+                                    <table class="package-heading" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td>Included in: {{ $menuItem->recipe?->menu_name ?? 'Banquet recipe' }}</td>
+                                            <td style="text-align: right; color: #64748b;">Package recipes</td>
+                                        </tr>
+                                    </table>
+                                    <table class="package-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Recipe name</th>
+                                            <th>Description</th>
+                                            <th style="text-align: right;">Qty</th>
+                                            <th>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($menuItem->packageRecipes as $package)
+                                            <tr>
+                                                <td>{{ $package->package_code }}</td>
+                                                <td style="font-weight: bold;">{{ $package->package_name }}</td>
+                                                <td>{{ $package->description ?: '—' }}</td>
+                                                <td style="text-align: right;">{{ number_format((float) $package->quantity, 2) }}</td>
+                                                <td>{{ $package->note ?: '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                    @endif
                 @endforeach
             </tbody>
         </table>

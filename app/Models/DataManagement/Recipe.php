@@ -3,9 +3,9 @@
 namespace App\Models\DataManagement;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\DataManagement\Price;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
-
+use App\Models\Restaurant\RecipePackage;
 use App\Models\Business\Employee;
 
 class Recipe extends Model
@@ -19,9 +19,10 @@ class Recipe extends Model
         'created_by',
         'reviewer_id',
         'approver_id',
-        'approved_by', //added -ag 
+        'approved_by', //added -ag
         'company_id',
         'menu_code',
+        'menu_type',
         'recipe_type',
         // added -ag
         'menu_description',
@@ -30,6 +31,7 @@ class Recipe extends Model
         'reviewed_date',
         'approved_date',
         'rejected_date',
+        'is_package',
     ];
 
     //added all function on -ag
@@ -88,6 +90,11 @@ class Recipe extends Model
             ->orderBy('created_at', 'asc');
     }
 
+    public function packages(): HasMany
+    {
+        return $this->hasMany(RecipePackage::class, 'package_id');
+    }
+
     /**
      * Calculate live current market cost based on latest PO ingredient prices.
      */
@@ -105,4 +112,3 @@ class Recipe extends Model
         return app(\App\Services\DataManagement\UnitConversionService::class)->calculateRecipeLiveMetrics($this);
     }
 }
-

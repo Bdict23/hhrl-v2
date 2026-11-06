@@ -13,6 +13,7 @@ new class extends Component
 
     public int $recipeId;
     public ?Recipe $recipe = null;
+    public string $tab = 'INGREDIENTS';
 
     public function mount(int $id): void
     {
@@ -32,6 +33,7 @@ new class extends Component
             'reviewer',
             'approver',
             'approvedByEmployee',
+            'packages.recipe',
         ])->findOrFail($this->recipeId);
     }
 
@@ -351,7 +353,9 @@ new class extends Component
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <!-- Ingredients Section -->
         <div class="lg:col-span-2 space-y-6">
-            <x-ts-card header="Recipe Ingredients Breakdown">
+            <x-ts-tab wire:model="tab" class="mt-6">
+                <x-ts-tab.items tab="INGREDIENTS">
+                <x-ts-card header="Recipe Ingredients Breakdown">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-900 text-xs font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
@@ -444,7 +448,60 @@ new class extends Component
                         </tfoot>
                     </table>
                 </div>
-            </x-ts-card>
+                </x-ts-card>
+                </x-ts-tab.items>
+
+                @if($recipe->recipe_type === 'Banquet' || $recipe->packages->isNotEmpty())
+                    <x-ts-tab.items tab="PACKAGE RECIPES">
+                        <x-ts-card header="Recipes in this Package">
+                            @if($recipe->packages->isNotEmpty())
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900 text-xs font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                                            <tr>
+                                                <th class="py-3 px-3">Recipe Code</th>
+                                                <th class="py-3 px-3">Recipe Name</th>
+                                                <th class="py-3 px-3">Recipe Type</th>
+                                                <th class="py-3 px-3 text-right">Quantity</th>
+                                                <th class="py-3 px-3 text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                            @foreach($recipe->packages as $package)
+                                                <tr wire:key="view-package-recipe-{{ $package->id }}">
+                                                    <td class="py-3 px-3 font-mono text-xs text-gray-600 dark:text-gray-300">
+                                                        {{ $package->recipe?->menu_code ?? 'N/A' }}
+                                                    </td>
+                                                    <td class="py-3 px-3 font-medium text-gray-900 dark:text-gray-100">
+                                                        {{ $package->recipe?->menu_name ?? 'Recipe unavailable' }}
+                                                    </td>
+                                                    <td class="py-3 px-3 text-gray-600 dark:text-gray-400">
+                                                        {{ $package->recipe?->recipe_type ?? 'N/A' }}
+                                                    </td>
+                                                    <td class="py-3 px-3 text-right font-mono">
+                                                        {{ number_format((float) $package->quantity, 2) }}
+                                                    </td>
+                                                    <td class="py-3 px-3 text-right">
+                                                        @if($package->recipe)
+                                                            <x-ts-button href="{{ route('restaurant.recipe-view', ['id' => $package->recipe->id]) }}" color="slate" light sm navigate>
+                                                                View Recipe
+                                                            </x-ts-button>
+                                                        @else
+                                                            <span class="text-xs text-gray-400">Unavailable</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <p class="py-8 text-center text-sm text-gray-500">No recipes have been added to this package.</p>
+                            @endif
+                        </x-ts-card>
+                    </x-ts-tab.items>
+                @endif
+            </x-ts-tab>
 
             @if($recipe->menu_description)
                 <x-ts-card header="Preparation & Cooking Notes">

@@ -284,7 +284,7 @@ new class extends Component
                         'menu_image'            => $item->recipe?->menu_image,
                         'menu_name'             => $item->recipe->menu_name ?? '',
                         'category'              => $item->recipe->category->category_name ?? '',
-                        'price_id'              => $item->recipe->rate?->id ?? null,
+                        'price_id'              => $item->rate?->id ?? null,
                         'rate'                  => $item->recipe->rate?->amount ?? 0,
                         'quantity'              => 1,
                         'sub_total'             => $item->recipe->rate?->amount ?? 0 * 1,
@@ -362,7 +362,11 @@ new class extends Component
     }
     public function fetchData()
     {
-        $event = Event::findOrFail($this->event_id);
+        $event = Event::with([
+            'menus.recipe.category',
+            'menus.rate',
+            'menus.packageRecipes',
+        ])->findOrFail($this->event_id);
         if($event)
         {
             $this->reference = $event->reference;
@@ -414,14 +418,22 @@ new class extends Component
                 foreach ($event->menus as $item) {
                     $this->selectedFoodRows[] = [
                         'id'                    => $item->menu_id,
+                        'recipe_type'           => $item->recipe?->recipe_type ?? '',
                         'menu_image'            => $item->recipe?->menu_image,
-                        'menu_name'             => $item->recipe->menu_name ?? '',
-                        'category'              => $item->recipe->category->category_name ?? '',
+                        'menu_name'             => $item->recipe?->menu_name ?? '',
+                        'category'              => $item->recipe?->category?->category_name ?? '',
                         'price_id'              => $item->recipe->rate?->id ?? null,
                         'rate'                  => $item->rate?->amount ?? 0,
                         'quantity'              => $item->qty,
                         'sub_total'             => $item->qty * $item->rate?->amount ?? 0,
                         'note'                  => $item->note ?? '',
+                        'package_recipes'       => $item->packageRecipes->map(static fn ($package): array => [
+                            'code' => $package->package_code,
+                            'name' => $package->package_name,
+                            'description' => $package->description ?? '',
+                            'quantity' => (float) $package->quantity,
+                            'note' => $package->note ?? '',
+                        ])->all(),
                     ];
                 }
             }
@@ -785,16 +797,47 @@ new class extends Component
                                             </x-ts-button>
                                     @endinteract
                                     @interact('sub_table', $row)
-                                        <x-ts-table :headers="[
-                                            ['index'       => 'description', 'label' => 'add note'],
-                                        ]"
-                                        :rows="[[
-                                            'description' => $row['note'],
-                                        ]]">
-                                            @interact('column_description', $row)
-                                                    <x-ts-textarea maxlength="100" count wire:model="selectedFoodRows.{{ $loop->index }}.note" resize placeholder="Add note here.."/>
-                                            @endinteract
-                                        </x-ts-table>
+                                        <div class="space-y-4">
+                                            @if($row['note'])
+                                                <div>
+                                                    <h4 class="mb-1 font-semibold">Food note</h4>
+                                                    <p class="text-sm text-slate-600">{{ $row['note'] }}</p>
+                                                </div>
+                                            @endif
+                                            @if($row['recipe_type'] === 'Banquet')
+                                                <div>
+                                                    <h4 class="mb-2 font-semibold">Included package recipes</h4>
+                                                    @if($row['package_recipes'] !== [])
+                                                        <div class="overflow-x-auto">
+                                                            <table class="w-full text-sm">
+                                                                <thead>
+                                                                    <tr class="border-b text-left">
+                                                                        <th class="p-2">Code</th>
+                                                                        <th class="p-2">Package name</th>
+                                                                        <th class="p-2">Description</th>
+                                                                        <th class="p-2">Qty</th>
+                                                                        <th class="p-2">Note</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach($row['package_recipes'] as $package)
+                                                                        <tr class="border-b align-top">
+                                                                            <td class="p-2">{{ $package['code'] }}</td>
+                                                                            <td class="p-2">{{ $package['name'] }}</td>
+                                                                            <td class="p-2">{{ $package['description'] }}</td>
+                                                                            <td class="p-2">{{ number_format($package['quantity'], 2) }}</td>
+                                                                            <td class="p-2">{{ $package['note'] }}</td>
+                                                                        </tr>
+                                                                    @endforeach
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    @else
+                                                        <p class="text-sm text-slate-500">No package recipes selected.</p>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </div>
                                     @endinteract
                             
                                 </x-ts-table>

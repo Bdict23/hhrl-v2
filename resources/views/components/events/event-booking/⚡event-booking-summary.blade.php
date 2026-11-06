@@ -43,6 +43,7 @@ new class extends Component
         $event = Event::with([
             'customer',
             'menus.recipe.category',
+            'menus.packageRecipes',
             'menus.rate',
             'menus.price',
             'services.service',
@@ -236,7 +237,9 @@ new class extends Component
                 ['index' => 'total_amount', 'label' => 'total' , 'sortable' => false],
             ],
             'eventFood' => $this->selectedEventId
-                ? Event::findOrFail($this->selectedEventId)->menus()->paginate(5, ['*'], 'foodPage')
+                ? Event::findOrFail($this->selectedEventId)->menus()
+                    ->with(['recipe.category', 'price', 'packageRecipes'])
+                    ->paginate(5, ['*'], 'foodPage')
                 : [],
             'eventService' => $this->selectedEventId
                 ? Event::findOrFail($this->selectedEventId)->services()->paginate(5, ['*'], 'servicePage')
@@ -264,6 +267,7 @@ new class extends Component
                 ? Event::with([
                     'customer',
                     'menus.recipe.category',
+                    'menus.packageRecipes',
                     'menus.rate',
                     'services.service',
                     'services.price',
@@ -473,16 +477,45 @@ new class extends Component
                                ₱ {{ number_format($row->total_amount,2) }}
                             @endinteract
                             @interact('sub_table', $row)
-                                    <x-ts-table :headers="[
-                                        ['index' => 'notes', 'label' => 'notes'],
-                                    ]"
-                                    :rows="[[
-                                        'notes'          => $row->note,
-                                    ]]">
-                                    @interact('column_notes', $row)
-                                        <x-ts-textarea value="{{$row['notes']}}" resize readonly/>
-                                    @endinteract
-                                    </x-ts-table>
+                                <div class="space-y-4">
+                                    @if($row->note)
+                                        <div>
+                                            <h4 class="mb-1 font-semibold">Food note</h4>
+                                            <p class="text-sm text-slate-600">{{ $row->note }}</p>
+                                        </div>
+                                    @endif
+                                    @if($row->packageRecipes->isNotEmpty())
+                                        <div>
+                                            <h4 class="mb-2 font-semibold">Included package recipes</h4>
+                                            <div class="overflow-x-auto">
+                                                <table class="w-full text-sm">
+                                                    <thead>
+                                                        <tr class="border-b text-left">
+                                                            <th class="p-2">Code</th>
+                                                            <th class="p-2">Package name</th>
+                                                            <th class="p-2">Description</th>
+                                                            <th class="p-2">Qty</th>
+                                                            <th class="p-2">Note</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($row->packageRecipes as $package)
+                                                            <tr class="border-b align-top">
+                                                                <td class="p-2">{{ $package->package_code }}</td>
+                                                                <td class="p-2">{{ $package->package_name }}</td>
+                                                                <td class="p-2">{{ $package->description }}</td>
+                                                                <td class="p-2">{{ number_format((float) $package->quantity, 2) }}</td>
+                                                                <td class="p-2">{{ $package->note }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    @elseif($row->recipe?->recipe_type === 'Banquet')
+                                        <p class="text-sm text-slate-500">No package recipes selected.</p>
+                                    @endif
+                                </div>
                             @endinteract
                         </x-ts-table>
                     </x-ts-tab.items>
@@ -624,104 +657,139 @@ new class extends Component
 
             @if($previewEvent)
                 {{-- Document Sheet --}}
-                <div id="printable-booking-preview" class="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
+                <div id="printable-booking-preview" class="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 print:m-0 print:w-full" style="font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; line-height: 1.35;">
                     {{-- Company Header & Logo --}}
-                    <div class="flex items-start justify-between border-b-2 border-slate-900 pb-5 mb-6">
-                        <div class="flex items-center gap-4">
-                            <img src="{{ asset('assets/images/1772440510.png') }}" alt="Company Logo" class="h-20 w-auto object-contain" />
+                    <div class="flex items-center justify-between border-b-2 border-slate-900 pb-3 mb-3">
+                        <div class="flex items-center gap-3">
+                            <img src="{{ asset('assets/images/1772440510.png') }}" alt="Company Logo" class="h-[60px] w-auto object-contain" />
                             <div>
-                                <h1 class="text-xl sm:text-2xl font-black uppercase tracking-wide text-slate-900">
+                                <h1 class="text-[15px] font-black uppercase tracking-wide text-slate-900">
                                     {{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }}
                                 </h1>
-                                <p class="text-xs text-slate-600 font-medium">
+                                <p class="text-[9.5px] text-slate-600 font-medium">
                                     {{ auth()->user()->branch?->branch_name ?? 'Main Branch' }}
                                     @if(auth()->user()->branch?->branch_address)
                                         • {{ auth()->user()->branch->branch_address }}
                                     @endif
                                 </p>
-                                <p class="text-xs text-slate-500 font-medium">
-                                    Banquet Sales & Catering Services Department
-                                </p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <span class="inline-block px-3 py-1 rounded bg-slate-900 text-white text-xs font-bold uppercase tracking-wider">
+                            <span class="inline-block px-2 py-1 bg-slate-900 text-white text-[9.5px] font-bold uppercase tracking-wider">
                                 BANQUET EVENT ORDER
                             </span>
-                            <div class="mt-2 text-lg font-black font-mono text-slate-900">
+                            <div class="mt-1 text-[13px] font-black font-mono text-slate-900">
                                 {{ $previewEvent->reference }}
                             </div>
-                            <div class="text-xs text-slate-500">
-                                Date Created: {{ $previewEvent->created_at ? $previewEvent->created_at->format('M d, Y') : now()->format('M d, Y') }}
-                            </div>
-                            <div class="mt-1">
-                                <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded {{ $previewEvent->status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' : ($previewEvent->status === 'CLOSED' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800') }}">
-                                    Status: {{ $previewEvent->status }}
-                                </span>
+                            <div class="text-[9.5px] text-slate-500">
+                                Date: {{ $previewEvent->created_at ? $previewEvent->created_at->format('M d, Y') : now()->format('M d, Y') }}
                             </div>
                         </div>
                     </div>
 
                     {{-- Client & Event Profile (No logged-in user info) --}}
-                    <div class="grid grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div class="grid grid-cols-2 gap-3 mb-3 px-3 py-2 bg-slate-50 border border-slate-200 text-[10px]">
                         <div>
-                            <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
-                                Event & Client Profile
-                            </h4>
-                            <div class="space-y-1">
-                                <div><span class="text-slate-500 font-medium">Event Title:</span> <strong class="text-slate-900">{{ $previewEvent->event_name }}</strong></div>
-                                <div><span class="text-slate-500 font-medium">Client / Customer:</span> <span class="text-slate-800 font-semibold">{{ $previewEvent->customer?->full_name ?? 'N/A' }}</span></div>
-                                @if($previewEvent->customer?->contact_number || $previewEvent->customer?->email)
-                                    <div><span class="text-slate-500 font-medium">Contact:</span> <span class="text-slate-800">{{ $previewEvent->customer?->contact_number ?? 'N/A' }} • {{ $previewEvent->customer?->email ?? 'N/A' }}</span></div>
-                                @endif
+                            <div>
+                                <span class="text-slate-500">Event Name:</span>
+                                <strong class="text-slate-900">{{ $previewEvent->event_name }}</strong>
                             </div>
+                            <div>
+                                <span class="text-slate-500">Client / Customer:</span>
+                                <strong class="text-slate-900">{{ $previewEvent->customer?->full_name ?? 'N/A' }}</strong>
+                            </div>
+                            @if($previewEvent->customer?->contact_number || $previewEvent->customer?->email)
+                                <div>
+                                    <span class="text-slate-500">Contact:</span>
+                                    <span class="text-slate-900">{{ $previewEvent->customer?->contact_number ?? 'N/A' }} • {{ $previewEvent->customer?->email ?? 'N/A' }}</span>
+                                </div>
+                            @endif
                         </div>
                         <div>
-                            <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
-                                Schedule & Location
-                            </h4>
-                            <div class="space-y-1">
-                                <div><span class="text-slate-500 font-medium">Schedule:</span> <span class="text-slate-800 font-medium">{{ \Carbon\Carbon::parse($previewEvent->start_date)->format('M d, Y') }} ({{ date('g:i A', strtotime($previewEvent->arrival_time)) }}) - {{ \Carbon\Carbon::parse($previewEvent->end_date)->format('M d, Y') }} ({{ date('g:i A', strtotime($previewEvent->departure_time)) }})</span></div>
-                                <div><span class="text-slate-500 font-medium">Venue / Address:</span> <span class="text-slate-800">{{ $previewEvent->event_address }}</span></div>
-                                <div><span class="text-slate-500 font-medium">Guest Count:</span> <span class="text-slate-800 font-semibold">{{ $previewEvent->guest_count }} Pax</span></div>
+                            <div>
+                                <span class="text-slate-500">Event Dates:</span>
+                                <strong class="text-slate-900">{{ \Carbon\Carbon::parse($previewEvent->start_date)->format('M d, Y') }} to {{ \Carbon\Carbon::parse($previewEvent->end_date)->format('M d, Y') }}</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-500">Schedule / Hours:</span>
+                                <strong class="text-slate-900">{{ date('g:i A', strtotime($previewEvent->arrival_time)) }} - {{ date('g:i A', strtotime($previewEvent->departure_time)) }}</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-500">Venue / Guest Count:</span>
+                                <strong class="text-slate-900">{{ $previewEvent->event_address }} ({{ $previewEvent->guest_count }} Pax)</strong>
                             </div>
                         </div>
                     </div>
 
                     {{-- 1. Menus Breakdown --}}
                     @if($previewEvent->menus->isNotEmpty())
-                        <div class="mb-5">
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between border-b border-slate-200 pb-1">
+                        <div class="mb-[10px]">
+                            <h3 class="mt-[10px] mb-[6px] border-b border-slate-300 pb-[3px] text-[10px] font-bold uppercase text-slate-800">
                                 <span>1. Catering & Menu Packages</span>
-                                <span class="text-slate-500 font-mono font-normal">Subtotal: ₱{{ number_format((float) $previewEvent->menus->sum('total_amount'), 2) }}</span>
                             </h3>
-                            <div class="overflow-hidden rounded-lg border border-slate-200">
-                                <table class="w-full text-xs text-left border-collapse">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-[9.5px] text-left border-collapse">
                                     <thead>
-                                        <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
-                                            <th class="py-2 px-3 w-10 text-center">#</th>
-                                            <th class="py-2 px-3">Recipe / Menu Item</th>
-                                            <th class="py-2 px-3">Category</th>
-                                            <th class="py-2 px-3 text-right">Rate</th>
-                                            <th class="py-2 px-3 text-right">Qty</th>
-                                            <th class="py-2 px-3 text-right">Total</th>
+                                        <tr class="border-t border-b border-slate-300 bg-slate-100 text-slate-800 font-bold uppercase tracking-wider">
+                                            <th class="py-1 px-2 w-8 text-center">#</th>
+                                            <th class="py-1 px-2">Recipe / Menu Item</th>
+                                            <th class="py-1 px-2">Category</th>
+                                            <th class="py-1 px-2 text-right">Rate</th>
+                                            <th class="py-1 px-2 text-right">Qty</th>
+                                            <th class="py-1 px-2 text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200">
                                         @foreach($previewEvent->menus as $mIndex => $menuItem)
                                             <tr>
-                                                <td class="py-1.5 px-3 text-center text-slate-400">{{ $mIndex + 1 }}</td>
-                                                <td class="py-1.5 px-3 font-semibold text-slate-900">
+                                                <td class="py-1 px-2 text-center text-slate-400">{{ $mIndex + 1 }}</td>
+                                                <td class="py-1 px-2 font-semibold text-slate-900">
                                                     {{ $menuItem->recipe?->menu_name ?? 'N/A' }}
                                                     @if($menuItem->note)
-                                                        <span class="block text-[10px] text-slate-500 font-normal italic">Note: {{ $menuItem->note }}</span>
+                                                        <span class="block text-[9px] text-slate-500 font-normal">Note: {{ $menuItem->note }}</span>
                                                     @endif
                                                 </td>
-                                                <td class="py-1.5 px-3 text-slate-600">{{ $menuItem->recipe?->category?->category_name ?? 'N/A' }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono">₱{{ number_format((float) ($menuItem->price?->amount ?? $menuItem->rate?->amount ?? 0), 2) }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-medium">{{ $menuItem->qty }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) $menuItem->total_amount, 2) }}</td>
+                                                <td class="py-1 px-2 text-slate-600">{{ $menuItem->recipe?->category?->category_name ?? 'N/A' }}</td>
+                                                <td class="py-1 px-2 text-right font-mono">P{{ number_format((float) ($menuItem->price?->amount ?? $menuItem->rate?->amount ?? 0), 2) }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-medium">{{ $menuItem->qty }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-bold text-slate-900">P{{ number_format((float) $menuItem->total_amount, 2) }}</td>
                                             </tr>
+                                            @if($menuItem->packageRecipes->isNotEmpty())
+                                                <tr>
+                                                    <td colspan="6" class="px-2 pb-2">
+                                                        <div class="border-l-2 border-slate-700 bg-slate-50 px-3 py-2">
+                                                            <div class="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-slate-200 pb-1">
+                                                                <span class="font-bold uppercase tracking-wide text-slate-800">
+                                                                    Included in: {{ $menuItem->recipe?->menu_name ?? 'Banquet recipe' }}
+                                                                </span>
+                                                                <span class="text-[8px] font-bold uppercase tracking-wider text-slate-500">Package recipes</span>
+                                                            </div>
+                                                            <table class="w-full border-collapse text-[9px]">
+                                                                <thead>
+                                                                    <tr class="text-left uppercase tracking-wide text-slate-500">
+                                                                        <th class="py-1 pr-2 font-semibold">Code</th>
+                                                                        <th class="py-1 pr-2 font-semibold">Recipe name</th>
+                                                                        <th class="py-1 pr-2 font-semibold">Description</th>
+                                                                        <th class="py-1 pr-2 text-right font-semibold">Qty</th>
+                                                                        <th class="py-1 font-semibold">Note</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach($menuItem->packageRecipes as $package)
+                                                                        <tr class="border-t border-slate-200 align-top">
+                                                                            <td class="py-1 pr-2 text-slate-600">{{ $package->package_code }}</td>
+                                                                            <td class="py-1 pr-2 font-semibold text-slate-800">{{ $package->package_name }}</td>
+                                                                            <td class="py-1 pr-2 text-slate-600">{{ $package->description ?: '—' }}</td>
+                                                                            <td class="py-1 pr-2 text-right text-slate-700">{{ number_format((float) $package->quantity, 2) }}</td>
+                                                                            <td class="py-1 text-slate-600">{{ $package->note ?: '—' }}</td>
+                                                                        </tr>
+                                                                    @endforeach
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                 </table>
@@ -731,30 +799,29 @@ new class extends Component
 
                     {{-- 2. Venues Breakdown --}}
                     @if($previewEvent->venues->isNotEmpty())
-                        <div class="mb-5">
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between border-b border-slate-200 pb-1">
+                        <div class="mb-[10px]">
+                            <h3 class="mt-[10px] mb-[6px] border-b border-slate-300 pb-[3px] text-[10px] font-bold uppercase text-slate-800">
                                 <span>2. Function Halls & Venues</span>
-                                <span class="text-slate-500 font-mono font-normal">Subtotal: ₱{{ number_format((float) $previewEvent->venues->sum('total_amount'), 2) }}</span>
                             </h3>
-                            <div class="overflow-hidden rounded-lg border border-slate-200">
-                                <table class="w-full text-xs text-left border-collapse">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-[9.5px] text-left border-collapse">
                                     <thead>
-                                        <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
-                                            <th class="py-2 px-3 w-10 text-center">#</th>
-                                            <th class="py-2 px-3">Venue / Facility</th>
-                                            <th class="py-2 px-3 text-right">Rate</th>
-                                            <th class="py-2 px-3 text-right">Qty</th>
-                                            <th class="py-2 px-3 text-right">Total</th>
+                                        <tr class="border-t border-b border-slate-300 bg-slate-100 text-slate-800 font-bold uppercase tracking-wider">
+                                            <th class="py-1 px-2 w-8 text-center">#</th>
+                                            <th class="py-1 px-2">Venue / Facility</th>
+                                            <th class="py-1 px-2 text-right">Rate</th>
+                                            <th class="py-1 px-2 text-right">Qty</th>
+                                            <th class="py-1 px-2 text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200">
                                         @foreach($previewEvent->venues as $vIndex => $venueItem)
                                             <tr>
-                                                <td class="py-1.5 px-3 text-center text-slate-400">{{ $vIndex + 1 }}</td>
-                                                <td class="py-1.5 px-3 font-semibold text-slate-900">{{ $venueItem->venue?->venue_name ?? 'N/A' }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono">₱{{ number_format((float) ($venueItem->rate?->amount ?? 0), 2) }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-medium">{{ $venueItem->qty }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) $venueItem->total_amount, 2) }}</td>
+                                                <td class="py-1 px-2 text-center text-slate-400">{{ $vIndex + 1 }}</td>
+                                                <td class="py-1 px-2 font-semibold text-slate-900">{{ $venueItem->venue?->venue_name ?? 'N/A' }}</td>
+                                                <td class="py-1 px-2 text-right font-mono">P{{ number_format((float) ($venueItem->rate?->amount ?? 0), 2) }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-medium">{{ $venueItem->qty }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-bold text-slate-900">P{{ number_format((float) $venueItem->total_amount, 2) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -765,30 +832,29 @@ new class extends Component
 
                     {{-- 3. Services & Miscellaneous Breakdown --}}
                     @if($previewEvent->services->isNotEmpty())
-                        <div class="mb-5">
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between border-b border-slate-200 pb-1">
+                        <div class="mb-[10px]">
+                            <h3 class="mt-[10px] mb-[6px] border-b border-slate-300 pb-[3px] text-[10px] font-bold uppercase text-slate-800">
                                 <span>3. Additional Services & Miscellaneous</span>
-                                <span class="text-slate-500 font-mono font-normal">Subtotal: ₱{{ number_format((float) $previewEvent->services->sum('total_amount'), 2) }}</span>
                             </h3>
-                            <div class="overflow-hidden rounded-lg border border-slate-200">
-                                <table class="w-full text-xs text-left border-collapse">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-[9.5px] text-left border-collapse">
                                     <thead>
-                                        <tr class="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
-                                            <th class="py-2 px-3 w-10 text-center">#</th>
-                                            <th class="py-2 px-3">Service Name</th>
-                                            <th class="py-2 px-3 text-right">Rate</th>
-                                            <th class="py-2 px-3 text-right">Qty</th>
-                                            <th class="py-2 px-3 text-right">Total</th>
+                                        <tr class="border-t border-b border-slate-300 bg-slate-100 text-slate-800 font-bold uppercase tracking-wider">
+                                            <th class="py-1 px-2 w-8 text-center">#</th>
+                                            <th class="py-1 px-2">Service Name</th>
+                                            <th class="py-1 px-2 text-right">Rate</th>
+                                            <th class="py-1 px-2 text-right">Qty</th>
+                                            <th class="py-1 px-2 text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200">
                                         @foreach($previewEvent->services as $sIndex => $serviceItem)
                                             <tr>
-                                                <td class="py-1.5 px-3 text-center text-slate-400">{{ $sIndex + 1 }}</td>
-                                                <td class="py-1.5 px-3 font-semibold text-slate-900">{{ $serviceItem->service?->service_name ?? 'N/A' }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono">₱{{ number_format((float) ($serviceItem->price?->amount ?? 0), 2) }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-medium">{{ $serviceItem->qty }}</td>
-                                                <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900">₱{{ number_format((float) $serviceItem->total_amount, 2) }}</td>
+                                                <td class="py-1 px-2 text-center text-slate-400">{{ $sIndex + 1 }}</td>
+                                                <td class="py-1 px-2 font-semibold text-slate-900">{{ $serviceItem->service?->service_name ?? 'N/A' }}</td>
+                                                <td class="py-1 px-2 text-right font-mono">P{{ number_format((float) ($serviceItem->price?->amount ?? 0), 2) }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-medium">{{ $serviceItem->qty }}</td>
+                                                <td class="py-1 px-2 text-right font-mono font-bold text-slate-900">P{{ number_format((float) $serviceItem->total_amount, 2) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -798,42 +864,40 @@ new class extends Component
                     @endif
 
                     {{-- Financial Summary Box --}}
-                    <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="grid grid-cols-[55fr_45fr] gap-3 mb-3">
                         <div>
                             @if($previewEvent->notes)
-                                <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs h-full">
-                                    <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Special Instructions / Notes:</span>
-                                    <p class="mt-1 text-slate-800 whitespace-pre-line">{{ $previewEvent->notes }}</p>
+                                <div class="px-3 py-2 bg-slate-50 border border-slate-200 text-[10px] h-full">
+                                    <strong class="text-slate-700">Special Instructions / Notes:</strong><br>
+                                    <span class="text-slate-800 whitespace-pre-line">{{ $previewEvent->notes }}</span>
                                 </div>
                             @endif
                         </div>
-                        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                            <h4 class="font-bold text-slate-800 uppercase tracking-wider mb-2 text-[11px] border-b border-slate-200 pb-1">
-                                Financial Summary
-                            </h4>
-                            <div class="space-y-1.5">
+                        <div class="px-3 py-2 bg-slate-50 border border-slate-200 text-[10px]">
+                            <strong class="font-bold text-slate-800 uppercase text-[9.5px]">Financial Summary</strong>
+                            <div class="mt-1">
                                 <div class="flex justify-between items-center text-slate-600">
                                     <span>Catering & Menus:</span>
-                                    <span class="font-mono font-semibold text-slate-800">₱{{ number_format((float) $previewEvent->menus->sum('total_amount'), 2) }}</span>
+                                    <span class="font-mono font-semibold text-slate-800">P{{ number_format((float) $previewEvent->menus->sum('total_amount'), 2) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center text-slate-600">
                                     <span>Venues & Facilities:</span>
-                                    <span class="font-mono font-semibold text-slate-800">₱{{ number_format((float) $previewEvent->venues->sum('total_amount'), 2) }}</span>
+                                    <span class="font-mono font-semibold text-slate-800">P{{ number_format((float) $previewEvent->venues->sum('total_amount'), 2) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center text-slate-600">
                                     <span>Services & Misc:</span>
-                                    <span class="font-mono font-semibold text-slate-800">₱{{ number_format((float) $previewEvent->services->sum('total_amount'), 2) }}</span>
+                                    <span class="font-mono font-semibold text-slate-800">P{{ number_format((float) $previewEvent->services->sum('total_amount'), 2) }}</span>
                                 </div>
-                                <div class="pt-2 border-t border-slate-300 flex justify-between items-center">
-                                    <span class="font-bold uppercase tracking-wider text-slate-900">Total Contract Amount:</span>
-                                    <span class="text-base font-black font-mono text-emerald-700">₱{{ number_format((float) $previewEvent->total_amount, 2) }}</span>
+                                <div class="pt-1 border-t border-slate-300 flex justify-between items-center">
+                                    <span class="font-bold uppercase tracking-wider text-slate-900">Contract Total:</span>
+                                    <span class="text-[11.5px] font-black font-mono text-emerald-700">P{{ number_format((float) $previewEvent->total_amount, 2) }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {{-- Signatures Section (3 Columns - Prepared, Reviewed, Approved, NO client conforme) --}}
-                    <div class="grid grid-cols-3 gap-6 pt-6 mt-6 border-t border-slate-200 text-xs">
+                    <div class="grid grid-cols-3 gap-6 mt-5 text-xs">
                         <div class="text-center">
                             <div class="h-10"></div>
                             <div class="border-b border-slate-400 font-bold text-slate-900 pb-1">
@@ -861,9 +925,9 @@ new class extends Component
                     </div>
 
                     {{-- Document Tracking Footer --}}
-                    <div class="mt-8 pt-4 border-t border-dashed border-slate-200 flex justify-between items-center text-[10px] text-slate-400">
-                        <div>{{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }} • Banquet Management System</div>
-                        <div>Generated on {{ now()->format('M d, Y h:i:s A') }}</div>
+                    <div class="mt-8 pt-4 border-t border-dashed border-slate-200 flex justify-between items-center text-[9px] text-slate-400">
+                        <div>{{ auth()->user()->branch?->company?->company_name ?? 'Hacienda Hills Resort & Leisure' }} • Banquet Event Order</div>
+                        <div>Generated on {{ now()->format('M d, Y h:i A') }}</div>
                     </div>
                 </div>
             @endif

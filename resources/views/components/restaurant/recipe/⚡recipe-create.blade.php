@@ -9,9 +9,12 @@ use App\Models\DataManagement\Recipe;
 use App\Models\DataManagement\Category;
 use App\Models\DataManagement\Price;
 use App\Models\Business\Employee;
+use App\Models\Restaurant\RecipePackage;
 use App\Services\DataManagement\UnitConversionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Validation\ValidationException;
 
 new class extends Component
 {
@@ -31,6 +34,11 @@ new class extends Component
     public $reviewer_id;
     public $approver_id;
     public float $laborCostPercent = 0.0;
+    public array $packageList = [];
+    public array $selectedRecipeIds = [];
+    public array $packageQuantities = [];
+    public string $recipeSearch = '';
+    public string $recipeTypeFilter = '';
 
     // Ingredients list: array of [
     //   'item_id' => ..., 'item_code' => ..., 'item_description' => ...,
@@ -43,6 +51,7 @@ new class extends Component
 
     // Modal state for multi-item selection
     public bool $itemPickerModal = false;
+    public bool $recipePickerModal = false;
     public string $itemSearch = '';
     public $itemCategoryFilter = null;
     public array $selectedItemIds = [];
@@ -63,6 +72,10 @@ new class extends Component
             'ingredients.*.item_id' => 'required|exists:items,id',
             'ingredients.*.qty'     => 'required|numeric|min:0.0001',
             'ingredients.*.uom_id'  => 'required',
+            'selectedRecipeIds' => 'array',
+            'selectedRecipeIds.*' => 'required|integer|distinct',
+            'packageQuantities' => 'array',
+            'packageQuantities.*' => 'numeric|gt:0',
         ];
     }
 
@@ -88,12 +101,134 @@ new class extends Component
         $this->resetPage('pickerPage');
     }
 
+    public function updatingRecipeSearch(): void
+    {
+        $this->resetPage('recipePickerPage');
+    }
+
+    public function updatingRecipeTypeFilter(): void
+    {
+        $this->resetPage('recipePickerPage');
+    }
+
+    public function updatedRecipeType(): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->selectedRecipeIds = [];
+            $this->packageQuantities = [];
+            $this->packageList = [];
+        }
+    }
+
+    public function updatedSelectedRecipeIds(): void
+    {
+        $selectedIds = array_map('strval', $this->selectedRecipeIds);
+        $this->packageQuantities = array_filter(
+            $this->packageQuantities,
+            fn ($quantity, $recipeId): bool => in_array((string) $recipeId, $selectedIds, true),
+            ARRAY_FILTER_USE_BOTH
+        );
+    }
+
     public function openItemPicker(): void
     {
         // Sync selected checkboxes with already added ingredients
         $this->selectedItemIds = array_column($this->ingredients, 'item_id');
         $this->resetPage('pickerPage');
         $this->itemPickerModal = true;
+    }
+
+    public function openRecipePicker(): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->banner()->warning('Recipe packages can only be added to banquet recipes.')->send();
+            return;
+        }
+
+        $this->resetPage('recipePickerPage');
+        $this->recipePickerModal = true;
+    }
+
+    public function addSelectedRecipes(): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->banner()->warning('Recipe packages can only be added to banquet recipes.')->send();
+            return;
+        }
+
+        $this->validate([
+            'selectedRecipeIds' => 'array',
+            'selectedRecipeIds.*' => 'required|integer|distinct',
+            'packageQuantities' => 'array',
+            'packageQuantities.*' => 'numeric|gt:0',
+        ]);
+
+        $recipes = $this->resolvePackageRecipes();
+        $this->packageList = $this->formatPackageRecipes($recipes);
+        $this->recipePickerModal = false;
+    }
+
+    public function removePackageRecipe(int $recipeId): void
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            $this->banner()->warning('Recipe packages can only be changed on banquet recipes.')->send();
+            return;
+        }
+
+        $this->selectedRecipeIds = array_values(array_filter(
+            $this->selectedRecipeIds,
+            fn ($selectedId): bool => (int) $selectedId !== $recipeId
+        ));
+        unset($this->packageQuantities[$recipeId]);
+        $this->packageList = array_values(array_filter(
+            $this->packageList,
+            fn (array $package): bool => (int) $package['recipe_id'] !== $recipeId
+        ));
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function resolvePackageRecipes(): Collection
+    {
+        if ($this->recipe_type !== 'Banquet') {
+            return new Collection();
+        }
+
+        $recipeIds = array_map('intval', $this->selectedRecipeIds);
+        if (count(array_unique($recipeIds)) !== count($recipeIds)) {
+            throw ValidationException::withMessages([
+                'selectedRecipeIds' => 'A recipe can only be added to a package once.',
+            ]);
+        }
+
+        $companyId = auth()->user()?->branch?->company_id ?: 1;
+        $recipes = Recipe::query()
+            ->whereIn('id', $recipeIds)
+            ->where('status', 'AVAILABLE')
+            ->where('company_id', $companyId)
+            ->orderBy('menu_name')
+            ->orderBy('id')
+            ->get();
+
+        if ($recipes->count() !== count($recipeIds)) {
+            throw ValidationException::withMessages([
+                'selectedRecipeIds' => 'Select only active recipes from your company.',
+            ]);
+        }
+
+        return $recipes;
+    }
+
+    private function formatPackageRecipes(Collection $recipes): array
+    {
+        return $recipes->map(fn (Recipe $recipe): array => [
+            'recipe_id' => $recipe->id,
+            'menu_code' => $recipe->menu_code,
+            'menu_name' => $recipe->menu_name,
+            'recipe_type' => $recipe->recipe_type,
+            'quantity' => (float) ($this->packageQuantities[$recipe->id] ?? 1),
+        ])->values()->all();
     }
 
     public function addSelectedItems(UnitConversionService $conversionService): void
@@ -244,9 +379,10 @@ new class extends Component
     public function saveRecipe(string $targetStatus = 'PENDING'): void
     {
         $this->validate();
+        $packageRecipes = $this->resolvePackageRecipes();
 
         try {
-            DB::transaction(function () use ($targetStatus) {
+            DB::transaction(function () use ($targetStatus, $packageRecipes) {
                 $imagePath = null;
                 if ($this->menu_image) {
                     $imagePath = $this->menu_image->store('recipes', 'public');
@@ -262,6 +398,7 @@ new class extends Component
                     'category_id'       => $this->category_id,
                     'recipe_type'       => $this->recipe_type,
                     'menu_type'         => $this->recipe_type === 'Banquet' ? 'Banquet' : 'Ala Carte',
+                    'is_package'        => $this->recipe_type === 'Banquet' && $packageRecipes->isNotEmpty(),
                     'menu_description'  => $this->menu_description,
                     'menu_image'        => $imagePath,
                     'serving_size'      => $this->serving_size,
@@ -282,6 +419,14 @@ new class extends Component
                         'cost'           => $row['line_cost'],
                         'uom_id'         => $row['uom_id'],
                         'price_level_id' => $item?->cost?->id,
+                    ]);
+                }
+
+                foreach ($packageRecipes as $packageRecipe) {
+                    RecipePackage::query()->create([
+                        'recipe_id' => $packageRecipe->id,
+                        'package_id' => $recipe->id,
+                        'quantity' => (float) ($this->packageQuantities[$packageRecipe->id] ?? 1),
                     ]);
                 }
 
@@ -312,7 +457,8 @@ new class extends Component
             $this->redirect(route('restaurant.recipe-summary'), navigate: true);
 
         } catch (\Throwable $e) {
-            $this->banner()->error('Error saving recipe: ' . $e->getMessage())->send();
+            report($e);
+            $this->banner()->error('Unable to save the recipe. Please try again or contact support if the problem continues.')->send();
         }
     }
 
@@ -334,6 +480,17 @@ new class extends Component
                 }))
                 ->when($this->itemCategoryFilter, fn($q) => $q->where('category_id', $this->itemCategoryFilter))
                 ->paginate(10, pageName: 'pickerPage'),
+            'pickerRecipes' => Recipe::query()
+                ->where('status', 'AVAILABLE')
+                ->where('company_id', auth()->user()?->branch?->company_id ?: 1)
+                ->when($this->recipeTypeFilter !== '', fn ($query) => $query->where('recipe_type', $this->recipeTypeFilter))
+                ->when($this->recipeSearch !== '', fn ($query) => $query->where(function ($subQuery) {
+                    $subQuery->where('menu_name', 'like', "%{$this->recipeSearch}%")
+                        ->orWhere('menu_code', 'like', "%{$this->recipeSearch}%");
+                }))
+                ->orderBy('menu_name')
+                ->orderBy('id')
+                ->paginate(10, pageName: 'recipePickerPage'),
         ];
     }
 
@@ -342,6 +499,17 @@ new class extends Component
 
 <div class="mb-12 space-y-6">
     <x-ts-banner wire close />
+
+    @if ($errors->any())
+        <div role="alert" aria-live="polite" class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+            <p class="mb-2 text-sm font-semibold text-red-800 dark:text-red-200">Please correct the following before saving:</p>
+            <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
+                @foreach ($errors->all() as $error)
+                    <li wire:key="recipe-create-error-{{ $loop->index }}">{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <!-- Navigation Breadcrumbs -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -516,6 +684,61 @@ new class extends Component
                     </div>
                 @endif
             </x-ts-card>
+
+            @if($recipe_type === 'Banquet')
+                <x-ts-card>
+                    <x-slot:header>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Recipes in this banquet package</h2>
+                                <p class="text-xs text-gray-500">Choose active recipes to include. Package recipes are saved with the new recipe.</p>
+                            </div>
+                            <x-ts-button wire:click="openRecipePicker" icon="plus" color="emerald" sm>
+                                Add Recipes
+                            </x-ts-button>
+                        </div>
+                    </x-slot:header>
+
+                    @if(count($packageList))
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                    <tr>
+                                        <th class="py-3 px-3">Recipe Code</th>
+                                        <th class="py-3 px-3">Recipe Name</th>
+                                        <th class="py-3 px-3">Type</th>
+                                        <th class="py-3 px-3 text-right">Quantity</th>
+                                        <th class="py-3 px-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @foreach($packageList as $package)
+                                        <tr wire:key="new-package-recipe-{{ $package['recipe_id'] }}">
+                                            <td class="py-3 px-3 font-mono text-xs">{{ $package['menu_code'] }}</td>
+                                            <td class="py-3 px-3 font-medium">{{ $package['menu_name'] }}</td>
+                                            <td class="py-3 px-3">{{ $package['recipe_type'] }}</td>
+                                            <td class="py-3 px-3 text-right">{{ number_format((float) $package['quantity'], 2) }}</td>
+                                            <td class="py-3 px-3 text-right">
+                                                <x-ts-button wire:click="removePackageRecipe({{ $package['recipe_id'] }})" color="rose" sm light>
+                                                    Remove
+                                                </x-ts-button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <p class="py-8 text-center text-sm text-gray-500">No recipes have been added to this package yet.</p>
+                    @endif
+                    @error('selectedRecipeIds')
+                        <p class="text-sm text-rose-600">{{ $message }}</p>
+                    @enderror
+                    @error('packageQuantities.*')
+                        <p class="text-sm text-rose-600">{{ $message }}</p>
+                    @enderror
+                </x-ts-card>
+            @endif
         </div>
 
         <!-- Right Section: Real-time Costing & Profit Margin Dashboard -->
@@ -713,6 +936,84 @@ new class extends Component
         <x-slot:footer>
             <x-ts-button color="secondary" wire:click="$set('itemPickerModal', false)" light>Cancel</x-ts-button>
             <x-ts-button color="emerald" wire:click="addSelectedItems">Add Selected to Recipe</x-ts-button>
+        </x-slot:footer>
+    </x-ts-modal>
+
+    <x-ts-modal title="Add Recipes to Banquet Package" wire="recipePickerModal" size="5xl" center>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                    <x-ts-input wire:model.live.debounce.300ms="recipeSearch" placeholder="Search recipes by code or name..." icon="magnifying-glass" clearable />
+                </div>
+                <div>
+                    <x-ts-select.native wire:model.live="recipeTypeFilter" :options="[
+                        ['label' => 'All Recipe Types', 'value' => ''],
+                        ['label' => 'Ala carte', 'value' => 'Ala carte'],
+                        ['label' => 'Banquet', 'value' => 'Banquet'],
+                    ]" select="label:label|value:value" />
+                </div>
+            </div>
+
+            <div class="max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-lg">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0 text-xs font-semibold text-gray-500 border-b border-gray-100 dark:border-gray-800">
+                        <tr>
+                            <th class="py-2.5 px-3 w-10">Select</th>
+                            <th class="py-2.5 px-3">Recipe Code</th>
+                            <th class="py-2.5 px-3">Recipe Name</th>
+                            <th class="py-2.5 px-3">Type</th>
+                            <th class="py-2.5 px-3">Status</th>
+                            <th class="py-2.5 px-3 text-right">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse($pickerRecipes as $candidate)
+                            <tr wire:key="new-recipe-picker-{{ $candidate->id }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                                <td class="py-2.5 px-3">
+                                    <input type="checkbox" wire:model="selectedRecipeIds" value="{{ $candidate->id }}" class="rounded text-emerald-600 focus:ring-emerald-500 border-gray-300" />
+                                </td>
+                                <td class="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-300">{{ $candidate->menu_code }}</td>
+                                <td class="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{{ $candidate->menu_name }}</td>
+                                <td class="py-2.5 px-3 text-xs text-gray-500">{{ $candidate->recipe_type }}</td>
+                                <td class="py-2.5 px-3 text-xs text-emerald-600">{{ $candidate->status }}</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <input type="number" min="0.01" step="0.01"
+                                        wire:model="packageQuantities.{{ $candidate->id }}"
+                                        value="{{ $packageQuantities[$candidate->id] ?? 1 }}"
+                                        class="w-24 rounded-lg border-gray-300 text-right text-sm dark:border-gray-700 dark:bg-gray-800" />
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="py-6 text-center text-xs text-gray-400">
+                                    No active recipes found matching those filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @error('selectedRecipeIds')
+                <p class="text-sm text-rose-600">{{ $message }}</p>
+            @enderror
+            @error('packageQuantities.*')
+                <p class="text-sm text-rose-600">{{ $message }}</p>
+            @enderror
+
+            <div class="mt-3 flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div class="text-xs text-gray-500">
+                    <span class="font-bold text-emerald-600 dark:text-emerald-400">{{ count($selectedRecipeIds) }}</span> recipe(s) selected across all pages.
+                </div>
+                <div class="w-full sm:w-auto text-xs">
+                    {{ $pickerRecipes->links() }}
+                </div>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <x-ts-button color="secondary" wire:click="$set('recipePickerModal', false)" light>Cancel</x-ts-button>
+            <x-ts-button color="emerald" wire:click="addSelectedRecipes">Save Package Selection</x-ts-button>
         </x-slot:footer>
     </x-ts-modal>
 </div>

@@ -7,10 +7,13 @@ use TallStackUi\Traits\Interactions;
 use App\Models\Business\Venue;
 use App\Models\Business\Service;
 use App\Models\Business\BranchRecipe;
+use App\Models\Restaurant\RecipePackage;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Event\BanquetEventService;
 use Carbon\Carbon;
 use App\Models\BanquetEvent\Event;
+use Illuminate\Validation\ValidationException;
 
 
 
@@ -61,6 +64,11 @@ new class extends Component
         public  $selectedFood = [],
             $selectedFoodRows = [],
             $grand_totalFood = 0.00;
+        public bool $packagePickerModal = false;
+        public array $pendingPackageFoods = [];
+        public ?array $currentPackageFood = null;
+        public ?int $currentPackageFoodIndex = null;
+        public array $selectedPackageRecipeIds = [];
 
     // VALIDATION
         protected $rules = [
@@ -254,43 +262,216 @@ new class extends Component
     // MENU HOOKS
         public function updatedSelectedFood($ids)
         {
-
-            // 1. Get IDs already present in the table
-            $existingIds = array_column($this->selectedFoodRows, 'id');
-
-            // 2. Identify the IDs that are not in the table yet
+            $ids = array_map('intval', is_array($ids) ? $ids : []);
+            $existingIds = array_map(
+                static fn (array $row): int => (int) ($row['branch_recipe_id'] ?? 0),
+                $this->selectedFoodRows
+            );
             $newIds = array_diff($ids, $existingIds);
-
-            // 3. Identify IDs that were unchecked (to remove them from table)
             $removedIds = array_diff($existingIds, $ids);
 
-            // Handle Removals: if an ID is unchecked in the modal, remove it from the table
             if (!empty($removedIds)) {
-                $this->selectedFoodRows = array_values(array_filter($this->selectedFoodRows, function($row) use ($removedIds) {
-                    return !in_array($row['id'], $removedIds);
-                }));
+                $this->selectedFoodRows = array_values(array_filter(
+                    $this->selectedFoodRows,
+                    static fn (array $row): bool => !in_array((int) ($row['branch_recipe_id'] ?? 0), $removedIds, true)
+                ));
+                $this->pendingPackageFoods = array_values(array_filter(
+                    $this->pendingPackageFoods,
+                    static fn (array $row): bool => !in_array((int) $row['branch_recipe_id'], $removedIds, true)
+                ));
+
+                if ($this->currentPackageFood && in_array((int) $this->currentPackageFood['branch_recipe_id'], $removedIds, true)) {
+                    $this->currentPackageFood = null;
+                    $this->packagePickerModal = false;
+                }
             }
 
-            // Handle Additions: Only query the database for the NEW IDs
             if (!empty($newIds)) {
-                $items = BranchRecipe::whereIn('id', $newIds)->get();
+                $items = BranchRecipe::with(['recipe.category', 'recipe.rate', 'recipe.packages.recipe'])
+                    ->whereIn('id', $newIds)
+                    ->whereHas('activeBranchMenu', fn ($query) => $query->where('branch_id', auth()->user()->branch_id))
+                    ->get()
+                    ->keyBy('id');
 
-                foreach ($items as $item) {
-                    $this->selectedFoodRows[] = [
-                        'id'                    => $item->menu_id,
-                        'menu_image'            => $item->recipe?->menu_image,
-                        'menu_name'             => $item->recipe->menu_name ?? '',
-                        'category'              => $item->recipe->category->category_name ?? '',
-                        'price_id'              => $item->recipe->rate?->id ?? null,
-                        'rate'                  => $item->recipe->rate?->amount ?? 0,
-                        'quantity'              => 1,
-                        'sub_total'             => $item->recipe->rate?->amount ?? 0 * 1,
-                        'note'                  => '',
+                foreach ($newIds as $branchRecipeId) {
+                    $item = $items->get($branchRecipeId);
+                    if (!$item?->recipe) {
+                        continue;
+                    }
+
+                    $recipe = $item->recipe;
+                    $packageOptions = $recipe->recipe_type === 'Banquet'
+                        ? $this->formatPackageRecipeOptions($recipe->packages->filter(
+                            static fn (RecipePackage $package): bool => $package->recipe?->status === 'AVAILABLE'
+                        ))
+                        : [];
+                    $this->pendingPackageFoods[] = [
+                        'branch_recipe_id' => $item->id,
+                        'id' => $item->menu_id,
+                        'recipe_type' => $recipe->recipe_type,
+                        'menu_image' => $recipe->menu_image,
+                        'menu_name' => $recipe->menu_name,
+                        'category' => $recipe->category?->category_name ?? '',
+                        'price_id' => $recipe->rate?->id,
+                        'rate' => (float) ($recipe->rate?->amount ?? 0),
+                        'quantity' => 1,
+                        'sub_total' => (float) ($recipe->rate?->amount ?? 0),
+                        'note' => '',
+                        'package_options' => $packageOptions,
+                        'package_recipes' => [],
                     ];
                 }
             }
-            $this->calculateFoodGrandTotal();
 
+            $this->processPendingPackageFoods();
+            $this->calculateFoodGrandTotal();
+        }
+
+        private function formatPackageRecipeOptions(EloquentCollection $packageLinks): array
+        {
+            return $packageLinks->map(static fn (RecipePackage $package): array => [
+                'recipe_package_id' => $package->id,
+                'recipe_id' => $package->recipe_id,
+                'code' => $package->recipe?->menu_code ?? '',
+                'name' => $package->recipe?->menu_name ?? '',
+                'description' => $package->recipe?->menu_description ?? '',
+                'quantity' => (float) $package->quantity,
+            ])->values()->all();
+        }
+
+        private function processPendingPackageFoods(): void
+        {
+            while ($this->pendingPackageFoods !== []) {
+                $row = array_shift($this->pendingPackageFoods);
+                if ($row['recipe_type'] === 'Banquet' && $row['package_options'] !== []) {
+                    $this->currentPackageFood = $row;
+                    $this->currentPackageFoodIndex = null;
+                    $this->selectedPackageRecipeIds = [];
+                    $this->packagePickerModal = true;
+
+                    return;
+                }
+
+                $this->selectedFoodRows[] = $row;
+            }
+        }
+
+        public function openPackageRecipePicker(int $foodIndex): void
+        {
+            if (!isset($this->selectedFoodRows[$foodIndex]) || $this->selectedFoodRows[$foodIndex]['recipe_type'] !== 'Banquet') {
+                return;
+            }
+
+            $row = $this->selectedFoodRows[$foodIndex];
+            $selectedPackageIds = array_column($row['package_recipes'], 'recipe_package_id');
+            $options = RecipePackage::with('recipe')
+                ->where('package_id', $row['id'])
+                ->where(function ($query) use ($selectedPackageIds): void {
+                    $query->whereHas('recipe', fn ($recipeQuery) => $recipeQuery->where('status', 'AVAILABLE'))
+                        ->orWhereIn('id', $selectedPackageIds);
+                })
+                ->whereHas('recipe')
+                ->orderBy('id')
+                ->get();
+
+            $this->currentPackageFood = $row;
+            $this->currentPackageFood['package_options'] = $this->formatPackageRecipeOptions($options);
+            $this->currentPackageFoodIndex = $foodIndex;
+            $this->selectedPackageRecipeIds = array_column($row['package_recipes'], 'recipe_package_id');
+            $this->resetValidation();
+            $this->packagePickerModal = true;
+        }
+
+        public function cancelPackageRecipeSelection(): void
+        {
+            if ($this->currentPackageFoodIndex === null && $this->currentPackageFood) {
+                $this->selectedFood = array_values(array_diff(
+                    array_map('intval', $this->selectedFood),
+                    [(int) $this->currentPackageFood['branch_recipe_id']]
+                ));
+            }
+
+            $this->currentPackageFood = null;
+            $this->currentPackageFoodIndex = null;
+            $this->selectedPackageRecipeIds = [];
+            $this->packagePickerModal = false;
+            $this->resetValidation();
+            $this->processPendingPackageFoods();
+        }
+
+        public function updatedPackagePickerModal(bool $isOpen): void
+        {
+            if (!$isOpen && $this->currentPackageFood) {
+                $this->cancelPackageRecipeSelection();
+            }
+        }
+
+        public function confirmPackageRecipeSelection(): void
+        {
+            if (!$this->currentPackageFood) {
+                return;
+            }
+
+            $this->validate([
+                'selectedPackageRecipeIds' => 'required|array|min:1',
+                'selectedPackageRecipeIds.*' => 'required|integer|distinct',
+            ]);
+
+            $selectedIds = array_map('intval', $this->selectedPackageRecipeIds);
+            $existingPackageIds = array_column($this->currentPackageFood['package_recipes'], 'recipe_package_id');
+            $packageLinks = RecipePackage::with('recipe')
+                ->where('package_id', $this->currentPackageFood['id'])
+                ->whereIn('id', $selectedIds)
+                ->where(function ($query) use ($existingPackageIds): void {
+                    $query->whereHas('recipe', fn ($recipeQuery) => $recipeQuery->where('status', 'AVAILABLE'))
+                        ->orWhereIn('id', $existingPackageIds);
+                })
+                ->whereHas('recipe')
+                ->orderBy('id')
+                ->get();
+
+            if ($packageLinks->count() !== count($selectedIds)) {
+                throw ValidationException::withMessages([
+                    'selectedPackageRecipeIds' => 'Select recipes that belong to this active banquet package.',
+                ]);
+            }
+
+            $existingNotes = collect($this->currentPackageFood['package_recipes'])
+                ->mapWithKeys(static fn (array $package): array => [
+                    $package['recipe_package_id'] => $package['note'] ?? '',
+                ]);
+            $this->currentPackageFood['package_recipes'] = $packageLinks->map(static fn (RecipePackage $package): array => [
+                'recipe_package_id' => $package->id,
+                'recipe_id' => $package->recipe_id,
+                'code' => $package->recipe->menu_code,
+                'name' => $package->recipe->menu_name,
+                'description' => $package->recipe->menu_description ?? '',
+                'quantity' => (float) $package->quantity,
+                'note' => $existingNotes[$package->id] ?? '',
+            ])->all();
+
+            if ($this->currentPackageFoodIndex === null) {
+                $this->selectedFoodRows[] = $this->currentPackageFood;
+            } else {
+                $this->selectedFoodRows[$this->currentPackageFoodIndex] = $this->currentPackageFood;
+            }
+
+            $this->currentPackageFood = null;
+            $this->currentPackageFoodIndex = null;
+            $this->selectedPackageRecipeIds = [];
+            $this->packagePickerModal = false;
+            $this->processPendingPackageFoods();
+            $this->calculateFoodGrandTotal();
+        }
+
+        public function removePackageRecipe(int $foodIndex, int $packageIndex): void
+        {
+            if (!isset($this->selectedFoodRows[$foodIndex]['package_recipes'][$packageIndex])) {
+                return;
+            }
+
+            unset($this->selectedFoodRows[$foodIndex]['package_recipes'][$packageIndex]);
+            $this->selectedFoodRows[$foodIndex]['package_recipes'] = array_values($this->selectedFoodRows[$foodIndex]['package_recipes']);
         }
         public function calculateFoodGrandTotal()
         {
@@ -300,14 +481,10 @@ new class extends Component
         public function removeFood($index)
         {
             unset($this->selectedFoodRows[$index]);
-            // Reset array keys to prevent index gaps
             $this->selectedFoodRows = array_values($this->selectedFoodRows);
-
-            // Sync back to your original selection ID array if necessary
-                $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
-                $this->toast()->success('Success', 'Removed Successfully')->send();
-
-                $this->calculateGrandTotal();
+            $this->selectedFood = collect($this->selectedFoodRows)->pluck('branch_recipe_id')->filter()->values()->all();
+            $this->toast()->success('Success', 'Removed Successfully')->send();
+            $this->calculateFoodGrandTotal();
 
         }
         // This runs automatically whenever any value in $selectedFoodRows changes
@@ -359,7 +536,18 @@ new class extends Component
     }
     public function fetchData()
     {
-        $event = Event::findOrFail($this->event_id);
+        $event = Event::with([
+            'menus.recipe.category',
+            'menus.recipe.rate',
+            'menus.recipe.packages.recipe',
+            'menus.packageRecipes',
+        ])->findOrFail($this->event_id);
+        $branchRecipes = BranchRecipe::query()
+            ->whereIn('menu_id', $event->menus->pluck('menu_id'))
+            ->whereHas('activeBranchMenu', fn ($query) => $query->where('branch_id', $event->branch_id))
+            ->get()
+            ->keyBy('menu_id');
+
         if($event)
         {
             $this->reference = $event->reference;
@@ -408,23 +596,38 @@ new class extends Component
             }
             if($event->menus){
                 foreach ($event->menus as $item) {
+                    $packageLinks = $item->recipe?->packages ?? new EloquentCollection();
                     $this->selectedFoodRows[] = [
+                        'branch_recipe_id'     => $branchRecipes->get($item->menu_id)?->id,
                         'id'                    => $item->menu_id,
+                        'recipe_type'           => $item->recipe?->recipe_type ?? '',
                         'menu_image'            => $item->recipe?->menu_image,
-                        'menu_name'             => $item->recipe->menu_name ?? '',
-                        'category'              => $item->recipe->category->category_name ?? '',
+                        'menu_name'             => $item->recipe?->menu_name ?? '',
+                        'category'              => $item->recipe?->category?->category_name ?? '',
                         'price_id'              => $item->rate?->id ?? null,
                         'rate'                  => $item->rate?->amount ?? 0,
                         'quantity'              => $item->qty,
                         'sub_total'             => $item->qty * $item->rate?->amount ?? 0,
                         'note'                  => $item->note ?? '',
+                        'package_options'       => $this->formatPackageRecipeOptions($packageLinks->filter(
+                            static fn (RecipePackage $package): bool => $package->recipe?->status === 'AVAILABLE'
+                        )),
+                        'package_recipes'       => $item->packageRecipes->map(static fn ($package): array => [
+                            'recipe_package_id' => $package->recipe_package_id,
+                            'recipe_id' => $package->recipe_id,
+                            'code' => $package->package_code,
+                            'name' => $package->package_name,
+                            'description' => $package->description ?? '',
+                            'quantity' => (float) $package->quantity,
+                            'note' => $package->note ?? '',
+                        ])->all(),
                     ];
                 }
             }
 
             $this->selectedVenue = collect($this->selectedVenueRows)->pluck('id')->toArray();
             $this->selectedService = collect($this->selectedServiceRows)->pluck('id')->toArray();
-            $this->selectedFood = collect($this->selectedFoodRows)->pluck('id')->toArray();
+            $this->selectedFood = collect($this->selectedFoodRows)->pluck('branch_recipe_id')->filter()->values()->all();
 
             $this->calculateFoodGrandTotal();
             $this->calculateServiceGrandTotal();
@@ -554,6 +757,7 @@ new class extends Component
                 ->whereHas('recipe', function ($query) {
                     // Filter by type
                     $query->where('recipe_type', $this->foodType);
+                    $query->where('status', 'AVAILABLE');
 
                     // Filter by category (FIXED)
                     $query->when($this->foodCategoryID, function ($q) {
@@ -810,16 +1014,56 @@ new class extends Component
                                             </x-ts-button>
                                     @endinteract
                                     @interact('sub_table', $row)
-                                        <x-ts-table :headers="[
-                                            ['index'       => 'description', 'label' => 'add note'],
-                                        ]"
-                                        :rows="[[
-                                            'description' => $row['note'],
-                                        ]]">
-                                            @interact('column_description', $row)
-                                                    <x-ts-textarea maxlength="100" count wire:model="selectedFoodRows.{{ $loop->index }}.note" resize placeholder="Add note here.."/>
-                                            @endinteract
-                                        </x-ts-table>
+                                        @php($foodIndex = $loop->index)
+                                        <div class="space-y-4">
+                                            <x-ts-textarea maxlength="100" count wire:model="selectedFoodRows.{{ $foodIndex }}.note" resize placeholder="Add note here.."/>
+                                            @if($row['recipe_type'] === 'Banquet')
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <h4 class="font-semibold">Included package recipes</h4>
+                                                    @if($row['package_options'] !== [] || $row['package_recipes'] !== [])
+                                                        <x-ts-button wire:click="openPackageRecipePicker({{ $foodIndex }})" icon="pencil-square" sm light>
+                                                            Select package recipes
+                                                        </x-ts-button>
+                                                    @endif
+                                                </div>
+                                                @if($row['package_recipes'] !== [])
+                                                    <div class="overflow-x-auto">
+                                                        <table class="w-full text-sm">
+                                                            <thead>
+                                                                <tr class="border-b text-left">
+                                                                    <th class="p-2">Code</th>
+                                                                    <th class="p-2">Package name</th>
+                                                                    <th class="p-2">Description</th>
+                                                                    <th class="p-2">Qty</th>
+                                                                    <th class="p-2">Note</th>
+                                                                    <th class="p-2">Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach($row['package_recipes'] as $packageIndex => $package)
+                                                                    <tr class="border-b align-top">
+                                                                        <td class="p-2">{{ $package['code'] }}</td>
+                                                                        <td class="p-2">{{ $package['name'] }}</td>
+                                                                        <td class="p-2">{{ $package['description'] }}</td>
+                                                                        <td class="p-2">{{ number_format($package['quantity'], 2) }}</td>
+                                                                        <td class="p-2">
+                                                                            <x-ts-textarea maxlength="1000" wire:model="selectedFoodRows.{{ $foodIndex }}.package_recipes.{{ $packageIndex }}.note" resize placeholder="Add note"/>
+                                                                        </td>
+                                                                        <td class="p-2">
+                                                                            <x-ts-button wire:click="removePackageRecipe({{ $foodIndex }}, {{ $packageIndex }})" color="rose" sm light>
+                                                                                Remove
+                                                                            </x-ts-button>
+                                                                        </td>
+                                                                    </tr>
+                                                                @endforeach
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                @else
+                                                    <p class="text-sm text-slate-500">No package recipes selected.</p>
+                                                @endif
+                                            @endif
+                                        </div>
                                     @endinteract
                             
                                 </x-ts-table>
@@ -1087,6 +1331,39 @@ new class extends Component
             </x-ts-card>
             <x-slot:footer>
                 <x-ts-button icon="check" x-on:click="$tsui.close.modal('modal-add-food')">Done</x-ts-button>
+            </x-slot:footer>
+        </x-ts-modal>
+
+        <x-ts-modal wire="packagePickerModal" id="modal-package-recipes" title="Select package recipes" size="4xl" center persistent>
+            @if($currentPackageFood)
+                <p class="mb-4 text-sm text-slate-600">
+                    Choose recipes to include under {{ $currentPackageFood['menu_name'] }}.
+                </p>
+                <div class="max-h-96 space-y-3 overflow-y-auto">
+                    @foreach($currentPackageFood['package_options'] as $option)
+                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50">
+                            <input type="checkbox" value="{{ $option['recipe_package_id'] }}" wire:model="selectedPackageRecipeIds" class="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <span class="min-w-0 flex-1">
+                                <span class="flex flex-wrap items-center gap-2 font-semibold">
+                                    <span>{{ $option['code'] }}</span>
+                                    <span>{{ $option['name'] }}</span>
+                                    <span class="text-xs font-normal text-slate-500">Qty {{ number_format($option['quantity'], 2) }}</span>
+                                </span>
+                                <span class="mt-1 block text-sm text-slate-600">{{ $option['description'] }}</span>
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('selectedPackageRecipeIds')
+                    <x-ts-alert class="mt-3" title="Selection required" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                @enderror
+                @error('selectedPackageRecipeIds.*')
+                    <x-ts-alert class="mt-3" title="Invalid selection" text="{{ $message }}" color="red" light bordered="left" rounded="xl"/>
+                @enderror
+            @endif
+            <x-slot:footer between>
+                <x-ts-button wire:click="cancelPackageRecipeSelection" color="slate" light>Cancel</x-ts-button>
+                <x-ts-button wire:click="confirmPackageRecipeSelection" icon="check">Add selected recipes</x-ts-button>
             </x-slot:footer>
         </x-ts-modal>
 
