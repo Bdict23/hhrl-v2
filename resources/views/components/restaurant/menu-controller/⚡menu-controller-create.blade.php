@@ -82,7 +82,7 @@ new class extends Component
                 ->where('company_id', $companyId)
                 ->where('status', 'AVAILABLE')
                 ->when($this->recipeSearch !== '', function ($query): void {
-                    $query->where('menu_name', 'like', '%' . $this->recipeSearch . '%');
+                    $query->where('menu_name', 'like', '%' . $this->recipeSearch . '%')->orWhere('menu_code', 'like', '%' . $this->recipeSearch . '%');
                 })
                 ->orderBy('menu_name')
                 ->paginate(10),
@@ -157,7 +157,6 @@ new class extends Component
     {
         $companyId = auth()->user()?->branch?->company_id;
         abort_unless($companyId, 403);
-
         return (int) $companyId;
     }
 };

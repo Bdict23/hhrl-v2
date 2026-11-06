@@ -43,8 +43,4 @@ class RecipeController extends Model
     {
         return $this->belongsTo(Employee::class, 'created_by');
     }
-    public function recipes()
-    {
-        return $this->hasMany(Recipe::class, 'menu_id');
-    }
 }
