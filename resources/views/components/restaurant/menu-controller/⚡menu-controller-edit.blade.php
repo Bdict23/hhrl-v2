@@ -82,6 +82,7 @@ new class extends Component
 
         return [
             'selectedMenuHeaders' => [
+                ['index' => 'menu_image', 'label' => 'Image'],
                 ['index' => 'category_name', 'label' => 'Category'],
                 ['index' => 'menu_name', 'label' => 'Recipe'],
                 ['index' => 'price', 'label' => 'Price'],
@@ -180,9 +181,15 @@ new class extends Component
         ]" />
 
         <form wire:submit="save" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-200 px-6 py-5">
-                <h1 class="text-xl font-bold text-slate-800">Edit Recipe Schedule</h1>
-                <p class="mt-1 text-sm text-slate-500">Update the schedule dates, availability, days and included recipes.</p>
+            <div class="border-b flex flex-col gap-3 border-slate-200 bg-slate-50  sm:flex-row sm:items-center sm:justify-between">
+                <div class="px-6 py-5">
+                    <h1 class="text-xl font-bold text-slate-800">Edit Recipe Schedule</h1>
+                    <p class="mt-1 text-sm text-slate-500">Update the schedule dates, availability, days and included recipes.</p>
+                </div>
+                <div class="flex flex-col-reverse gap-3 border-slate-200 bg-slate-50 px-6 py-5 sm:flex-row sm:justify-end">
+                    <x-ts-button text="Cancel" color="slate" :href="route('restaurant.menu-controller-view', ['id' => $scheduleId])" />
+                    <x-ts-button text="Save Changes" color="green" type="submit" loading="save"/>
+                </div>
             </div>
 
             <div class="space-y-7 p-6">
@@ -247,6 +254,15 @@ new class extends Component
 
                     <x-ts-card>
                         <x-ts-table :headers="$selectedMenuHeaders" :rows="$selectedMenuRows" compact>
+                            @interact('column_menu_image', $row)
+                                @if($row->menu_image)
+                                    <x-ts-avatar image="{{ asset('storage/'.$row->menu_image) }}" md square />
+                                @else
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-xs font-bold text-emerald-700">
+                                        {{ strtoupper(substr($row->menu_name, 0, 2)) }}
+                                    </div>
+                                @endif
+                            @endinteract
                             @interact('column_category_name', $row)
                                 {{ $row->category?->category_name ?? 'Uncategorized' }}
                             @endinteract
@@ -254,17 +270,14 @@ new class extends Component
                                 {{ number_format((float) ($row->rate?->amount ?? 0), 2) }}
                             @endinteract
                             @interact('column_action', $row)
-                                <x-ts-button text="Remove" color="rose" size="sm" type="button" wire:click="removeMenuItem({{ $row->id }})" />
+                                <x-ts-button text="Remove" color="rose" size="sm" type="button" wire:click="removeMenuItem({{ $row->id }})" spinner="dots" loading="removeMenuItem({{ $row->id }})" />
                             @endinteract
                         </x-ts-table>
                     </x-ts-card>
                 </section>
             </div>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-5 sm:flex-row sm:justify-end">
-                <x-ts-button text="Cancel" color="slate" :href="route('restaurant.menu-controller-view', ['id' => $scheduleId])" />
-                <x-ts-button text="Save Changes" color="green" type="submit" />
-            </div>
+            
         </form>
     </div>
 
@@ -292,11 +305,14 @@ new class extends Component
                         @if(in_array($row->id, $this->menuItems, true))
                             <x-ts-badge text="Added" color="green" />
                         @else
-                            <x-ts-button text="Add" color="green" size="sm" type="button" wire:click="addMenuItem({{ $row->id }})" />
+                            <x-ts-button text="Add" color="green" size="sm" type="button" wire:click="addMenuItem({{ $row->id }})" spinner="dots" loading="addMenuItem({{ $row->id }})" />
                         @endif
                     @endinteract
                 </x-ts-table>
             </x-ts-card>
         </div>
     </x-ts-modal>
+
+    <x-ts-back-to-top lg/>
+
 </div>

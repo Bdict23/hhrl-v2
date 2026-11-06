@@ -40,6 +40,7 @@ new class extends Component
         ]));
         $this->recipeItems = $controller->Branchrecipes
             ->map(static fn ($branchRecipe): array => [
+                'menu_image' => $branchRecipe->recipe?->menu_image,
                 'name' => $branchRecipe->recipe?->menu_name ?? 'Recipe unavailable',
                 'category' => $branchRecipe->recipe?->category?->category_name ?? 'Uncategorized',
                 'price' => (float) ($branchRecipe->recipe?->rate?->amount ?? 0),
@@ -150,6 +151,7 @@ new class extends Component
                             <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                                 <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                                     <tr>
+                                        <th class="px-4 py-3">Menu Image</th>
                                         <th class="px-4 py-3">Recipe</th>
                                         <th class="px-4 py-3">Category</th>
                                         <th class="px-4 py-3 text-right">Price</th>
@@ -158,6 +160,13 @@ new class extends Component
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     @foreach($recipeItems as $recipe)
                                         <tr>
+                                            <td class="px-4 py-3">
+                                                @if($recipe['menu_image'])
+                                                    <img src="{{ asset('storage/' . $recipe['menu_image']) }}" alt="Recipe Image" class="h-16 w-16 rounded object-cover" />
+                                                @else
+                                                    <div class="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-slate-400">No Image</div>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 font-medium text-slate-800">{{ $recipe['name'] }}</td>
                                             <td class="px-4 py-3 text-slate-600">{{ $recipe['category'] }}</td>
                                             <td class="px-4 py-3 text-right text-slate-700">{{ number_format($recipe['price'], 2) }}</td>
@@ -173,4 +182,5 @@ new class extends Component
             </div>
         </section>
     </div>
+    <x-ts-back-to-top lg/>
 </div>

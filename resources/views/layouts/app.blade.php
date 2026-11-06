@@ -190,11 +190,14 @@
                                     </x-slot:icon>
                                 </x-ts-side-bar.item>
                             @endif
+                            @if(auth()->user()->hasPermission('Menu Controller'))
                              <x-ts-side-bar.item text="Menu Controller" :route="route('restaurant.menu-controller-summary')">
                                 <x-slot:icon>
                                     <x-icon-dot class="w-5 h-5" />
                                 </x-slot:icon>
                             </x-ts-side-bar.item>
+                            @endif
+
                             @if(auth()->user()->hasPermission('Menu'))
                                 <x-ts-side-bar.item text="Menu">
                                     <x-slot:icon>
