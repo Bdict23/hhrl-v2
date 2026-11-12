@@ -9,10 +9,8 @@ use App\Models\BanquetEvent\EventLiquidation;
 use App\Models\Transaction\Reimbursement;
 use App\Models\Transaction\CashReturn;
 
-
 class EventLiquidationService
 {
-
     protected $liquidation;
     protected $event;
     protected $branch;
@@ -26,7 +24,6 @@ class EventLiquidationService
         Branch $branch,
         CashReturn $cashReturn,
         Reimbursement $reimbursement
-
     ) {
         $this->liquidation = $liquidation;
         $this->event = $event;
@@ -105,15 +102,15 @@ class EventLiquidationService
             ]);
 
             $cashReturn = $this->cashReturn->where('event_liquidation_id', $data['liquidation_id'])->first();
-            if ($data['status'] == 'FINAL') {
-                if ($cashReturn->status !== 'FINAL') {
-                    $cashReturn->update([
-                        'status' => 'FINAL',
-                        'amount_returned' => $data['amount_returned'] ?? 0,
-                    ]);
-                }
-            } else {
-                if ($cashReturn->status == 'DRAFT') {
+            if ($cashReturn !== null) {
+                if ($data['status'] == 'FINAL') {
+                    if ($cashReturn->status !== 'FINAL') {
+                        $cashReturn->update([
+                            'status' => 'FINAL',
+                            'amount_returned' => $data['amount_returned'] ?? 0,
+                        ]);
+                    }
+                } elseif ($cashReturn->status == 'DRAFT') {
                     $cashReturn->update([
                         'amount_returned' => $data['amount_returned'] ?? 0,
                     ]);
