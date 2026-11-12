@@ -513,8 +513,8 @@
                     <!-- Accounting  -->
                     @if(auth()->user()->hasAccess('Accounting'))
                         <x-ts-side-bar.item text="Accounting" icon="calculator">
-                            @if(auth()->user()->hasPermission('Chart of Accounts Management'))
-                                <x-ts-side-bar.item text="COA - Management">
+                            @if(auth()->user()->hasPermission('COA - Management'))
+                                <x-ts-side-bar.item text="COA - Management" :route="route('accounting.coa-management')">
                                     <x-slot:icon>
                                         <x-icon-dot class="w-5 h-5" />
                                     </x-slot:icon>

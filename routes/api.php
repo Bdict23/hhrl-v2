@@ -91,6 +91,9 @@ Route::middleware('auth:sanctum')->get('/get-selected-transaction_template', [Ac
 Route::middleware('auth:sanctum')->get('/get-active-account-type', [AccountingApiController::class, 'activeAccountType'])->name('api.get.active-account-type');
 Route::middleware('auth:sanctum')->get('/get-pcv-payee-employee', [AccountingApiController::class, 'pcvPayeeEmployee'])->name('api.get.pcv-payee-employee');
 Route::middleware('auth:sanctum')->get('/get-pcv-payee-customer', [AccountingApiController::class, 'pcvPayeeCustomer'])->name('api.get.pcv-payee-customer');
+Route::middleware('auth:sanctum')->get('/get-active-titles', [AccountingApiController::class, 'getActiveTitles'])->name('api-accounting.active-titles');
+Route::middleware('auth:sanctum')->get('/get-active-template-name', [AccountingApiController::class, 'getActiveTemplateName'])->name('api-accounting.active-tempplate-name');
+Route::middleware('auth:sanctum')->get('/get-tempalte-approver', [AccountingApiController::class, 'getActiveTemplateApprover'])->name('api-accounting.active-tempplate-approver');
 
 //CUSTOMERS API
 Route::middleware('auth:sanctum')->get('/get-branch-customers', [CustomerApiController::class, 'getBranchCustomers'])->name('api.get.branch-customers');
@@ -136,3 +139,7 @@ Route::middleware('auth:sanctum')->get('/branches/active', [CompanyApiController
 // EMPLOYEE
 Route::middleware('auth:sanctum')->get('/employee/active', [EmployeeApiController::class, 'getActiveBranchEmployees'])->name('api.employee.all');
 Route::middleware('auth:sanctum')->get('/employee/positions', [EmployeeApiController::class, 'getActiveBranchEmployeePosition'])->name('api.employee.positions');
+
+
+// company names
+Route::middleware('auth:sanctum')->get('/company/active', [CompanyApiController::class, 'getActiveCompanies'])->name('api.company.active');

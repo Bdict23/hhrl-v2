@@ -3,7 +3,7 @@
 namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Accounting\TemplateName;
+use App\Models\Business\Company;
 
 class TransactionTemplate extends Model
 {
@@ -33,5 +33,26 @@ class TransactionTemplate extends Model
     public function transactionDetails()
     {
         return $this->hasMany(TemplateDetail::class, 'template_id');
+    }
+    public function transactionType()
+    {
+        return $this->belongsTo(AccountType::class, 'transaction_type');
+    }
+    public function businessUnit()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+    public function approver()
+    {
+        return $this->belongsTo(\App\Models\Business\Employee::class, 'approved_by');
+    }
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\Business\Employee::class, 'created_by');
+    }
+
+    public function pettyCashVouchers()
+    {
+        return $this->hasMany(\App\Models\Transaction\PettyCashVoucher::class, 'template_id');
     }
 }

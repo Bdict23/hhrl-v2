@@ -202,6 +202,11 @@ Route::middleware(['auth'])->group(function () {
     volt::route('/event-budget/validation-summary', 'events.event-budget.event-budget-validation-summary')->name('event-budget.validation-summary');
     volt::route('/event-budget/validation-approval-view/{id}', 'events.event-budget.event-budget-validation-approval-view')->name('event-budget-validation-approval-view');
 
+    // ACCOUNTING
+    volt::route('/accounting/coa-management', 'accounting.coa-management.chart-of-account')->name('accounting.coa-management');
+    volt::route('/accounting/template-create/{id?}', 'accounting.coa-management.template-create')->name('accounting.template-create');
+    volt::route('/accounting/template-edit/{id}', 'accounting.coa-management.template-create')->name('accounting.template-edit');
+
     // DATA MANAGEMENT
     volt::route('/data-management/data-management-tab', 'data-management.data-management-tab')->name('data-management.tab');
 });
