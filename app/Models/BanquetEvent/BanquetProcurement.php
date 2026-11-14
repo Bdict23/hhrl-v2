@@ -3,7 +3,6 @@
 namespace App\Models\BanquetEvent;
 
 use App\Models\Business\Employee;
-
 use Illuminate\Database\Eloquent\Model;
 
 class BanquetProcurement extends Model

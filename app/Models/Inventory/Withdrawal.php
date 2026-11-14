@@ -5,8 +5,6 @@ namespace App\Models\Inventory;
 use App\Models\Business\Employee;
 use App\Models\Business\Department;
 use App\Models\Settings\SystemParameter;
-
-
 use Illuminate\Database\Eloquent\Model;
 
 class Withdrawal extends Model
@@ -56,7 +54,7 @@ class Withdrawal extends Model
     {
         return $this->belongsTo(Employee::class, 'reviewed_by');
     }
-    public  function cardex()
+    public function cardex()
     {
         return $this->hasMany(Cardex::class, 'withdrawal_id');
     }

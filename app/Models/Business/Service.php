@@ -5,7 +5,6 @@ namespace App\Models\Business;
 use App\Models\DataManagement\Price;
 use App\Models\DataManagement\Category;
 use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model

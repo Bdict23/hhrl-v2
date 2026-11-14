@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Api\Transaction;
 use Illuminate\Routing\Controller;
 use App\Models\Transaction\EmployeeAdvance;
 use App\Models\Business\Employee;
-
-
 use Illuminate\Http\Request;
 
 class EmployeeCashAdvanceApiController extends Controller

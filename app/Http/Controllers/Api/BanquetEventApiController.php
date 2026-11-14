@@ -7,7 +7,6 @@ use Illuminate\Routing\Controller;
 use App\Models\BanquetEvent\Event;
 use App\Models\Validation\Signatory;
 
-
 class BanquetEventApiController extends Controller
 {
     public function activeEvent(Request $request)

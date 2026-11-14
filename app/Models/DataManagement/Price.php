@@ -26,7 +26,8 @@ class Price extends Model
     'service_id',
     ];
 
-    public function supplier(){
+    public function supplier()
+    {
         return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 }

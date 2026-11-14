@@ -19,4 +19,3 @@ class SupplierApiController extends Controller
         return response()->json($suppliers);
     }
 }
-

@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Api;
 use Illuminate\Routing\Controller;
 use App\Models\Transaction\PettyCashVoucher;
 use App\Models\Settings\Signatory;
-
-
 use Illuminate\Http\Request;
 
 class PettyCashVoucherApiController extends Controller

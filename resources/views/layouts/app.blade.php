@@ -212,6 +212,13 @@
                                     </x-slot:icon>
                                 </x-ts-side-bar.item>
                             @endif
+                            @if(auth()->user()->hasPermission('Production Order'))
+                                <x-ts-side-bar.item text="Production Order" :route="route('restaurant.production-order.summary')">
+                                    <x-slot:icon>
+                                        <x-icon-dot class="w-5 h-5" />
+                                    </x-slot:icon>
+                                </x-ts-side-bar.item>
+                            @endif
                         </x-ts-side-bar.item>
                     @endif
 

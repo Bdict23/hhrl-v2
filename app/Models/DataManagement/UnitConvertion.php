@@ -32,4 +32,3 @@ class UnitConvertion extends Model
         return $this->belongsTo(UnitOfMeasure::class, 'to_uom_id');
     }
 }
-

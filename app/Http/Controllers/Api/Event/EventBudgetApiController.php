@@ -6,11 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Models\Validation\Signatory;
 
-
 class EventBudgetApiController extends Controller
 {
-
-
     public function activeReviewers(Request $request)
     {
         $branch_id = $request->query('branch_id');

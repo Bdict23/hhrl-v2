@@ -6,8 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Models\DataManagement\Category;
 
-
-
 class RecipeApiController extends Controller
 {
     public function activeRecipeCategories(Request $request)

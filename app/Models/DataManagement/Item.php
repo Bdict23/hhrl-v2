@@ -3,8 +3,6 @@
 namespace App\Models\DataManagement;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\DataManagement\UnitOfMeasure;
-use App\Models\DataManagement\Price;
 use App\Models\Inventory\FixedAsset\AssetCardex;
 use App\Models\Inventory\Cardex;
 
@@ -63,5 +61,17 @@ class Item extends Model
     public function receivingItems()
     {
         return $this->hasMany(Cardex::class, 'item_id');
+    }
+
+
+    // used only from production order which will later be modified.
+    public function priceLevel()
+    {
+        return $this->hasMany(Price::class, 'item_id');
+    }
+
+    public function units()
+    {
+        return $this->belongsTo(UnitConvertion::class, 'uom_id');
     }
 }

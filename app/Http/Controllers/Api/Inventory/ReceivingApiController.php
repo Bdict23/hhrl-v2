@@ -9,17 +9,14 @@ use App\Models\Settings\SystemParameter;
 use App\Models\Business\Department;
 use App\Models\Validation\Signatory;
 
-
-
-
 class ReceivingApiController extends Controller
 {
     public function activeReceivingNumber(Request $request)
     {
         $branch_id = $request->query('branch_id');
         $types = Receiving::where('branch_id', $branch_id)
-            ->where('receiving_status',  'FINAL')
-            ->where('receiving_type',  'PO')
+            ->where('receiving_status', 'FINAL')
+            ->where('receiving_type', 'PO')
             ->orderBy('created_at', 'desc')
             ->where('reference', '!=', 'N/A')
             ->get();

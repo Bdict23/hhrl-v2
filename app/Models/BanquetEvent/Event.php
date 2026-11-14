@@ -5,7 +5,6 @@ namespace App\Models\BanquetEvent;
 use App\Models\Transaction\Acknowledgement;
 use App\Models\Business\Customer;
 use App\Models\Business\Employee;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Event extends Model

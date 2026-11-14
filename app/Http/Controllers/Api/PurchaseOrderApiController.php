@@ -9,7 +9,6 @@ use App\Models\Validation\Signatory;
 use App\Models\Inventory\PurchaseOrder;
 use App\Models\Inventory\Receiving;
 
-
 class PurchaseOrderApiController extends Controller
 {
     public function activePurchaseType(Request $request)

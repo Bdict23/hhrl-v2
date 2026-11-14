@@ -57,6 +57,11 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/restaurant/menu-create', 'restaurant.menu-controller.menu-controller-create')->name('restaurant.menu-controller-create');
     Volt::route('/restaurant/menu-edit/{id}', 'restaurant.menu-controller.menu-controller-edit')->name('restaurant.menu-controller-edit');
     Volt::route('/restaurant/menu-view/{id}', 'restaurant.menu-controller.menu-controller-view')->name('restaurant.menu-controller-view');
+    //Production order
+    Volt::route('/restaurant/production-order/summary', 'restaurant.production.production-order-summary')->name('restaurant.production-order.summary');
+    Volt::route('/restaurant/production-order/create', 'restaurant.production.production-order-create')->name('restaurant.production-order.create');
+    Volt::route('/restaurant/production-order/edit/{id}', 'restaurant.production.production-order-edit')->name('restaurant.production-order.edit');
+    Volt::route('/restaurant/production-order/view/{id}', 'restaurant.production.production-order-view')->name('restaurant.production-order.view');
 
     //EVENTS
 

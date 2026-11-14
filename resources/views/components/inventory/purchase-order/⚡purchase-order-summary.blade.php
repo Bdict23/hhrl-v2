@@ -120,7 +120,7 @@ new class extends Component
                     @elseif($row->requisition_status == 'REJECTED')
                         <x-ts-badge :text="$row->requisition_status" color="red" />
                     @elseif($row->requisition_status == 'PREPARING')
-                        <x-ts-badge text="DRAFT" color="secondary" />
+                        <x-ts-badge text="DRAFT" color="gray" />
                     @elseif($row->requisition_status == 'COMPLETED')
                         <x-ts-badge :text="$row->requisition_status" color="green" />
                     @elseif($row->requisition_status == 'CANCELLED')

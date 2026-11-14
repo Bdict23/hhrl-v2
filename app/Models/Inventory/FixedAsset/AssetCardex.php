@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class AssetCardex extends Model
 {
-   protected $table = 'asset_cardex';
+    protected $table = 'asset_cardex';
     protected $fillable = [
          'reference',
          'batch_id',

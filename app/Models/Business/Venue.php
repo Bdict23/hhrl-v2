@@ -5,7 +5,6 @@ namespace App\Models\Business;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\Price;
 
-
 class Venue extends Model
 {
     protected $table = 'venues';

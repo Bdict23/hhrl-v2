@@ -6,10 +6,7 @@ use Illuminate\Routing\Controller;
 use App\Models\DataManagement\Category;
 use App\Models\DataManagement\Brand;
 use App\Models\DataManagement\Classification;
-use App\Models\DataManagement\UnitOfMeasure;
 use App\Models\Settings\SystemParameter;
-
-
 use Illuminate\Http\Request;
 
 class ItemApiController extends Controller
@@ -49,7 +46,7 @@ class ItemApiController extends Controller
         $company_id = $request->query('company_id');
         $result = Classification::where('company_id', $company_id)
             ->where('status', 'ACTIVE')
-            ->where('class_parent',  null)
+            ->where('class_parent', null)
             ->get()->map(function ($brand) {
                 return [
                     'id' => $brand->id,

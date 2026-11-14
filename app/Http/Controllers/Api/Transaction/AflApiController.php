@@ -7,25 +7,21 @@ use Illuminate\Routing\Controller;
 use App\Models\Business\Employee;
 use App\Models\Transaction\AdvancesForLiquidation;
 
-
-
-
-
 class AflApiController extends Controller
 {
     public $branchId;
     public function getBranchApprovers(Request $request)
     {
-    $this->branchId = $request->query('branch_id');
-    $approver = Employee::query()
-        ->whereHas('signatory', function ($query) {
-            $query->where('module_id', 70)
-                ->where('signatory_type', 'APPROVER')
-                ->where('branch_id', $this->branchId);
+        $this->branchId = $request->query('branch_id');
+        $approver = Employee::query()
+            ->whereHas('signatory', function ($query) {
+                $query->where('module_id', 70)
+                    ->where('signatory_type', 'APPROVER')
+                    ->where('branch_id', $this->branchId);
             })
-        ->get();
+            ->get();
 
-     return response()->json($approver);
+        return response()->json($approver);
 
     }
     public function getBranchDisbursers(Request $request)
@@ -36,10 +32,10 @@ class AflApiController extends Controller
         ->whereHas('modulePermission', function ($query) {
             $query->where('module_id', 70)
             ->where('access', 1);
-            })
+        })
         ->get();
 
-     return response()->json($disbursers);
+        return response()->json($disbursers);
     }
 
     public function getActiveAdvancesForLiquidation(Request $request)
@@ -47,7 +43,7 @@ class AflApiController extends Controller
         $this->branchId = $request->query('branch_id');
         $afl = AdvancesForLiquidation::query()
         ->where('branch_id', $this->branchId)
-        ->where('status','OPEN')
+        ->where('status', 'OPEN')
         ->get();
 
         return response()->json($afl);

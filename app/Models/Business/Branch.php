@@ -8,7 +8,7 @@ use App\Models\Settings\SystemParameter;
 class Branch extends Model
 {
     //
-   protected $table = "branches";
+    protected $table = "branches";
 
     public function company()
     {

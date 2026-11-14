@@ -4,7 +4,6 @@ namespace App\Models\BanquetEvent;
 
 use App\Models\DataManagement\Price;
 use App\Models\Business\Venue;
-
 use Illuminate\Database\Eloquent\Model;
 
 class EventVenue extends Model

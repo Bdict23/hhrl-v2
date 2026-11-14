@@ -27,6 +27,11 @@ class Ingredient extends Model
         return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
     }
 
+    public function uom()
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
     public function unit_of_measurement()
     {
         return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
@@ -41,5 +46,28 @@ class Ingredient extends Model
     {
         return $this->belongsTo(Price::class, 'price_level_id');
     }
-}
 
+    public function conversionFactor(): float
+    {
+        if (! $this->item || ! $this->uom_id) {
+            return 1.0;
+        }
+
+        $fromUomId = $this->uom_id;
+        $toUomId = $this->item->uom_id;
+
+        if ($fromUomId == $toUomId) {
+            return 1.0;
+        }
+
+        $conv = UnitConvertion::where(function ($q) {
+            $q->where('item_id', $this->item_id)->orWhereNull('item_id');
+        })
+            ->where('from_uom_id', $fromUomId)
+            ->where('to_uom_id', $toUomId)
+            ->orderByRaw('item_id IS NULL ASC')
+            ->first();
+
+        return $conv ? (float) $conv->conversion_factor : 1.0;
+    }
+}

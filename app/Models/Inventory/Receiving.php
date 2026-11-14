@@ -3,8 +3,6 @@
 namespace App\Models\Inventory;
 
 use App\Models\Business\Employee;
-use App\Models\Inventory\PurchaseOrder;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Receiving extends Model

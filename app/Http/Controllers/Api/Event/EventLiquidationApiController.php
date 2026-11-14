@@ -5,12 +5,10 @@ namespace App\Http\Controllers\Api\Event;
 use Illuminate\Routing\Controller;
 use App\Models\Validation\Signatory;
 use App\Models\BanquetEvent\EventLiquidation;
-
 use Illuminate\Http\Request;
 
 class EventLiquidationApiController extends Controller
 {
-
     public function activeReviewers(Request $request)
     {
         $branch_id = $request->query('branch_id');

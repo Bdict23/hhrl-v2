@@ -5,7 +5,6 @@ namespace App\Models\Business;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\Recipe;
 
-
 class RecipeController extends Model
 {
     protected $table = 'branch_menus';

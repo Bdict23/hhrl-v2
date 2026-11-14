@@ -36,4 +36,3 @@ class UnitOfMeasure extends Model
         return $this->hasMany(UnitConvertion::class, 'to_uom_id');
     }
 }
-

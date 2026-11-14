@@ -6,8 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Models\DataManagement\Bank;
 
-
-
 class BankApiController extends Controller
 {
     public function getBranchBanks(Request $request)

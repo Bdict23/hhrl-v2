@@ -65,6 +65,11 @@ class Recipe extends Model
         return $this->hasMany(Ingredient::class, 'menu_id');
     }
 
+    public function recipes()
+    {
+        return $this->hasMany(Ingredient::class, 'menu_id');
+    }
+
     public function rate()
     {
         $relation = $this->hasOne(Price::class, 'menu_id')->where('price_type', 'RATE');

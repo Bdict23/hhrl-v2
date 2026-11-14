@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models\Inventory\FixedAsset;
+
 use App\Models\DataManagement\Item;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,10 +25,12 @@ class AssetBatchDetail extends Model
         'location',
     ];
 
-    public function item(){
+    public function item()
+    {
         return $this->belongsTo(Item::class, 'item_id');
     }
-    public function isSerialized(){
+    public function isSerialized()
+    {
         return $this->serial ? true : false;
     }
 }

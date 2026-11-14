@@ -3,6 +3,7 @@
 use Livewire\Component;
 use TallStackUi\Traits\Interactions;
 use App\Models\DataManagement\Item;
+use App\Models\Restaurant\ProductionOrder;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Inventory\PurchaseOrderService;
@@ -150,6 +151,85 @@ new class extends Component
             $this->selectedRows[$index]['sub_total'] = $qty * $cost;
         }
         $this->calculateGrandTotal();
+    }
+
+    public function updatedProductionOrderId($value): void
+    {
+        if (! $value) {
+            return;
+        }
+
+        $order = ProductionOrder::with([
+            'productionOrderDetails.item.unit',
+            'productionOrderDetails.item.cost',
+            'productionOrderDetails.item.brand',
+            'productionOrderDetails.item.category',
+            'productionOrderDetails.item.classification',
+            'productionOrderDetails.item.subClassification',
+            'productionOrderDetails.uom',
+        ])->find($value);
+
+        if (! $order) {
+            return;
+        }
+
+        $consolidated = [];
+        foreach ($order->productionOrderDetails as $detail) {
+            if (! $detail->item) {
+                continue;
+            }
+
+            $itemId = $detail->item_id;
+            $rawQty = (float) $detail->qty;
+            $factor = $detail->conversionFactor();
+            $convertedQty = $rawQty * $factor;
+
+            if (! isset($consolidated[$itemId])) {
+                $consolidated[$itemId] = [
+                    'item' => $detail->item,
+                    'qty' => 0,
+                ];
+            }
+            $consolidated[$itemId]['qty'] += $convertedQty;
+        }
+
+        foreach ($consolidated as $itemId => $data) {
+            $item = $data['item'];
+            $cost = (float) ($item->cost?->amount ?? 0);
+            $qty = max(0.01, round($data['qty'], 2));
+
+            $existingIndex = null;
+            foreach ($this->selectedRows as $idx => $row) {
+                if ($row['id'] === $itemId) {
+                    $existingIndex = $idx;
+                    break;
+                }
+            }
+
+            if ($existingIndex !== null) {
+                $this->selectedRows[$existingIndex]['quantity'] = $qty;
+                $this->selectedRows[$existingIndex]['sub_total'] = $qty * $cost;
+            } else {
+                $this->selectedRows[] = [
+                    'id'               => $item->id,
+                    'item_code'        => $item->item_code,
+                    'item_description' => $item->item_description,
+                    'unit'             => $item->unit?->unit_symbol ?? 'N/A',
+                    'cost'             => $cost,
+                    'price_id'         => $item->cost?->id ?? null,
+                    'quantity'         => $qty,
+                    'sub_total'        => $qty * $cost,
+                    'brand'            => $item->brand?->brand_name ?? 'N/A',
+                    'category'         => $item->category?->category_name ?? 'N/A',
+                    'classification'   => $item->classification?->classification_name ?? 'N/A',
+                    'subClass'         => $item->subClassification?->classification_name ?? 'N/A',
+                ];
+            }
+        }
+
+        $this->selectedItem = collect($this->selectedRows)->pluck('id')->toArray();
+        $this->calculateGrandTotal();
+        $this->toast()->success('Production Order Loaded', "Populated ingredients from {$order->reference}")->send();
     }
 
     public function with(): array
@@ -310,7 +390,7 @@ new class extends Component
                     <x-ts-select.styled
                     label="Production Order"
                     :request="route('api.active.production-order',['branch_id' => auth()->user()->branch_id])"
-                    wire:model="productionOrder_id"
+                    wire:model.live="productionOrder_id"
                     select="label:reference|value:id"
                     :placeholders="[
                     'default' => 'Select Production (Optional)',
@@ -328,7 +408,7 @@ new class extends Component
 
         {{-- TABLE --}}
         <div class="w-full">
-            <x-ts-card>
+            <x-ts-card loading>
                 <x-ts-table :headers="$selectedItemHeader" :rows="$selectedRows" striped expandable>
                     <x-slot:footer>
                         <x-ts-button icon="plus" position="left" class="mt-2" x-on:click="$tsui.open.modal('modal-add-item')" flat>Add Item </x-ts-button>
@@ -345,6 +425,12 @@ new class extends Component
                                     wire:target="removeItem({{ $loop->index }})"
                                     class="w-5 h-5" />
                             </x-ts-button>
+                    @endinteract
+                    @interact('column_cost', $row)
+                             ₱ {{ number_format($row['cost'], 2)}}
+                    @endinteract
+                    @interact('column_sub_total', $row)
+                          ₱ {{ number_format($row['sub_total'], 2)}}
                     @endinteract
 
                     @interact('column_quantity', $row)

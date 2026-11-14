@@ -6,8 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\DataManagement\Item;
 use App\Models\DataManagement\Price;
 
-
-
 class PurchaseOrderItems extends Model
 {
     protected $table = "requisition_details";

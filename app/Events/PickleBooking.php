@@ -12,7 +12,9 @@ use Illuminate\Queue\SerializesModels;
 
 class PickleBooking implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
     public ?int $bookingId;
     public ?string $status;

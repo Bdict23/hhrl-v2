@@ -7,7 +7,6 @@ use App\Models\DataManagement\Price;
 use App\Models\Business\Service;
 use Illuminate\Support\Facades\Auth;
 
-
 class EventService extends Model
 {
     protected $table = 'event_services';

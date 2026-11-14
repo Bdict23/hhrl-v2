@@ -4,7 +4,6 @@ namespace App\Models\Inventory;
 
 use App\Models\DataManagement\Item;
 use App\Models\DataManagement\Price;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Cardex extends Model
