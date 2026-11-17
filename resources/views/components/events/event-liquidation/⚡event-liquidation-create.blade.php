@@ -664,7 +664,7 @@ new class extends Component
                             <div class="flex flex-col justify-between rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 p-6 shadow-sm md:col-span-5">
                                 <div>
                                     <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Total Overview</span>
-                                    <h4 class="text-base font-semibold text-gray-900 mt-1">Liquidation Total Amount</h4>
+                                    <h4 class="text-base font-semibold text-gray-900 mt-1">Cash Return Amount</h4>
                                 </div>
                                 
                                 <div class="my-6">

@@ -144,6 +144,7 @@ new class extends Component
                         @php
                             $subHeaders = [
                                 ['index' => 'menu_image', 'label' => 'recipe Image'],
+                                ['index' => 'menu_name', 'label' => 'Recipe'],
                                 ['index' => 'menu_code', 'label' => 'Menu Code'],
                                 ['index' => 'menu_type', 'label' => 'Menu Type'],
                                 ['index' => 'recipe_type', 'label' => 'Recipe Type'],
@@ -152,6 +153,7 @@ new class extends Component
                             $subRows = $row->Branchrecipes->map(function ($branchRecipe) {
                                 return [
                                     'menu_image' => $branchRecipe->recipe->menu_image,
+                                    'menu_name' => $branchRecipe->recipe->menu_name,
                                     'menu_code' => $branchRecipe->recipe->menu_code,
                                     'menu_type' => $branchRecipe->recipe->menu_type,
                                     'menu_description' => $branchRecipe->recipe->menu_description,
@@ -165,7 +167,7 @@ new class extends Component
                                         <img src="{{ asset('storage/' . $subRow['menu_image']) }}" alt="Recipe Image" class="h-16 w-16 rounded object-cover" />
                                     @else
                                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-xs font-bold text-emerald-700">
-                                            {{ strtoupper(substr($row->menu_name, 0, 2)) }}
+                                            {{ strtoupper(substr($subRow['menu_name'], 0, 2)) }}
                                         </div>
                                     @endif
                                 @endinteract

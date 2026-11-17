@@ -80,6 +80,7 @@ new class extends Component
                 ->get(),
             'recipeItemsRows' => Recipe::query()
                 ->with(['category', 'rate'])
+                ->whereHas('rate')
                 ->where('company_id', $companyId)
                 ->where('status', 'AVAILABLE')
                 ->when($this->recipeSearch !== '', function ($query): void {

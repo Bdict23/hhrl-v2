@@ -618,7 +618,7 @@ new class extends Component
                     </x-ts-card>
                     <div class="grid grid-cols-2 mt-4">
                             <div class="grid">
-                                <span class="font-bold">LIQUIDATION TOTAL AMOUNT</span>
+                                <span class="font-bold">CASH RETURN TOTAL AMOUNT</span>
                                 <span>₱ {{number_format($liquidationTotalAmount, 2)}}</span>
                             </div>
                             <div class="grid">
