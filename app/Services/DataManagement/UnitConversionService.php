@@ -37,7 +37,7 @@ class UnitConversionService
             'mg'        => 0.001,
             'mg.'       => 0.001,
             'milligram' => 0.001,
-            'milligrams'=> 0.001,
+            'milligrams' => 0.001,
             'oz'        => 28.349523,
             'ounce'     => 28.349523,
             'lb'        => 453.59237,
@@ -52,7 +52,7 @@ class UnitConversionService
             'ml'         => 1.0,
             'ml.'        => 1.0,
             'milliliter' => 1.0,
-            'milliliters'=> 1.0,
+            'milliliters' => 1.0,
             'gal'        => 3785.411784,
             'gal.'       => 3785.411784,
             'gallon'     => 3785.411784,
@@ -87,8 +87,8 @@ class UnitConversionService
             'half dozen' => 6.0,
             'pair'       => 2.0,
             'set'        => 1.0,
-            'tray'       => 24.0,
-            'trays'      => 24.0,
+            'tray'       => 30,
+            'trays'      => 30,
         ],
         'LENGTH' => [
             'm'          => 1.0,
@@ -135,7 +135,7 @@ class UnitConversionService
                 'tbsp' => ['name' => 'Tablespoon',  'symbol' => 'tbsp', 'label' => 'Tablespoon (tbsp)', 'ratio' => 0.0147868],
                 'tsp'  => ['name' => 'Teaspoon',    'symbol' => 'tsp',  'label' => 'Teaspoon (tsp)',    'ratio' => 0.00492892],
                 'cup'  => ['name' => 'Cup',         'symbol' => 'cup',  'label' => 'Cup (cup)',         'ratio' => 0.23658824],
-                'floz' => ['name' => 'Fluid Ounce', 'symbol' => 'fl oz','label' => 'Fluid Ounce (fl oz)','ratio' => 0.0295735],
+                'floz' => ['name' => 'Fluid Ounce', 'symbol' => 'fl oz', 'label' => 'Fluid Ounce (fl oz)', 'ratio' => 0.0295735],
                 'gal'  => ['name' => 'Gallon',      'symbol' => 'gal',  'label' => 'Gallon (gal)',      'ratio' => 3.78541178],
             ],
         ],
@@ -143,9 +143,9 @@ class UnitConversionService
             'base_unit' => 'pc',
             'units' => [
                 'pc'      => ['name' => 'Piece',       'symbol' => 'pc',    'label' => 'Piece (pc)',        'ratio' => 1.0],
-                'tray'    => ['name' => 'Tray',        'symbol' => 'tray',  'label' => 'Tray (24 pcs)',     'ratio' => 24.0],
+                'tray'    => ['name' => 'Tray',        'symbol' => 'tray',  'label' => 'Tray (30 pcs)',     'ratio' => 30.0],
                 'doz'     => ['name' => 'Dozen',       'symbol' => 'doz',   'label' => 'Dozen (doz)',       'ratio' => 12.0],
-                'halfdoz' => ['name' => 'Half Dozen',  'symbol' => '½ doz', 'label' => 'Half Dozen (½ doz)','ratio' => 6.0],
+                'halfdoz' => ['name' => 'Half Dozen',  'symbol' => '½ doz', 'label' => 'Half Dozen (½ doz)', 'ratio' => 6.0],
                 'pair'    => ['name' => 'Pair',        'symbol' => 'pair',  'label' => 'Pair (pair)',       'ratio' => 2.0],
                 'set'     => ['name' => 'Set',         'symbol' => 'set',   'label' => 'Set (set)',         'ratio' => 1.0],
             ],
@@ -191,29 +191,67 @@ class UnitConversionService
 
         // Check if string contains known unit (e.g. "kg", "kls", "g", "l", "ml", "pc")
         if ($measureType === 'WEIGHT') {
-            if (str_contains($normalized, 'kg') || str_contains($normalized, 'kilo')) return 1000.0;
-            if (str_contains($normalized, 'mg')) return 0.001;
-            if (str_contains($normalized, 'g')) return 1.0;
-            if (str_contains($normalized, 'oz')) return 28.349523;
-            if (str_contains($normalized, 'lb')) return 453.59237;
+            if (str_contains($normalized, 'kg') || str_contains($normalized, 'kilo') || str_contains($normalized, 'kl')) {
+                return 1000.0;
+            }
+            if (str_contains($normalized, 'mg')) {
+                return 0.001;
+            }
+            if (str_contains($normalized, 'g')) {
+                return 1.0;
+            }
+            if (str_contains($normalized, 'oz')) {
+                return 28.349523;
+            }
+            if (str_contains($normalized, 'lb')) {
+                return 453.59237;
+            }
         } elseif ($measureType === 'VOLUME') {
-            if (str_contains($normalized, 'ml')) return 1.0;
-            if (str_contains($normalized, 'l') || str_contains($normalized, 'ltr')) return 1000.0;
-            if (str_contains($normalized, 'gal')) return 3785.411784;
-            if (str_contains($normalized, 'tbs')) return 14.786765;
-            if (str_contains($normalized, 'tsp')) return 4.928922;
-            if (str_contains($normalized, 'cup')) return 236.588237;
+            if (str_contains($normalized, 'ml')) {
+                return 1.0;
+            }
+            if (str_contains($normalized, 'l') || str_contains($normalized, 'ltr')) {
+                return 1000.0;
+            }
+            if (str_contains($normalized, 'gal')) {
+                return 3785.411784;
+            }
+            if (str_contains($normalized, 'tbs')) {
+                return 14.786765;
+            }
+            if (str_contains($normalized, 'tsp')) {
+                return 4.928922;
+            }
+            if (str_contains($normalized, 'cup')) {
+                return 236.588237;
+            }
         } elseif ($measureType === 'UNIT') {
-            if (str_contains($normalized, 'tray')) return 24.0;
-            if (str_contains($normalized, 'doz')) return 12.0;
-            if (str_contains($normalized, 'pair')) return 2.0;
+            if (str_contains($normalized, 'tray')) {
+                return 30;
+            }
+            if (str_contains($normalized, 'doz')) {
+                return 12.0;
+            }
+            if (str_contains($normalized, 'pair')) {
+                return 2.0;
+            }
             return 1.0;
         } elseif ($measureType === 'LENGTH') {
-            if (str_contains($normalized, 'mm')) return 0.001;
-            if (str_contains($normalized, 'cm')) return 0.01;
-            if (str_contains($normalized, 'ft')) return 0.3048;
-            if (str_contains($normalized, 'in')) return 0.0254;
-            if (str_contains($normalized, 'm')) return 1.0;
+            if (str_contains($normalized, 'mm')) {
+                return 0.001;
+            }
+            if (str_contains($normalized, 'cm')) {
+                return 0.01;
+            }
+            if (str_contains($normalized, 'ft')) {
+                return 0.3048;
+            }
+            if (str_contains($normalized, 'in')) {
+                return 0.0254;
+            }
+            if (str_contains($normalized, 'm')) {
+                return 1.0;
+            }
         }
 
         return 1.0;
@@ -226,6 +264,11 @@ class UnitConversionService
     public function resolveMeasureType(Item|UnitOfMeasure|string|int $type): string
     {
         if ($type instanceof Item) {
+            $uomSym = $type->unit?->measure_symbol ?: $type->unit?->unit_symbol ?: '';
+            $inferredFromUom = $this->inferTypeFromSymbol($uomSym);
+            if ($inferredFromUom !== 'UNIT') {
+                return $inferredFromUom;
+            }
             if (!empty($type->measurement_type)) {
                 return strtoupper($type->measurement_type);
             }
@@ -269,19 +312,62 @@ class UnitConversionService
     protected function inferTypeFromSymbol(string $symbol): string
     {
         $norm = $this->normalizeUnit($symbol);
-        if (empty($norm)) return 'UNIT';
+        if (empty($norm)) {
+            return 'UNIT';
+        }
 
         foreach (self::CANONICAL_FACTORS['WEIGHT'] as $k => $v) {
-            if ($this->normalizeUnit($k) === $norm) return 'WEIGHT';
+            if ($this->normalizeUnit($k) === $norm) {
+                return 'WEIGHT';
+            }
         }
         foreach (self::CANONICAL_FACTORS['VOLUME'] as $k => $v) {
-            if ($this->normalizeUnit($k) === $norm) return 'VOLUME';
+            if ($this->normalizeUnit($k) === $norm) {
+                return 'VOLUME';
+            }
         }
         foreach (self::CANONICAL_FACTORS['LENGTH'] as $k => $v) {
-            if ($this->normalizeUnit($k) === $norm) return 'LENGTH';
+            if ($this->normalizeUnit($k) === $norm) {
+                return 'LENGTH';
+            }
         }
         foreach (self::CANONICAL_FACTORS['UNIT'] as $k => $v) {
-            if ($this->normalizeUnit($k) === $norm) return 'UNIT';
+            if ($this->normalizeUnit($k) === $norm) {
+                return 'UNIT';
+            }
+        }
+
+        // Strip leading numbers e.g. "25kls" -> "kls", "2l" -> "l", "500g" -> "g", "1kl" -> "kl"
+        $stripped = preg_replace('/^[0-9]+(?:\.[0-9]+)?/', '', $norm);
+        if (!empty($stripped)) {
+            foreach (self::CANONICAL_FACTORS['WEIGHT'] as $k => $v) {
+                if ($this->normalizeUnit($k) === $stripped) {
+                    return 'WEIGHT';
+                }
+            }
+            foreach (self::CANONICAL_FACTORS['VOLUME'] as $k => $v) {
+                if ($this->normalizeUnit($k) === $stripped) {
+                    return 'VOLUME';
+                }
+            }
+            foreach (self::CANONICAL_FACTORS['LENGTH'] as $k => $v) {
+                if ($this->normalizeUnit($k) === $stripped) {
+                    return 'LENGTH';
+                }
+            }
+            foreach (self::CANONICAL_FACTORS['UNIT'] as $k => $v) {
+                if ($this->normalizeUnit($k) === $stripped) {
+                    return 'UNIT';
+                }
+            }
+        }
+
+        $check = $stripped ?: $norm;
+        if (str_contains($check, 'kg') || str_contains($check, 'kilo') || str_contains($check, 'kl') || str_contains($check, 'mg') || str_contains($check, 'lb')) {
+            return 'WEIGHT';
+        }
+        if (str_contains($check, 'ml') || str_contains($check, 'gal') || str_contains($check, 'ltr') || str_contains($check, 'liter')) {
+            return 'VOLUME';
         }
 
         return 'UNIT';
@@ -317,7 +403,7 @@ class UnitConversionService
                 $standardKeys = array_keys(self::CANONICAL_FACTORS[$measureType] ?? []);
                 foreach ($standardKeys as $key) {
                     $q->orWhere('unit_symbol', 'like', "%{$key}%")
-                      ->orWhere('measure_symbol', 'like', "%{$key}%");
+                        ->orWhere('measure_symbol', 'like', "%{$key}%");
                 }
             })
             ->get();
@@ -431,8 +517,12 @@ class UnitConversionService
             }
         }
 
-        if ($qty <= 0) $qty = 1.0;
-        if (empty($sym)) $sym = $unitSym ?: $baseSymbol;
+        if ($qty <= 0) {
+            $qty = 1.0;
+        }
+        if (empty($sym)) {
+            $sym = $unitSym ?: $baseSymbol;
+        }
 
         // Multiply pack qty by its ratio to base unit:
         // E.g. 500 g pack has ratio 0.001 -> 0.5 kg in base unit.
@@ -507,33 +597,87 @@ class UnitConversionService
 
         // Strictly scoped fallback within this measureType only (NO CROSS-CATEGORY):
         if ($measureType === 'WEIGHT') {
-            if (str_contains($norm, 'mg')) return 0.000001;
-            if (str_contains($norm, 'kg') || str_contains($norm, 'kilo') || str_contains($norm, 'kl')) return 1.0;
-            if (str_contains($norm, 'g')) return 0.001;
-            if (str_contains($norm, 'lb')) return 0.45359237;
-            if (str_contains($norm, 'oz')) return 0.02834952;
+            if (str_contains($norm, 'mg')) {
+                return 0.000001;
+            }
+            if (str_contains($norm, 'kg') || str_contains($norm, 'kilo') || str_contains($norm, 'kl')) {
+                return 1.0;
+            }
+            if (str_contains($norm, 'g')) {
+                return 0.001;
+            }
+            if (str_contains($norm, 'lb')) {
+                return 0.45359237;
+            }
+            if (str_contains($norm, 'oz')) {
+                return 0.02834952;
+            }
+            if ($norm === 'ml' || $norm === 'milliliter') {
+                return 0.001;
+            }
+            if ($norm === 'l' || $norm === 'liter') {
+                return 1.0;
+            }
             return 1.0;
         } elseif ($measureType === 'VOLUME') {
-            if (str_contains($norm, 'ml')) return 0.001;
-            if (str_contains($norm, 'gal')) return 3.78541178;
-            if (str_contains($norm, 'tbsp') || str_contains($norm, 'tbs')) return 0.0147868;
-            if (str_contains($norm, 'tsp')) return 0.00492892;
-            if (str_contains($norm, 'cup')) return 0.23658824;
-            if (str_contains($norm, 'floz')) return 0.0295735;
-            if (str_contains($norm, 'l') || str_contains($norm, 'ltr')) return 1.0;
+            if (str_contains($norm, 'ml')) {
+                return 0.001;
+            }
+            if (str_contains($norm, 'gal')) {
+                return 3.78541178;
+            }
+            if (str_contains($norm, 'tbsp') || str_contains($norm, 'tbs')) {
+                return 0.0147868;
+            }
+            if (str_contains($norm, 'tsp')) {
+                return 0.00492892;
+            }
+            if (str_contains($norm, 'cup')) {
+                return 0.23658824;
+            }
+            if (str_contains($norm, 'floz')) {
+                return 0.0295735;
+            }
+            if (str_contains($norm, 'l') || str_contains($norm, 'ltr')) {
+                return 1.0;
+            }
+            if ($norm === 'g' || $norm === 'gram' || $norm === 'grams') {
+                return 0.001;
+            }
+            if ($norm === 'kg' || $norm === 'kilo') {
+                return 1.0;
+            }
             return 1.0;
         } elseif ($measureType === 'UNIT') {
-            if (str_contains($norm, 'tray')) return 24.0;
-            if (str_contains($norm, 'halfdoz') || str_contains($norm, '½doz')) return 6.0;
-            if (str_contains($norm, 'doz')) return 12.0;
-            if (str_contains($norm, 'pair')) return 2.0;
+            if (str_contains($norm, 'tray')) {
+                return 30;
+            }
+            if (str_contains($norm, 'halfdoz') || str_contains($norm, '½doz')) {
+                return 6.0;
+            }
+            if (str_contains($norm, 'doz')) {
+                return 12.0;
+            }
+            if (str_contains($norm, 'pair')) {
+                return 2.0;
+            }
             return 1.0;
         } elseif ($measureType === 'LENGTH') {
-            if (str_contains($norm, 'mm')) return 0.001;
-            if (str_contains($norm, 'cm')) return 0.01;
-            if (str_contains($norm, 'in')) return 0.0254;
-            if (str_contains($norm, 'ft')) return 0.3048;
-            if (str_contains($norm, 'm')) return 1.0;
+            if (str_contains($norm, 'mm')) {
+                return 0.001;
+            }
+            if (str_contains($norm, 'cm')) {
+                return 0.01;
+            }
+            if (str_contains($norm, 'in')) {
+                return 0.0254;
+            }
+            if (str_contains($norm, 'ft')) {
+                return 0.3048;
+            }
+            if (str_contains($norm, 'm')) {
+                return 1.0;
+            }
             return 1.0;
         }
 
@@ -630,6 +774,78 @@ class UnitConversionService
             // Aliases for component backward-compatibility:
             'total_package_cost'       => $purchasePrice,
             'cost_per_base_unit'       => round($unitCost, 4),
+        ];
+    }
+
+    /**
+     * Resolve accurate unit cost (per recipe/detail UOM), line cost, and conversion factor to item packaging UOM.
+     */
+    public function resolveIngredientCostAndFactor(
+        ?Item $item,
+        float $qty,
+        ?int $uomId,
+        ?float $customPrice = null,
+        ?float $approvedCost = null
+    ): array {
+        if (! $item) {
+            return ['unit_cost' => 0.0, 'line_cost' => 0.0, 'conv_factor' => 1.0];
+        }
+
+        $itemCost = $customPrice !== null ? (float) $customPrice : (float) ($item->cost?->amount ?? 0);
+        $convFactor = 1.0;
+
+        if ($uomId && $uomId == $item->uom_id) {
+            $convFactor = 1.0;
+        } else {
+            $uomRecord = is_numeric($uomId) ? UnitOfMeasure::find($uomId) : null;
+            $uomSym = $uomRecord ? ($uomRecord->measure_symbol ?: $uomRecord->unit_symbol ?: '') : (string) $uomId;
+            $normUom = $this->normalizeUnit($uomSym);
+
+            $baseInfo = $this->resolveItemBaseValue($item);
+            $measureType = $baseInfo['measure_type'];
+            $itemMeasuredValue = (float) $baseInfo['measured_value_in_base'];
+
+            // If recipe unit is a discrete package unit (e.g. 'pck', 'pack') and item packaging is already a discrete pack
+            if (in_array($normUom, ['pck', 'pack'], true)) {
+                $convFactor = 1.0;
+            } else {
+                $targetRatio = $this->getUnitRatio($measureType, $uomId);
+                if ($itemMeasuredValue > 0 && $targetRatio > 0) {
+                    $convFactor = $targetRatio / $itemMeasuredValue;
+                } else {
+                    $conv = UnitConvertion::where(function ($q) use ($item) {
+                        $q->where('item_id', $item->id)->orWhereNull('item_id');
+                    })
+                        ->where('from_uom_id', $uomId)
+                        ->where('to_uom_id', $item->uom_id)
+                        ->orderByRaw('item_id IS NULL ASC')
+                        ->first();
+                    if ($conv) {
+                        $convFactor = (float) $conv->conversion_factor;
+                    }
+                }
+            }
+        }
+
+        if ($convFactor <= 0) {
+            $convFactor = 1.0;
+        }
+
+        $unitCost = $itemCost * $convFactor;
+        $lineCost = $qty * $unitCost;
+
+        if ($lineCost <= 0 && $approvedCost !== null && $approvedCost > 0) {
+            $lineCost = (float) $approvedCost;
+            $unitCost = $qty > 0 ? ($lineCost / $qty) : 0.0;
+            if ($itemCost <= 0 && $convFactor > 0) {
+                $itemCost = $unitCost / $convFactor;
+            }
+        }
+
+        return [
+            'unit_cost'   => round($unitCost, 4),
+            'line_cost'   => round($lineCost, 2),
+            'conv_factor' => $convFactor,
         ];
     }
 
@@ -740,7 +956,9 @@ class UnitConversionService
 
         foreach ($recipe->ingredients as $ingredient) {
             $item = $ingredient->item;
-            if (!$item) continue;
+            if (!$item) {
+                continue;
+            }
 
             $calc = $this->calculateIngredientCost($item, (float) $ingredient->qty, $ingredient->uom_id);
             $lineCurrentCost = (float) $calc['cost'];
@@ -858,8 +1076,8 @@ class UnitConversionService
 
         // Sort chronologically and format
         $uniqueDates = $dateTimestamps
-            ->sortBy(fn($d) => $d->timestamp)
-            ->map(fn($d) => $d->format('M d, Y'))
+            ->sortBy(fn ($d) => $d->timestamp)
+            ->map(fn ($d) => $d->format('M d, Y'))
             ->unique()
             ->values();
 
@@ -881,10 +1099,12 @@ class UnitConversionService
             $dateMarketTotal = 0.0;
             foreach ($ingredients as $ingredient) {
                 $item = $ingredient->item;
-                if (!$item) continue;
+                if (!$item) {
+                    continue;
+                }
 
                 $itemHist = $pricesByItem->get($item->id, collect());
-                $effectivePrice = $itemHist->filter(fn($p) => $p->created_at <= $targetDate)->last();
+                $effectivePrice = $itemHist->filter(fn ($p) => $p->created_at <= $targetDate)->last();
 
                 if (!$effectivePrice) {
                     $effectivePrice = $itemHist->first() ?: $item->cost;
@@ -896,7 +1116,7 @@ class UnitConversionService
             }
 
             // Find effective baseline cost on that date
-            $effectiveBaseline = $baselinePrices->filter(fn($p) => $p->created_at <= $targetDate)->last();
+            $effectiveBaseline = $baselinePrices->filter(fn ($p) => $p->created_at <= $targetDate)->last();
             $dateBaseline = $effectiveBaseline ? (float)$effectiveBaseline->amount : $recipeInitialCost;
             if ($dateBaseline <= 0) {
                 $dateBaseline = $dateMarketTotal;
@@ -910,7 +1130,9 @@ class UnitConversionService
         $recentChanges = [];
         foreach ($itemPrices->sortByDesc('created_at')->take(10) as $ip) {
             $matchingIng = $ingredients->firstWhere('item_id', $ip->item_id);
-            if (!$matchingIng) continue;
+            if (!$matchingIng) {
+                continue;
+            }
 
             $item = $matchingIng->item;
             $calc = $this->calculateIngredientCost($item, (float)$matchingIng->qty, $matchingIng->uom_id, (float)$ip->amount);
@@ -945,4 +1167,3 @@ class UnitConversionService
         ];
     }
 }
-

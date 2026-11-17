@@ -4,8 +4,8 @@ namespace App\Models\Restaurant;
 
 use App\Models\DataManagement\Item;
 use App\Models\DataManagement\Recipe;
-use App\Models\DataManagement\UnitConvertion;
 use App\Models\DataManagement\UnitOfMeasure;
+use App\Services\DataManagement\UnitConversionService;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductionOrderDetail extends Model
@@ -47,7 +47,6 @@ class ProductionOrderDetail extends Model
     {
         return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
     }
-
     public function productionOrder()
     {
         return $this->belongsTo(ProductionOrder::class, 'production_order_id');
@@ -59,21 +58,19 @@ class ProductionOrderDetail extends Model
             return 1.0;
         }
 
-        $fromUomId = $this->uom_id;
-        $toUomId = $this->item->uom_id;
+        $fromUomId = (int) $this->uom_id;
+        $toUomId   = (int) $this->item->uom_id;
 
-        if ($fromUomId == $toUomId) {
+        if ($fromUomId === $toUomId) {
             return 1.0;
         }
 
-        $conv = UnitConvertion::where(function ($q) {
-            $q->where('item_id', $this->item_id)->orWhereNull('item_id');
-        })
-            ->where('from_uom_id', $fromUomId)
-            ->where('to_uom_id', $toUomId)
-            ->orderByRaw('item_id IS NULL ASC')
-            ->first();
+        $costInfo = app(UnitConversionService::class)->resolveIngredientCostAndFactor(
+            $this->item,
+            1.0,
+            $fromUomId
+        );
 
-        return $conv ? (float) $conv->conversion_factor : 1.0;
+        return max(0.0, (float) ($costInfo['conv_factor'] ?? 1.0));
     }
 }

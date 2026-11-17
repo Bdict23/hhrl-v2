@@ -25,16 +25,19 @@ new class extends Component
 
     public array $initialSelectedRecipes = [];
     public array $initialManualIngredients = [];
+    public array $initialExcludedRecipeIngredients = [];
 
     public function mount(int $id)
     {
         $this->orderId = $id;
         $user = auth()->user();
         $branchId = $user->branch_id;
+        $conversionService = app(\App\Services\DataManagement\UnitConversionService::class);
 
         $order = ProductionOrder::with([
             'preparedBy',
             'productionMenus.menu.category',
+            'productionOrderDetails.item.cost',
             'productionOrderDetails.item.unit',
             'productionOrderDetails.uom',
         ])
@@ -61,19 +64,55 @@ new class extends Component
             ];
         })->values()->toArray();
 
-        // Preload manual ingredients (menu_id is null)
+        // Preload manual ingredients (menu_id is null) with accurate unit cost
         $this->initialManualIngredients = $order->productionOrderDetails
             ->whereNull('menu_id')
-            ->map(function ($detail) use ($uoms) {
+            ->map(function ($detail) use ($uoms, $conversionService) {
+                $item = $detail->item;
+                $costData = $conversionService->resolveIngredientCostAndFactor(
+                    $item,
+                    (float) $detail->qty,
+                    $detail->uom_id,
+                    null,
+                    null
+                );
+
                 return [
                     'item_id' => $detail->item_id,
-                    'item_code' => $detail->item?->item_code ?? 'ITEM-' . $detail->item_id,
-                    'item_name' => $detail->item?->item_description ?? 'N/A',
+                    'item_code' => $item?->item_code ?? 'ITEM-' . $detail->item_id,
+                    'item_name' => $item?->item_description ?? 'N/A',
                     'uom_id' => $detail->uom_id,
-                    'uom_symbol' => $uoms[$detail->uom_id] ?? ($detail->item?->unit?->unit_symbol ?? 'N/A'),
+                    'uom_symbol' => $uoms[$detail->uom_id] ?? ($item?->unit?->unit_symbol ?? 'N/A'),
+                    'item_uom' => $uoms[$item?->uom_id ?? 0] ?? ($item?->unit?->unit_symbol ?? 'N/A'),
+                    'item_cost' => (float) ($item?->cost?->amount ?? 0),
                     'qty' => (float) $detail->qty,
+                    'unit_cost' => $costData['unit_cost'],
+                    'conv_factor' => $costData['conv_factor'],
                 ];
             })->values()->toArray();
+
+        // Identify any recipe ingredients that were excluded in previous saves
+        $savedMenuIngredients = $order->productionOrderDetails
+            ->whereNotNull('menu_id')
+            ->map(fn ($d) => "{$d->menu_id}_{$d->item_id}")
+            ->flip()
+            ->toArray();
+
+        $excludedList = [];
+        if (! empty($savedMenuIngredients)) {
+            foreach ($order->productionMenus as $pm) {
+                if (! $pm->menu) {
+                    continue;
+                }
+                foreach ($pm->menu->ingredients as $ing) {
+                    $key = "{$pm->menu_id}_{$ing->item_id}";
+                    if (! isset($savedMenuIngredients[$key])) {
+                        $excludedList[] = $key;
+                    }
+                }
+            }
+        }
+        $this->initialExcludedRecipeIngredients = $excludedList;
     }
 
     public function with(): array
@@ -95,13 +134,15 @@ new class extends Component
             ->get()
             ->keyBy('item_id');
 
-        // 2. Active items catalog (compact fields)
-        $rawItems = Item::select('id', 'item_code', 'item_description', 'uom_id')
+        // 2. Active items catalog (compact fields) with unit costs
+        $rawItems = Item::with('cost')
+            ->select('id', 'item_code', 'item_description', 'uom_id')
             ->where('item_status', 'ACTIVE')
             ->where('company_id', $companyId)
             ->get();
 
         $stockMap = [];
+        $costMap = [];
         $itemsList = [];
 
         foreach ($rawItems as $item) {
@@ -111,11 +152,13 @@ new class extends Component
             $totalReserved = (float) ($cardex->total_reserved ?? 0);
             $balance = $totalIn - $totalOut;
             $available = $balance - $totalReserved;
+            $unitCost = (float) ($item->cost?->amount ?? 0);
 
             $stockMap[$item->id] = [
                 'b' => round($balance, 2),
                 'a' => round($available, 2),
             ];
+            $costMap[$item->id] = $unitCost;
 
             $itemsList[] = [
                 'id' => $item->id,
@@ -123,13 +166,17 @@ new class extends Component
                 'name' => $item->item_description ?? 'N/A',
                 'uom_id' => $item->uom_id,
                 'uom' => $uoms[$item->uom_id] ?? 'N/A',
+                'item_uom' => $uoms[$item->uom_id] ?? 'N/A',
+                'unit_cost' => $unitCost,
                 'bal' => round($balance, 2),
                 'avail' => round($available, 2),
             ];
         }
 
-        // 3. Available recipes catalog with ingredients
-        $rawRecipes = Menu::with(['category', 'ingredients.item'])
+        $conversionService = app(\App\Services\DataManagement\UnitConversionService::class);
+
+        // 3. Available recipes catalog with ingredients and converted unit costs
+        $rawRecipes = Menu::with(['category', 'ingredients.item.cost', 'ingredients.item.unit', 'ingredients.uom'])
             ->where('company_id', $companyId)
             ->where('status', 'AVAILABLE')
             ->get();
@@ -138,13 +185,27 @@ new class extends Component
         foreach ($rawRecipes as $recipe) {
             $ingredientsList = [];
             foreach ($recipe->ingredients as $ingredient) {
+                $item = $ingredient->item;
+                $costData = $conversionService->resolveIngredientCostAndFactor(
+                    $item,
+                    (float) $ingredient->qty,
+                    $ingredient->uom_id,
+                    null,
+                    (float) ($ingredient->cost ?? 0)
+                );
+
                 $ingredientsList[] = [
                     'item_id' => $ingredient->item_id,
-                    'item_code' => $ingredient->item?->item_code ?? 'ITEM-' . $ingredient->item_id,
-                    'item_name' => $ingredient->item?->item_description ?? 'N/A',
+                    'item_code' => $item?->item_code ?? 'ITEM-' . $ingredient->item_id,
+                    'item_name' => $item?->item_description ?? 'N/A',
+                    'item_cost' => (float) ($item?->cost?->amount ?? 0),
+                    'item_status' => $item?->item_status ?? 'N/A',
                     'base_qty' => (float) $ingredient->qty,
                     'uom_id' => $ingredient->uom_id,
                     'uom' => $uoms[$ingredient->uom_id] ?? 'N/A',
+                    'unit_cost' => $costData['unit_cost'],
+                    'conv_factor' => $costData['conv_factor'],
+                    'item_uom' => $uoms[$item?->uom_id ?? 0] ?? 'N/A',
                 ];
             }
 
@@ -162,6 +223,7 @@ new class extends Component
             'catalogRecipes' => $recipesList,
             'catalogItems' => $itemsList,
             'cardexStockMap' => $stockMap,
+            'itemCostMap' => $costMap,
         ];
     }
 
@@ -202,6 +264,8 @@ new class extends Component
             ->get()
             ->keyBy('id');
 
+        $excludedRecipeIngredients = array_flip($payload['excludedRecipeIngredients'] ?? []);
+
         $overallRequired = [];
         $recipeDetailsToInsert = [];
         $manualDetailsToInsert = [];
@@ -212,6 +276,11 @@ new class extends Component
 
             $multiplier = (int) $sel['qty'];
             foreach ($rec->ingredients as $ing) {
+                $key = "{$rec->id}_{$ing->item_id}";
+                if (isset($excludedRecipeIngredients[$key])) {
+                    continue;
+                }
+
                 $qtyNeeded = (float) $ing->qty * $multiplier;
                 if (! isset($overallRequired[$ing->item_id])) {
                     $overallRequired[$ing->item_id] = [
@@ -314,6 +383,7 @@ new class extends Component
                 catalogRecipes: config.recipes || [],
                 catalogItems: config.items || [],
                 cardexStockMap: config.cardex || {},
+                itemCostMap: config.itemCostMap || {},
                 reference: config.reference || '',
                 preparedBy: config.prepared_by || '',
                 saveAs: config.saveAs || 'DRAFT',
@@ -322,6 +392,46 @@ new class extends Component
                 selectedRecipes: config.initialSelectedRecipes || [],
                 highlightedRecipeId: null,
                 manualIngredients: config.initialManualIngredients || [],
+                excludedRecipeIngredients: config.initialExcludedRecipeIngredients || [],
+
+                isIngredientExcluded(recipeId, itemId) {
+                    return this.excludedRecipeIngredients.includes(`${recipeId}_${itemId}`);
+                },
+
+                removeRecipeIngredient(recipeId, itemId) {
+                    const key = `${recipeId}_${itemId}`;
+                    if (!this.excludedRecipeIngredients.includes(key)) {
+                        this.excludedRecipeIngredients.push(key);
+                    }
+                },
+
+                restoreRecipeIngredient(recipeId, itemId) {
+                    const key = `${recipeId}_${itemId}`;
+                    this.excludedRecipeIngredients = this.excludedRecipeIngredients.filter(k => k !== key);
+                },
+
+                restoreAllRecipeIngredients(recipeId) {
+                    const prefix = `${recipeId}_`;
+                    this.excludedRecipeIngredients = this.excludedRecipeIngredients.filter(k => !k.startsWith(prefix));
+                },
+
+                removeOverallIngredient(itemId) {
+                    this.removeManualIngredient(itemId);
+                    this.selectedRecipes.forEach(sel => {
+                        const fullRecipe = this.catalogRecipes.find(r => r.id === sel.id);
+                        if (fullRecipe && fullRecipe.ings && fullRecipe.ings.some(i => i.item_id === itemId)) {
+                            this.removeRecipeIngredient(sel.id, itemId);
+                        }
+                    });
+                },
+
+                get excludedIngredientsForCurrentRecipe() {
+                    const recipe = this.currentRecipe;
+                    if (!recipe) return [];
+                    const fullRecipe = this.catalogRecipes.find(r => r.id === recipe.id);
+                    if (!fullRecipe || !fullRecipe.ings) return [];
+                    return fullRecipe.ings.filter(ing => this.isIngredientExcluded(recipe.id, ing.item_id));
+                },
 
                 activeTab: 'selected',
                 recipeSearch: '',
@@ -333,6 +443,19 @@ new class extends Component
                 showAddIngredientModal: false,
                 addIngredientSearch: '',
                 isSaving: false,
+
+                formatMoney(amount) {
+                    const val = parseFloat(amount) || 0;
+                    return '₱ ' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+
+                formatUnitCost(amount) {
+                    const val = parseFloat(amount) || 0;
+                    if (val > 0 && val < 0.1) {
+                        return '₱ ' + val.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+                    }
+                    return '₱ ' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
 
                 init() {
                     if (this.selectedRecipes.length > 0) {
@@ -385,19 +508,28 @@ new class extends Component
 
                     const qtyRequested = Math.max(1, parseFloat(recipe.qty) || 1);
 
-                    return fullRecipe.ings.map(ing => {
+                    return fullRecipe.ings
+                        .filter(ing => !this.isIngredientExcluded(recipe.id, ing.item_id))
+                        .map(ing => {
                         const baseQty = parseFloat(ing.base_qty) || 0;
                         const reqQty = baseQty * qtyRequested;
                         const stock = this.cardexStockMap[ing.item_id] || { b: 0, a: 0 };
-                        const avail = parseFloat(stock.a) || 0;
-                        const bal = parseFloat(stock.b) || 0;
+                        const availInItemPack = parseFloat(stock.a) || 0;
+                        const balInItemPack = parseFloat(stock.b) || 0;
+                        const unitCost = parseFloat(ing.unit_cost) || 0;
+                        const lineCost = reqQty * unitCost;
+                        const convFactor = parseFloat(ing.conv_factor) || 1.0;
+
+                        // Normalize Cardex available stock into recipe UOM
+                        const availInRecipeUom = convFactor > 0 ? (availInItemPack / convFactor) : availInItemPack;
+                        const reqInItemPack = reqQty * convFactor;
 
                         let status = 'Available';
                         let statusColor = 'emerald';
-                        if (avail <= 0) {
+                        if (availInItemPack <= 0) {
                             status = 'Out of Stock';
                             statusColor = 'rose';
-                        } else if (avail < reqQty) {
+                        } else if (availInItemPack < reqInItemPack) {
                             status = 'Insufficient';
                             statusColor = 'amber';
                         }
@@ -406,15 +538,26 @@ new class extends Component
                             item_id: ing.item_id,
                             item_code: ing.item_code,
                             item_name: ing.item_name,
+                            item_status: ing.item_status,
+                            item_cost: ing.item_cost,
                             base_qty: baseQty,
                             qty: reqQty,
                             uom_symbol: ing.uom,
-                            balance: bal,
-                            available: avail,
+                            item_uom: ing.item_uom || ing.uom,
+                            unit_cost: unitCost,
+                            line_cost: lineCost,
+                            conv_factor: convFactor,
+                            balance: balInItemPack,
+                            available: availInItemPack,
+                            available_raw: availInItemPack,
                             status: status,
                             statusColor: statusColor
                         };
                     });
+                },
+
+                get selectedRecipeTotalCost() {
+                    return this.selectedRecipeIngredients.reduce((sum, ing) => sum + (parseFloat(ing.line_cost) || 0), 0);
                 },
 
                 get overallStats() {
@@ -444,53 +587,102 @@ new class extends Component
                         const recipeQty = Math.max(1, parseFloat(sel.qty) || 1);
 
                         fullRecipe.ings.forEach(ing => {
+                            if (this.isIngredientExcluded(sel.id, ing.item_id)) return;
                             const reqQty = (parseFloat(ing.base_qty) || 0) * recipeQty;
+                            const unitCost = parseFloat(ing.unit_cost) || 0;
+                            const convFactor = parseFloat(ing.conv_factor) || 1.0;
+                            // line cost for this detail (qty × unitCost, where unitCost already includes convFactor)
+                            const lineCost = reqQty * unitCost;
+                            // qty in item's registered UOM for stock comparison
+                            const purchaseQty = reqQty * convFactor;
+
                             if (!map[ing.item_id]) {
                                 const stock = this.cardexStockMap[ing.item_id] || { b: 0, a: 0 };
+                                const availInItemPack = parseFloat(stock.a) || 0;
+                                const balInItemPack = parseFloat(stock.b) || 0;
+
                                 map[ing.item_id] = {
                                     item_id: ing.item_id,
                                     item_code: ing.item_code,
                                     item_name: ing.item_name,
+                                    item_status: ing.item_status,
+                                    item_cost: ing.item_cost,
                                     from_recipes: 0,
                                     manual_add: 0,
                                     total_required: 0,
-                                    uom_symbol: ing.uom,
-                                    balance: parseFloat(stock.b) || 0,
-                                    available: parseFloat(stock.a) || 0
+                                    uom_symbol: ing.item_uom || ing.uom,
+                                    item_uom: ing.item_uom || ing.uom,
+                                    unit_cost: unitCost,
+                                    conv_factor: convFactor,
+                                    total_cost_accumulator: 0,
+                                    balance: balInItemPack,
+                                    available: availInItemPack,
+                                    available_item_pack: availInItemPack
                                 };
                             }
-                            map[ing.item_id].from_recipes += reqQty;
+                            // Accumulate qty in item's UOM and line cost directly
+                            map[ing.item_id].from_recipes += purchaseQty;
+                            map[ing.item_id].total_cost_accumulator += lineCost;
+                            if ((!map[ing.item_id].unit_cost || map[ing.item_id].unit_cost === 0) && unitCost > 0) {
+                                map[ing.item_id].unit_cost = unitCost;
+                            }
                         });
                     });
 
                     // 2. Consolidate manual additions
                     this.manualIngredients.forEach(manual => {
                         const manualQty = parseFloat(manual.qty) || 0;
+                        const unitCost = parseFloat(manual.unit_cost) || (parseFloat(this.itemCostMap?.[manual.item_id]) || 0);
+                        const convFactor = parseFloat(manual.conv_factor) || 1.0;
+                        const lineCost = manualQty * unitCost;
+                        const purchaseQty = manualQty * convFactor;
+
                         if (!map[manual.item_id]) {
                             const stock = this.cardexStockMap[manual.item_id] || { b: 0, a: 0 };
+                            const availInItemPack = parseFloat(stock.a) || 0;
+                            const balInItemPack = parseFloat(stock.b) || 0;
+
                             map[manual.item_id] = {
                                 item_id: manual.item_id,
                                 item_code: manual.item_code,
                                 item_name: manual.item_name,
+                                item_status: manual.item_status || 'ACTIVE',
+                                item_cost: manual.item_cost || (parseFloat(this.itemCostMap?.[manual.item_id]) || 0),
                                 from_recipes: 0,
                                 manual_add: 0,
                                 total_required: 0,
-                                uom_symbol: manual.uom_symbol,
-                                balance: parseFloat(stock.b) || 0,
-                                available: parseFloat(stock.a) || 0
+                                uom_symbol: manual.item_uom || manual.uom_symbol,
+                                item_uom: manual.item_uom || manual.uom_symbol,
+                                unit_cost: unitCost,
+                                conv_factor: convFactor,
+                                total_cost_accumulator: 0,
+                                balance: balInItemPack,
+                                available: availInItemPack,
+                                available_item_pack: availInItemPack
                             };
                         }
-                        map[manual.item_id].manual_add += manualQty;
+                        // Accumulate qty in item's UOM and line cost directly
+                        map[manual.item_id].manual_add += purchaseQty;
+                        map[manual.item_id].total_cost_accumulator += lineCost;
+                        if ((!map[manual.item_id].unit_cost || map[manual.item_id].unit_cost === 0) && unitCost > 0) {
+                            map[manual.item_id].unit_cost = unitCost;
+                        }
                     });
 
                     return Object.values(map).map(row => {
+                        // from_recipes + manual_add are already in item's registered UOM
                         row.total_required = row.from_recipes + row.manual_add;
+                        // total_cost is pre-accumulated as sum of per-detail line costs
+                        row.total_cost = row.total_cost_accumulator || 0;
 
-                        if (row.available <= 0) {
+                        // Stock comparison: total_required is in item's registered UOM, so compare directly
+                        const availInItemPack = parseFloat(row.available_item_pack) || 0;
+
+                        if (availInItemPack <= 0) {
                             row.statusKey = 'out_of_stock';
                             row.status = 'Out of Stock';
                             row.statusColor = 'rose';
-                        } else if (row.available < row.total_required) {
+                        } else if (availInItemPack < row.total_required) {
                             row.statusKey = 'insufficient';
                             row.status = 'Insufficient';
                             row.statusColor = 'amber';
@@ -501,6 +693,10 @@ new class extends Component
                         }
                         return row;
                     });
+                },
+
+                get overallGrandTotalCost() {
+                    return this.overallIngredientsListUnfiltered.reduce((sum, row) => sum + (parseFloat(row.total_cost) || 0), 0);
                 },
 
                 get overallIngredientsList() {
@@ -574,12 +770,17 @@ new class extends Component
                     if (existing) {
                         existing.qty = (parseFloat(existing.qty) || 0) + 1;
                     } else {
+                        const recipeRow = this.overallIngredientsListUnfiltered.find(r => r.item_id === item.id);
                         this.manualIngredients.push({
                             item_id: item.id,
                             item_code: item.code,
                             item_name: item.name,
-                            uom_id: item.uom_id,
-                            uom_symbol: item.uom,
+                            uom_id: recipeRow ? recipeRow.uom_id : item.uom_id,
+                            uom_symbol: recipeRow ? recipeRow.uom_symbol : item.uom,
+                            item_uom: item.item_uom || item.uom,
+                            item_cost: parseFloat(item.unit_cost) || (recipeRow ? parseFloat(recipeRow.item_cost) : 0),
+                            unit_cost: recipeRow ? recipeRow.unit_cost : (parseFloat(item.unit_cost) || 0),
+                            conv_factor: recipeRow ? recipeRow.conv_factor : 1.0,
                             qty: 1
                         });
                     }
@@ -630,7 +831,8 @@ new class extends Component
                         saveAs: this.saveAs,
                         notes: this.notes,
                         selectedRecipes: this.selectedRecipes.map(r => ({ id: r.id, qty: r.qty })),
-                        manualIngredients: this.manualIngredients.map(m => ({ item_id: m.item_id, qty: m.qty, uom_id: m.uom_id }))
+                        manualIngredients: this.manualIngredients.map(m => ({ item_id: m.item_id, qty: m.qty, uom_id: m.uom_id })),
+                        excludedRecipeIngredients: this.excludedRecipeIngredients
                     };
 
                     this.$wire.updateProductionOrder(payload).finally(() => {
@@ -651,8 +853,10 @@ new class extends Component
             recipes: @js($catalogRecipes),
             items: @js($catalogItems),
             cardex: @js($cardexStockMap),
+            itemCostMap: @js($itemCostMap),
             initialSelectedRecipes: @js($initialSelectedRecipes),
-            initialManualIngredients: @js($initialManualIngredients)
+            initialManualIngredients: @js($initialManualIngredients),
+            initialExcludedRecipeIngredients: @js($initialExcludedRecipeIngredients)
          })"
          x-on:set-save-as.window="saveAs = $event.detail"
          x-cloak
@@ -979,6 +1183,28 @@ new class extends Component
 
                     {{-- Table 1 --}}
                     <div class="flex-1 overflow-auto">
+                        {{-- Excluded ingredients banner --}}
+                        <div x-show="excludedIngredientsForCurrentRecipe.length > 0"
+                             class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800 text-xs">
+                            <div class="flex flex-wrap items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                                <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <span>
+                                    <strong x-text="excludedIngredientsForCurrentRecipe.length"></strong> ingredient(s) removed from this recipe:
+                                </span>
+                                <template x-for="ex in excludedIngredientsForCurrentRecipe" :key="ex.item_id">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                                        <span x-text="ex.item_name"></span>
+                                        <button type="button" x-on:click="restoreRecipeIngredient(currentRecipe?.id, ex.item_id)" class="text-emerald-600 hover:text-emerald-700 font-bold ml-1 text-xs cursor-pointer" title="Restore this ingredient">&plus; Restore</button>
+                                    </span>
+                                </template>
+                            </div>
+                            <button type="button"
+                                    x-on:click="restoreAllRecipeIngredients(currentRecipe?.id)"
+                                    class="text-[11px] font-bold text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 underline cursor-pointer ml-auto">
+                                Restore All
+                            </button>
+                        </div>
+
                         <table class="w-full text-left text-xs border-collapse">
                             <thead class="sticky top-0 bg-slate-800 dark:bg-slate-950 text-slate-200 dark:text-slate-300 font-bold uppercase text-[10px] tracking-wider border-b border-slate-700 dark:border-slate-800 z-10">
                                 <tr>
@@ -986,20 +1212,44 @@ new class extends Component
                                     <th class="p-3">Ingredient Description</th>
                                     <th class="p-3 text-right">Base Qty / Batch</th>
                                     <th class="p-3 text-right">Scaled Req. Qty</th>
-                                    <th class="p-3">Unit</th>
-                                    <th class="p-3 text-right">Cardex Available</th>
+                                    <th class="p-3">Req. Unit</th>
+                                    <th class="p-3">Item Registered UOM</th>
+                                    <th class="p-3 text-right">Unit Cost</th>
+                                    <th class="p-3 text-right">Line Cost</th>
+                                    <th class="p-3 text-right">Cardex Stock</th>
                                     <th class="p-3 text-center">Stock Status</th>
+                                    <th class="p-3 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                                 <template x-for="ing in selectedRecipeIngredients" :key="ing.item_id">
                                     <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                                         <td class="p-3 font-mono font-bold text-slate-600 dark:text-slate-400" x-text="ing.item_code"></td>
-                                        <td class="p-3 font-semibold text-slate-800 dark:text-slate-100" x-text="ing.item_name"></td>
+                                        <td class="p-3 font-semibold text-slate-800 dark:text-slate-100">
+                                            <span class="text-blue-900 dark:text-blue-100 font-bold" x-text="ing.item_name"></span>   
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                                                  :class="{
+                                                      'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800': ing.item_status === 'INACTIVE'
+                                                  }">
+                                                
+                                                <span x-text="ing.item_status === 'ACTIVE' ? '' : 'INACTIVE'"></span>
+                                            </span>
+                                        </td>
                                         <td class="p-3 text-right font-mono text-slate-500 dark:text-slate-400" x-text="ing.base_qty.toFixed(2)"></td>
                                         <td class="p-3 text-right font-mono font-black text-slate-900 dark:text-white text-xs" x-text="ing.qty.toFixed(2)"></td>
                                         <td class="p-3 text-slate-500 dark:text-slate-400 font-medium" x-text="ing.uom_symbol"></td>
-                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold" x-text="ing.available.toFixed(2)"></td>
+                                        <td class="p-3 text-slate-600 dark:text-slate-300 font-medium">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700" x-text="ing.item_uom + (ing.item_cost > 0 ? ' - ' + formatMoney(ing.item_cost) : '')"></span>
+                                        </td>
+                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300">
+                                            <span x-text="formatUnitCost(ing.unit_cost)"></span>
+                                            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal block" x-text="'/ ' + ing.uom_symbol"></span>
+                                        </td>
+                                        <td class="p-3 text-right font-mono font-black text-blue-700 dark:text-blue-400" x-text="formatMoney(ing.line_cost)"></td>
+                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold">
+                                            <span x-text="ing.available.toFixed(2)"></span>
+                                            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal" x-text="ing.item_uom"></span>
+                                        </td>
                                         <td class="p-3 text-center">
                                             <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
                                                   :class="{
@@ -1016,11 +1266,19 @@ new class extends Component
                                                 <span x-text="ing.status"></span>
                                             </span>
                                         </td>
+                                        <td class="p-3 text-center">
+                                            <button type="button"
+                                                    x-on:click="removeRecipeIngredient(currentRecipe?.id, ing.item_id)"
+                                                    class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                                    title="Remove ingredient from this recipe">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </td>
                                     </tr>
                                 </template>
 
                                 <tr x-show="!currentRecipe">
-                                    <td colspan="7" class="p-16 text-center text-slate-400 dark:text-slate-500">
+                                    <td colspan="11" class="p-16 text-center text-slate-400 dark:text-slate-500">
                                         <div class="max-w-sm mx-auto">
                                             <p class="font-bold text-sm text-slate-700 dark:text-slate-300">No Recipe Highlighted</p>
                                             <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Select or add a recipe in the left sidebar queue to view its isolated formulation.</p>
@@ -1029,11 +1287,26 @@ new class extends Component
                                 </tr>
 
                                 <tr x-show="currentRecipe && selectedRecipeIngredients.length === 0">
-                                    <td colspan="7" class="p-12 text-center text-slate-400 dark:text-slate-500">
+                                    <td colspan="11" class="p-12 text-center text-slate-400 dark:text-slate-500">
                                         <p class="font-bold text-xs">No ingredients registered for this recipe.</p>
                                     </td>
                                 </tr>
                             </tbody>
+
+                            {{-- TOTAL COST FOOTER (SELECTED RECIPE) --}}
+                            <tfoot class="sticky bottom-0 bg-slate-100 dark:bg-slate-950 font-bold border-t-2 border-slate-300 dark:border-slate-800 text-xs shadow-md z-10"
+                                   x-show="currentRecipe && selectedRecipeIngredients.length > 0">
+                                <tr>
+                                    <td colspan="6" class="p-3 text-right uppercase text-[10px] text-slate-500 dark:text-slate-400 font-extrabold tracking-wider">
+                                        Total Recipe Formulation Cost (<span x-text="(currentRecipe?.qty || 1) + ' Batches'"></span>):
+                                    </td>
+                                    <td class="p-3 text-right font-mono font-bold text-slate-500 dark:text-slate-400 text-xs">Total:</td>
+                                    <td class="p-3 text-right font-mono font-black text-sm text-blue-700 dark:text-blue-400">
+                                        <span x-text="formatMoney(selectedRecipeTotalCost)"></span>
+                                    </td>
+                                    <td colspan="3" class="p-3"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -1092,7 +1365,10 @@ new class extends Component
                                     <th class="p-3 text-right">From Recipes</th>
                                     <th class="p-3 text-center">Manual Add</th>
                                     <th class="p-3 text-right">Total Req.</th>
-                                    <th class="p-3">Unit</th>
+                                    <th class="p-3">Req. Unit</th>
+                                    <th class="p-3">Item Registered UOM</th>
+                                    <th class="p-3 text-right">Unit Cost</th>
+                                    <th class="p-3 text-right">Total Cost</th>
                                     <th class="p-3 text-right">Cardex Stock</th>
                                     <th class="p-3 text-center">Stock Status</th>
                                     <th class="p-3 text-center">Action</th>
@@ -1126,7 +1402,18 @@ new class extends Component
 
                                         <td class="p-3 text-right font-mono font-black text-slate-900 dark:text-white text-xs" x-text="row.total_required.toFixed(2)"></td>
                                         <td class="p-3 text-slate-500 dark:text-slate-400 font-medium" x-text="row.uom_symbol"></td>
-                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold" x-text="row.available.toFixed(2)"></td>
+                                        <td class="p-3 text-slate-600 dark:text-slate-300 font-medium">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700" x-text="row.item_uom + (row.item_cost > 0 ? ' - ' + formatMoney(row.item_cost) : '')"></span>
+                                        </td>
+                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300">
+                                            <span x-text="formatUnitCost(row.unit_cost)"></span>
+                                            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal block" x-text="'/ ' + row.uom_symbol"></span>
+                                        </td>
+                                        <td class="p-3 text-right font-mono font-black text-emerald-700 dark:text-emerald-400" x-text="formatMoney(row.total_cost)"></td>
+                                        <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold">
+                                            <span x-text="row.available.toFixed(2)"></span>
+                                            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal" x-text="row.item_uom"></span>
+                                        </td>
 
                                         <td class="p-3 text-center">
                                             <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -1146,27 +1433,37 @@ new class extends Component
                                         </td>
 
                                         <td class="p-3 text-center">
-                                            <template x-if="row.manual_add > 0">
-                                                <button type="button"
-                                                        x-on:click="removeManualIngredient(row.item_id)"
-                                                        class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                                                        title="Remove Manual Addition">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                </button>
-                                            </template>
-                                            <template x-if="row.manual_add === 0">
-                                                <span class="text-slate-200 dark:text-slate-700">-</span>
-                                            </template>
+                                            <button type="button"
+                                                    x-on:click="removeOverallIngredient(row.item_id)"
+                                                    class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                                    title="Remove ingredient from production order">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
                                         </td>
                                     </tr>
                                 </template>
 
                                 <tr x-show="overallIngredientsList.length === 0">
-                                    <td colspan="9" class="p-12 text-center text-slate-400 dark:text-slate-500">
+                                    <td colspan="12" class="p-12 text-center text-slate-400 dark:text-slate-500">
                                         <p class="font-bold text-xs">No ingredients match the search or filter.</p>
                                     </td>
                                 </tr>
                             </tbody>
+
+                            {{-- GRAND TOTAL COST FOOTER (OVERALL INGREDIENTS) --}}
+                            <tfoot class="sticky bottom-0 bg-slate-100 dark:bg-slate-950 font-bold border-t-2 border-slate-300 dark:border-slate-800 text-xs shadow-md z-10"
+                                   x-show="overallIngredientsListUnfiltered.length > 0">
+                                <tr>
+                                    <td colspan="7" class="p-3 text-right uppercase text-[10px] text-slate-500 dark:text-slate-400 font-extrabold tracking-wider">
+                                        Grand Total Raw Material Cost (All Ingredients):
+                                    </td>
+                                    <td class="p-3 text-right font-mono font-bold text-slate-500 dark:text-slate-400 text-xs">Total:</td>
+                                    <td class="p-3 text-right font-mono font-black text-sm text-emerald-700 dark:text-emerald-400">
+                                        <span x-text="formatMoney(overallGrandTotalCost)"></span>
+                                    </td>
+                                    <td colspan="3" class="p-3"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

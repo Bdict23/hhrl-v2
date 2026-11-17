@@ -6,6 +6,7 @@ use App\Models\DataManagement\Item;
 use App\Models\Restaurant\ProductionOrder;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
+use App\Services\DataManagement\UnitConversionService;
 use App\Services\Inventory\PurchaseOrderService;
 
 
@@ -114,10 +115,9 @@ new class extends Component
 
     }
 
-    public function calculateGrandTotal()
+    public function calculateGrandTotal(): void
     {
-        $this->grand_total = number_format(collect($this->selectedRows)->sum('sub_total'), 2 );
-
+        $this->grand_total = round((float) collect($this->selectedRows)->sum('sub_total'), 2);
     }
 
     // Remove from selected item
@@ -173,6 +173,10 @@ new class extends Component
             return;
         }
 
+        /** @var UnitConversionService $conversionService */
+        $conversionService = app(UnitConversionService::class);
+
+        // Consolidate details by item — sum qty converted to the item's registered purchasing UOM.
         $consolidated = [];
         foreach ($order->productionOrderDetails as $detail) {
             if (! $detail->item) {
@@ -181,22 +185,42 @@ new class extends Component
 
             $itemId = $detail->item_id;
             $rawQty = (float) $detail->qty;
-            $factor = $detail->conversionFactor();
-            $convertedQty = $rawQty * $factor;
+
+            // resolveIngredientCostAndFactor converts the recipe UOM qty into the item's registered UOM.
+            // conv_factor = targetUomRatio / itemBaseValue  →  qty × conv_factor = qty in item's UOM.
+            $costInfo = $conversionService->resolveIngredientCostAndFactor(
+                $detail->item,
+                $rawQty,
+                $detail->uom_id
+            );
+            $convFactor = (float) ($costInfo['conv_factor'] ?? 1.0);
+            $purchaseQty = $rawQty * $convFactor;
 
             if (! isset($consolidated[$itemId])) {
                 $consolidated[$itemId] = [
                     'item' => $detail->item,
-                    'qty' => 0,
+                    'qty'  => 0.0,
                 ];
             }
-            $consolidated[$itemId]['qty'] += $convertedQty;
+            $consolidated[$itemId]['qty'] += $purchaseQty;
         }
+
+        // Reset the selected rows so stale / manually-added items do not inflate the total.
+        // The production order completely defines which ingredients to purchase.
+        $this->selectedRows = [];
+        $this->selectedItem = [];
 
         foreach ($consolidated as $itemId => $data) {
             $item = $data['item'];
+            // cost->amount is the cost per item's registered UOM (e.g. cost per 500g pack)
             $cost = (float) ($item->cost?->amount ?? 0);
-            $qty = max(0.01, round($data['qty'], 2));
+            // Round to 4dp but do NOT clamp to a minimum — items like a 2L oil bottle may
+            // legitimately require a fraction (e.g. 0.005 of a 2L bottle for 10 ml in a recipe).
+            // Using max(0.01, …) inflated quantities smaller than 0.01 and produced wrong sub-totals.
+            $qty = round($data['qty'], 4);
+            if ($qty <= 0) {
+                continue;
+            }
 
             $existingIndex = null;
             foreach ($this->selectedRows as $idx => $row) {
@@ -207,8 +231,8 @@ new class extends Component
             }
 
             if ($existingIndex !== null) {
-                $this->selectedRows[$existingIndex]['quantity'] = $qty;
-                $this->selectedRows[$existingIndex]['sub_total'] = $qty * $cost;
+                $this->selectedRows[$existingIndex]['quantity']  = $qty;
+                $this->selectedRows[$existingIndex]['sub_total'] = round($qty * $cost, 2);
             } else {
                 $this->selectedRows[] = [
                     'id'               => $item->id,
@@ -218,7 +242,7 @@ new class extends Component
                     'cost'             => $cost,
                     'price_id'         => $item->cost?->id ?? null,
                     'quantity'         => $qty,
-                    'sub_total'        => $qty * $cost,
+                    'sub_total'        => round($qty * $cost, 2),
                     'brand'            => $item->brand?->brand_name ?? 'N/A',
                     'category'         => $item->category?->category_name ?? 'N/A',
                     'classification'   => $item->classification?->classification_name ?? 'N/A',
@@ -466,7 +490,7 @@ new class extends Component
             <div class="grid grid-cols-2">
                 <div class="grid gap-2 p-3">
                     <x-ts-textarea label="Notes" resize maxlength="250" count placeholder="Add note here..." wire:model="notes"/>
-                    <x-ts-stats :number="$grand_total" title="Total Cost" animated>
+                    <x-ts-stats number=" {{ $grand_total}}" title="Total Cost">
                             <x-slot:icon>
                                 <x-icon-peso class="w-6 h-6" />
                             </x-slot:icon>

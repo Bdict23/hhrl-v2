@@ -3,6 +3,7 @@
 use Livewire\Component;
 use App\Models\Restaurant\ProductionOrder;
 use App\Models\DataManagement\UnitOfMeasure;
+use App\Services\DataManagement\UnitConversionService;
 use TallStackUi\Traits\Interactions;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -25,6 +26,7 @@ new class extends Component
     public bool $isFullyInStock = true;
     public int $outOfStockCount = 0;
     public int $insufficientCount = 0;
+    public float $grandTotalCost = 0.0;
 
     public function mount(int $id)
     {
@@ -36,6 +38,7 @@ new class extends Component
             'preparedBy',
             'productionMenus.menu.category',
             'productionOrderDetails.item.unit',
+            'productionOrderDetails.item.cost',
             'productionOrderDetails.uom',
             'productionOrderDetails.menu',
         ])
@@ -93,6 +96,8 @@ new class extends Component
             ];
         }
 
+        $conversionService = app(UnitConversionService::class);
+
         // Consolidated ingredients
         $consolidated = [];
         $grouped = [];
@@ -101,10 +106,26 @@ new class extends Component
             $itemId = $detail->item_id;
             $itemCode = $detail->item?->item_code ?? 'ITEM-' . $itemId;
             $itemName = $detail->item?->item_description ?? 'N/A';
+            $itemStatus = $detail->item?->item_status ?? 'N/A';
+            $itemCost = (float) ($detail->item?->cost?->amount ?? 0);
             $uomSymbol = $uoms[$detail->uom_id] ?? ($detail->item?->unit?->unit_symbol ?? 'N/A');
+            $itemUomSymbol = $uoms[$detail->item?->uom_id ?? 0] ?? ($detail->item?->unit?->unit_symbol ?? 'N/A');
             $stock = $stockMap[$itemId] ?? ['bal' => 0, 'avail' => 0];
             $qty = (float) $detail->qty;
             $isManual = is_null($detail->menu_id);
+
+            // Unit conversion & cost resolution
+            $costInfo = $conversionService->resolveIngredientCostAndFactor(
+                $detail->item,
+                $qty,
+                $detail->uom_id
+            );
+            $unitCost = (float) ($costInfo['unit_cost'] ?? 0);
+            $lineCost = (float) ($costInfo['line_cost'] ?? 0);
+            $convFactor = (float) ($costInfo['conv_factor'] ?? 1.0);
+
+            // Exact Cardex available in item's registered packaging unit
+            $exactCardexAvail = (float) $stock['avail'];
 
             // 1. Accumulate into consolidated
             if (! isset($consolidated[$itemId])) {
@@ -112,19 +133,34 @@ new class extends Component
                     'item_id' => $itemId,
                     'item_code' => $itemCode,
                     'item_name' => $itemName,
+                    'item_status' => $itemStatus,
+                    'item_cost' => $itemCost,
                     'from_recipes' => 0,
                     'manual_add' => 0,
                     'total_required' => 0,
                     'uom_symbol' => $uomSymbol,
+                    'item_uom' => $itemUomSymbol,
+                    'unit_cost' => $unitCost,
+                    'conv_factor' => $convFactor,
+                    'total_cost' => 0,
                     'balance' => $stock['bal'],
-                    'available' => $stock['avail'],
+                    'available' => $exactCardexAvail,
                 ];
             }
 
+            // Accumulate qty in item's registered UOM (for stock comparison) and line cost directly.
+            // Use the service-rounded line cost (round to 2dp per line) so the grand total
+            // matches the recipe view which also rounds each line cost before summing.
+            $purchaseQty = $qty * $convFactor;
             if ($isManual) {
-                $consolidated[$itemId]['manual_add'] += $qty;
+                $consolidated[$itemId]['manual_add'] += $purchaseQty;
             } else {
-                $consolidated[$itemId]['from_recipes'] += $qty;
+                $consolidated[$itemId]['from_recipes'] += $purchaseQty;
+            }
+            $consolidated[$itemId]['total_cost'] += round($lineCost, 2);
+
+            if ((!$consolidated[$itemId]['unit_cost'] || $consolidated[$itemId]['unit_cost'] === 0.0) && $unitCost > 0) {
+                $consolidated[$itemId]['unit_cost'] = $unitCost;
             }
 
             // 2. Accumulate into grouped
@@ -138,6 +174,7 @@ new class extends Component
                     'title' => $groupTitle,
                     'code' => $groupCode,
                     'is_manual' => $isManual,
+                    'total_cost' => 0,
                     'items' => [],
                 ];
             }
@@ -146,10 +183,16 @@ new class extends Component
                 'item_id' => $itemId,
                 'item_code' => $itemCode,
                 'item_name' => $itemName,
+                'item_status' => $itemStatus,
+                'item_cost' => $itemCost,
                 'qty' => $qty,
                 'uom_symbol' => $uomSymbol,
-                'available' => $stock['avail'],
+                'item_uom' => $itemUomSymbol,
+                'unit_cost' => $unitCost,
+                'line_cost' => $lineCost,
+                'available' => $exactCardexAvail,
             ];
+            $grouped[$groupKey]['total_cost'] += round($lineCost, 2);
         }
 
         // Calculate consolidated totals & stock status
@@ -157,13 +200,20 @@ new class extends Component
         $this->insufficientCount = 0;
 
         foreach ($consolidated as &$row) {
+            // from_recipes and manual_add are already in item's registered UOM (qty × convFactor)
             $row['total_required'] = $row['from_recipes'] + $row['manual_add'];
+            // total_cost is already accumulated as sum of per-detail line costs
+            $this->grandTotalCost += $row['total_cost'];
 
-            if ($row['available'] <= 0) {
+            // available is already in item's registered UOM (cardex stock)
+            $reqInItemPack = $row['total_required'];
+            $availInItemPack = (float) ($row['available'] ?? 0);
+
+            if ($availInItemPack <= 0) {
                 $row['status'] = 'Out of Stock';
                 $row['status_color'] = 'rose';
                 $this->outOfStockCount++;
-            } elseif ($row['available'] < $row['total_required']) {
+            } elseif ($availInItemPack < $reqInItemPack) {
                 $row['status'] = 'Insufficient';
                 $row['status_color'] = 'amber';
                 $this->insufficientCount++;
@@ -254,7 +304,7 @@ new class extends Component
                 {{-- Production Info Chips --}}
                 <div class="flex flex-wrap lg:flex-nowrap items-center gap-3">
                     {{-- Reference --}}
-                    <div class="flex items-center gap-1.5 bg-slate-900 dark:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs shrink-0 shadow-xs border border-transparent dark:border-slate-700">
+                    <div class="flex items-center gap-1.5 bg-green-900 dark:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs shrink-0 shadow-xs border border-transparent dark:border-slate-700">
                         <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">REF</span>
                         <span class="font-mono font-bold tracking-wide">{{ $reference }}</span>
                     </div>
@@ -286,7 +336,7 @@ new class extends Component
         </header>
 
         {{-- EXECUTIVE KPI METRIC TILES --}}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
             {{-- Tile 1 --}}
             <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-2xs flex items-center gap-3.5">
                 <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold shrink-0 border border-blue-100 dark:border-blue-900/60">
@@ -342,11 +392,22 @@ new class extends Component
                     </p>
                 </div>
             </div>
+
+            {{-- Tile 5 --}}
+            <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-2xs flex items-center gap-3.5 col-span-2 sm:col-span-1">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-100 dark:border-emerald-900/60">
+                    <span class="text-sm font-black">₱</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Total Order Cost</p>
+                    <p class="text-base font-black text-emerald-700 dark:text-emerald-400 leading-tight">₱ {{ number_format($grandTotalCost, 2) }}</p>
+                </div>
+            </div>
         </div>
 
         {{-- QUEUED RECIPES TABLE --}}
         <section class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-3.5 bg-slate-900 dark:bg-slate-950 text-white flex items-center justify-between border-b border-transparent dark:border-slate-800">
+            <div class="p-3.5 bg-green-900 dark:bg-green-950 text-white flex items-center justify-between border-b border-transparent dark:border-slate-800">
                 <div class="flex items-center gap-2">
                     <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <h2 class="font-bold text-xs uppercase tracking-wider">Target Recipe Formulations</h2>
@@ -392,8 +453,8 @@ new class extends Component
 
         {{-- INGREDIENT BREAKDOWN SECTION (TWO VIEW MODES) --}}
         <section class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-3 bg-slate-900 dark:bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-1.5 p-1 rounded-xl bg-slate-800/90 border border-slate-700/80">
+            <div class="p-3 bg-green-900 dark:bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-1.5 p-1 rounded-xl bg-green-800/90 border border-green-700/80">
                     <button type="button"
                             x-on:click="activeTab = 'consolidated'"
                             :class="activeTab === 'consolidated' ? 'bg-blue-600 text-white shadow-xs font-bold' : 'text-slate-300 hover:text-white font-medium'"
@@ -421,14 +482,17 @@ new class extends Component
             {{-- TAB A: CONSOLIDATED INGREDIENTS --}}
             <div x-show="activeTab === 'consolidated'" class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-slate-800 dark:bg-slate-900 text-slate-200 font-bold uppercase text-[10px] tracking-wider border-b border-slate-700 dark:border-slate-800">
+                    <thead class="bg-green-700 dark:bg-slate-900 text-slate-200 font-bold uppercase text-[10px] tracking-wider border-b border-slate-700 dark:border-slate-800">
                         <tr>
                             <th class="p-3">Item Code</th>
                             <th class="p-3">Ingredient Description</th>
                             <th class="p-3 text-right">From Recipes</th>
                             <th class="p-3 text-right">Manual Add</th>
                             <th class="p-3 text-right">Total Req.</th>
-                            <th class="p-3">Unit</th>
+                            <th class="p-3">Req. Unit</th>
+                            <th class="p-3">Item Registered UOM</th>
+                            <th class="p-3 text-right">Est. Req. Cost</th>
+                            <th class="p-3 text-right">Total Cost</th>
                             <th class="p-3 text-right">Cardex Stock</th>
                             <th class="p-3 text-center">Stock Status</th>
                         </tr>
@@ -437,14 +501,29 @@ new class extends Component
                         @forelse($consolidatedIngredients as $row)
                             <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                                 <td class="p-3 font-mono font-bold text-slate-600 dark:text-slate-400">{{ $row['item_code'] }}</td>
-                                <td class="p-3 font-semibold text-slate-800 dark:text-white">{{ $row['item_name'] }}</td>
+                                <td class="p-3 font-semibold text-slate-800 dark:text-white">{{ $row['item_name']  }} 
+                                    @if($row['item_status'] == 'INACTIVE' )
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Inactive</span>     
+                                    @endif
+                                </td>
                                 <td class="p-3 text-right font-mono text-slate-500 dark:text-slate-400">{{ number_format($row['from_recipes'], 2) }}</td>
                                 <td class="p-3 text-right font-mono text-blue-700 dark:text-blue-400">
                                     {{ $row['manual_add'] > 0 ? number_format($row['manual_add'], 2) : '-' }}
                                 </td>
                                 <td class="p-3 text-right font-mono font-black text-slate-900 dark:text-white text-xs">{{ number_format($row['total_required'], 2) }}</td>
                                 <td class="p-3 text-slate-500 dark:text-slate-400 font-medium">{{ $row['uom_symbol'] }}</td>
-                                <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold">{{ number_format($row['available'], 2) }}</td>
+                                <td class="p-3 text-slate-600 dark:text-slate-300 font-medium">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{{ $row['item_uom' ] }} - ₱ {{ number_format((float) ($row['item_cost'] ?? 0), 2) }}</span>
+                                </td>
+                                <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300">
+                                    <span>₱ {{ ($row['unit_cost'] > 0 && $row['unit_cost'] < 0.1) ? number_format($row['unit_cost'], 4) : number_format($row['unit_cost'], 2) }}</span>
+                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal block">/ {{ $row['uom_symbol'] }}</span>
+                                </td>
+                                <td class="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">₱ {{ number_format($row['total_cost'], 2) }}</td>
+                                <td class="p-3 text-right font-mono text-slate-600 dark:text-slate-300 font-bold">
+                                    {{ number_format($row['available'], 2) }}
+                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal">{{ $row['item_uom'] }}</span>
+                                </td>
                                 <td class="p-3 text-center">
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold
                                         @if($row['status'] === 'Available') bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800
@@ -460,12 +539,23 @@ new class extends Component
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="p-12 text-center text-slate-400 font-bold text-xs">
+                                <td colspan="11" class="p-12 text-center text-slate-400 font-bold text-xs">
                                     No ingredients found for this production order.
                                 </td>
                             </tr>
                         @endforelse
                     </tbody>
+                    <tfoot class="bg-slate-100 dark:bg-slate-800/90 border-t-2 border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-800 dark:text-slate-100 sticky bottom-0 z-10 shadow-sm">
+                        <tr>
+                            <td colspan="8" class="p-3 text-right uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 font-bold">
+                                Grand Total Raw Material Cost (All Ingredients):
+                            </td>
+                            <td class="p-3 text-right font-mono font-black text-sm text-emerald-700 dark:text-emerald-400">
+                                ₱ {{ number_format($grandTotalCost, 2) }}
+                            </td>
+                            <td colspan="2" class="p-3"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 
@@ -478,7 +568,12 @@ new class extends Component
                                 <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600">{{ $group['code'] }}</span>
                                 <h4 class="font-extrabold text-xs text-slate-800 dark:text-white">{{ $group['title'] }}</h4>
                             </div>
-                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{{ count($group['items']) }} Ingredients</span>
+                                <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{{ count($group['items']) }} Ingredients</span>
+                                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                    Total Cost: ₱ {{ number_format($group['total_cost'], 2) }}
+                                </span>
+                            </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs border-collapse">
@@ -487,23 +582,46 @@ new class extends Component
                                         <th class="p-2.5">Item Code</th>
                                         <th class="p-2.5">Item Description</th>
                                         <th class="p-2.5 text-right">Scaled Req. Qty</th>
-                                        <th class="p-2.5">Unit</th>
-                                        <th class="p-2.5 text-right">Cardex Avail.</th>
+                                        <th class="p-2.5">Req. Unit</th>
+                                        <th class="p-2.5">Item Registered UOM</th>
+                                        <th class="p-2.5 text-right">Unit Cost</th>
+                                        <th class="p-2.5 text-right">Line Cost</th>
+                                        <th class="p-2.5 text-right">Cardex Stock</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                                     @foreach($group['items'] as $item)
                                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                                             <td class="p-2.5 font-mono font-bold text-slate-500 dark:text-slate-400">{{ $item['item_code'] }}</td>
-                                            <td class="p-2.5 font-semibold text-slate-800 dark:text-white">{{ $item['item_name'] }}</td>
+                                            <td class="p-2.5 font-semibold text-slate-800 dark:text-white">{{ $item['item_name'] . $item['item_status'] }}</td>
                                             <td class="p-2.5 text-right font-mono font-black text-slate-900 dark:text-white">{{ number_format($item['qty'], 2) }}</td>
                                             <td class="p-2.5 text-slate-500 dark:text-slate-400">{{ $item['uom_symbol'] }}</td>
+                                            <td class="p-2.5 text-slate-600 dark:text-slate-300">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{{ $item['item_uom'] }} - ₱ {{ number_format((float) ($item['item_cost'] ?? 0), 2) }}</span>
+                                            </td>
+                                            <td class="p-2.5 text-right font-mono text-slate-600 dark:text-slate-300">
+                                                <span>₱ {{ ($item['unit_cost'] > 0 && $item['unit_cost'] < 0.1) ? number_format($item['unit_cost'], 4) : number_format($item['unit_cost'], 2) }}</span>
+                                                <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal block">/ {{ $item['uom_symbol'] }}</span>
+                                            </td>
+                                            <td class="p-2.5 text-right font-mono font-bold text-slate-900 dark:text-white">₱ {{ number_format($item['line_cost'], 2) }}</td>
                                             <td class="p-2.5 text-right font-mono font-bold {{ $item['available'] > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
                                                 {{ number_format($item['available'], 2) }}
+                                                <span class="text-[10px] text-slate-400 dark:text-slate-500 font-normal">{{ $item['item_uom'] }}</span>
                                             </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
+                                <tfoot class="bg-slate-100 dark:bg-slate-800/90 border-t-2 border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-800 dark:text-slate-100">
+                                    <tr>
+                                        <td colspan="6" class="p-2.5 text-right uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 font-bold">
+                                            Total {{ $group['is_manual'] ? 'Manual Items' : 'Formulation' }} Cost:
+                                        </td>
+                                        <td class="p-2.5 text-right font-mono font-black text-sm text-emerald-700 dark:text-emerald-400">
+                                            ₱ {{ number_format($group['total_cost'], 2) }}
+                                        </td>
+                                        <td class="p-2.5"></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>

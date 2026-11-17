@@ -37,9 +37,18 @@ new class extends Component
     public $puchaseOrderData;
     public bool $printPreviewModal = false;
 
-    public function mount($id){
+    public function mount($id): void
+    {
         $this->purchase_order_id = $id;
-        $this->puchaseOrderData = PurchaseOrder::find($id);
+        $this->puchaseOrderData  = PurchaseOrder::with([
+            'purchaseOrderItems.item.unit',
+            'purchaseOrderItems.item.cost',
+            'purchaseOrderItems.item.brand',
+            'purchaseOrderItems.item.category',
+            'purchaseOrderItems.item.classification',
+            'purchaseOrderItems.item.subClassification',
+            'purchaseOrderItems.cost', // locked price snapshot at PO creation time
+        ])->find($id);
 
         $this->fetchData();
     }
@@ -75,15 +84,20 @@ new class extends Component
 
 
         foreach ($this->puchaseOrderData->purchaseOrderItems as $poItem) {
-                $this->selectedRows[] = [
+            // Use the price snapshot locked at PO creation time (price_level_id → cost relation).
+            // Fall back to current item cost only if no price_level_id was stored.
+            $lockedCost   = (float) ($poItem->cost?->amount ?? $poItem->item->cost?->amount ?? 0);
+            $lockedPriceId = $poItem->price_level_id ?? $poItem->item->cost?->id ?? null;
+
+            $this->selectedRows[] = [
                     'id'               => $poItem->item_id,
                     'item_code'        => $poItem->item->item_code,
                     'item_description' => $poItem->item->item_description,
                     'unit'             => $poItem->item->unit?->unit_symbol ?? 'N/A',
-                    'cost'             => (float) ($poItem->item->cost?->amount ?? 0),
-                    'price_id'         => $poItem->item->cost?->id ?? null,
+                    'cost'             => $lockedCost,
+                    'price_id'         => $lockedPriceId,
                     'quantity'         => $poItem->qty,
-                    'sub_total'        => (float) ($poItem->item->cost?->amount ?? 0) * $poItem->qty,
+                    'sub_total'        => round($lockedCost * (float) $poItem->qty, 2),
                     // Sub-table data
                     'brand'            => $poItem->item->brand?->brand_name ?? 'N/A',
                     'category'         => $poItem->item->category?->category_name ?? 'N/A',
