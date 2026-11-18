@@ -239,6 +239,9 @@
             </td>
         </tr>
     </table>
+    <div class="mb-6 border-l-4 border-slate-500 pl-4">
+        <span><strong>NOTE : </strong> {{ $event->notes }}</span>
+    </div>
 
     {{-- 1. Catering & Menus --}}
     @if($event->menus && $event->menus->isNotEmpty())
@@ -261,7 +264,7 @@
                         <td style="font-weight: 600;">
                             {{ $menuItem->recipe?->menu_name ?? 'N/A' }}
                             @if($menuItem->note)
-                                <span style="font-size: 8.5px; color: #64748b; font-weight: normal; display: block;">Note: {{ $menuItem->note }}</span>
+                                <span style="font-size: 8.5px; color: #64748b; font-weight: normal; display: block; white-space: pre-wrap">Note: {{ $menuItem->note }}</span>
                             @endif
                         </td>
                         <td style="color: #475569;">{{ $menuItem->recipe?->category?->category_name ?? 'N/A' }}</td>

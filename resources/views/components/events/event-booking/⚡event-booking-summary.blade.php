@@ -674,6 +674,7 @@ new class extends Component
                                 </p>
                             </div>
                         </div>
+                        
                         <div class="text-right">
                             <span class="inline-block px-2 py-1 bg-slate-900 text-white text-[9.5px] font-bold uppercase tracking-wider">
                                 BANQUET EVENT ORDER
@@ -720,6 +721,9 @@ new class extends Component
                             </div>
                         </div>
                     </div>
+                    <div class="mb-6 border-l-4 border-slate-500 pl-4">
+                            <span><strong>NOTE : </strong> {{ $previewEvent->notes }}</span>
+                        </div>
 
                     {{-- 1. Menus Breakdown --}}
                     @if($previewEvent->menus->isNotEmpty())
@@ -746,7 +750,7 @@ new class extends Component
                                                 <td class="py-1 px-2 font-semibold text-slate-900">
                                                     {{ $menuItem->recipe?->menu_name ?? 'N/A' }}
                                                     @if($menuItem->note)
-                                                        <span class="block text-[9px] text-slate-500 font-normal">Note: {{ $menuItem->note }}</span>
+                                                        <span class="block text-[9px] text-slate-500 font-normal whitespace-pre-wrap">Note: {{ $menuItem->note }}</span>
                                                     @endif
                                                 </td>
                                                 <td class="py-1 px-2 text-slate-600">{{ $menuItem->recipe?->category?->category_name ?? 'N/A' }}</td>
