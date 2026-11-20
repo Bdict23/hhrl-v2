@@ -112,6 +112,8 @@ Route::middleware(['auth'])->group(function () {
     //BACKORDER
     Volt::route('/backorder/summary', 'inventory.backorder.backorder-summary')->name('backorder-summary');
 
+    //Merchandise Inventory
+    Volt::route('/merchandise-inventory/summary', 'inventory.merchandise-inventory.merchandise-inventory-summary')->name('merchandise-inventory-summary');
 
 
     // Fixed Asset

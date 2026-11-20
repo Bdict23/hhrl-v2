@@ -13,8 +13,6 @@ use App\Models\Settings\SystemParameter;
 use App\Models\DataManagement\Price;
 use App\Models\Business\Company;
 
-
-
 class ItemService
 {
     protected $itemModel;
@@ -248,7 +246,8 @@ class ItemService
     public function addNewCategory(array $data): Category
     {
         return DB::transaction(function () use ($data) {
-            $category = $this->categoryModel->create($data);;
+            $category = $this->categoryModel->create($data);
+            ;
             return $category;
         });
     }
@@ -262,7 +261,8 @@ class ItemService
                 'category_code',
                 'updated_by',
             ]);
-            $category->update($itemData);;
+            $category->update($itemData);
+            ;
             return $category;
         });
     }
@@ -277,7 +277,8 @@ class ItemService
     public function addNewClassification(array $data): Classification
     {
         return DB::transaction(function () use ($data) {
-            $classification = $this->classificationModel->create($data);;
+            $classification = $this->classificationModel->create($data);
+            ;
             return $classification;
         });
     }
@@ -291,7 +292,8 @@ class ItemService
                 'classification_description',
                 'updated_by',
             ]);
-            $classification->update($itemData);;
+            $classification->update($itemData);
+            ;
             return $classification;
         });
     }
@@ -307,7 +309,8 @@ class ItemService
     public function addNewSubClass(array $data): Classification
     {
         return DB::transaction(function () use ($data) {
-            $subClass = $this->classificationModel->create($data);;
+            $subClass = $this->classificationModel->create($data);
+            ;
             return $subClass;
         });
     }
@@ -322,7 +325,8 @@ class ItemService
                 'classification_description',
                 'updated_by',
             ]);
-            $subClass->update($itemData);;
+            $subClass->update($itemData);
+            ;
             return $subClass;
         });
     }
@@ -338,7 +342,8 @@ class ItemService
     public function addNewBrand(array $data): Brand
     {
         return DB::transaction(function () use ($data) {
-            $brand = $this->brandModel->create($data);;
+            $brand = $this->brandModel->create($data);
+            ;
             return $brand;
         });
     }
@@ -352,7 +357,8 @@ class ItemService
                 'brand_description',
                 'updated_by',
             ]);
-            $brand->update($itemData);;
+            $brand->update($itemData);
+            ;
             return $brand;
         });
     }
@@ -425,5 +431,91 @@ class ItemService
             'max_cost'     => !empty($data) ? max($data) : 0.0,
             'current_cost' => !empty($data) ? end($data) : 0.0,
         ];
+    }
+
+
+    public static function cardexRecords(int $branchId, int $companyId)
+    {
+        $itemRawData = Item::where('company_id', $companyId)
+            ->where('item_status', 1)
+            ->with('unit', 'cost', 'brand', 'classification', 'subClassification', 'category')
+            ->get();
+        $itemIds = $itemRawData->pluck('id')->filter()->unique()->toArray();
+        $cardexRecords = DB::table('cardex')
+            ->select('item_id')
+            ->selectRaw("SUM(CASE WHEN LOWER(status) = 'final' THEN qty_in ELSE 0 END) as total_in")
+            ->selectRaw("SUM(CASE WHEN LOWER(status) = 'final' THEN qty_out ELSE 0 END) as total_out")
+            ->selectRaw("SUM(CASE WHEN LOWER(status) = 'reserved' THEN qty_out ELSE 0 END) as total_reserved")
+            ->where('source_branch_id', $branchId)
+            ->groupBy('item_id')
+            ->get()
+            ->keyBy('item_id');
+
+        $stockMap = [];
+        foreach ($itemIds as $itemId) {
+            $cardex = $cardexRecords->get($itemId);
+            $totalIn = (float) ($cardex->total_in ?? 0);
+            $totalOut = (float) ($cardex->total_out ?? 0);
+            $totalReserved = (float) ($cardex->total_reserved ?? 0);
+            $balance = $totalIn - $totalOut;
+            $available = $balance - $totalReserved;
+
+            $stockMap[$itemId] = [
+                'bal' => round($balance, 2),
+                'avail' => round($available, 2),
+                'reserved' => round($totalReserved, 2),
+            ];
+        }
+
+        $uoms = UnitOfMeasure::pluck('unit_symbol', 'id')->toArray();
+        $consolidated = [];
+
+        foreach ($itemRawData as $detail) {
+            $itemId = $detail->id;
+            $itemCode = $detail->item_code ?? 'ITEM-' . $itemId;
+            $itemName = $detail->item_description ?? 'N/A';
+            $itemStatus = $detail->item_status ?? 'N/A';
+            $itemCost = (float) ($detail->cost?->amount ?? 0);
+            $uomSymbol = $uoms[$detail->uom_id] ?? ($detail->unit?->unit_symbol ?? 'N/A');
+            $itemUomSymbol = $uoms[$detail->uom_id ?? 0] ?? ($detail->unit?->unit_symbol ?? 'N/A');
+            $stock = $stockMap[$itemId] ?? ['bal' => 0, 'avail' => 0, 'reserved' => 0];
+            $exactCardexAvail = (float) $stock['avail'];
+            $cost = (float) ($detail->cost?->amount ?? 0);
+            $brand = $detail->brand?->brand_name ?? 'N/A';
+            $classification = $detail->classification?->classification_name ?? 'N/A';
+            $subclass = $detail->subClassification?->classification_name ?? 'N/A';
+            $orderpoint = (float) ($detail->orderpoint ?? 0);
+            $optimal_stock = (float) ($detail->optimal_stock ?? 0);
+            $barcode = $detail->item_barcode ?? 'N/A';
+            $is_forsale = (bool) ($detail->is_forsale ?? false);
+            $category = $detail->category?->category_name ?? 'N/A';
+
+
+            $consolidated[] = [
+                'item_id' => $itemId,
+                'item_code' => $itemCode,
+                'item_name' => $itemName,
+                'item_description' => $itemName,
+                'item_status' => $itemStatus,
+                'item_cost' => $itemCost,
+                'uom_id' => $detail->uom_id,
+                'total_required' => 0,
+                'uom_symbol' => $uomSymbol,
+                'item_uom' => $itemUomSymbol,
+                'balance' => $stock['bal'],
+                'available' => $exactCardexAvail,
+                'reserved' => $stock['reserved'],
+                'brand' => $brand,
+                'classification' => $classification,
+                'subclass' => $subclass,
+                'orderpoint' => $orderpoint,
+                'optimal_stock' => $optimal_stock,
+                'barcode' => $barcode,
+                'is_forsale' => $is_forsale,
+                'cost' => $cost,
+            ];
+        }
+
+        return array_values($consolidated);
     }
 }

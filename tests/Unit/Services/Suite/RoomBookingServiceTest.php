@@ -186,6 +186,49 @@ it('adds catalog services at their stored price and settles the remaining balanc
         ->and($settledBooking->balance_due)->toBe(0.0);
 });
 
+it('applies catalog pricing multipliers to added extra charges', function (string $pricingType, int $nights, int $adults, int $children, float $expectedSubtotal) {
+    $category = RoomCategory::query()->create(['name' => 'Standard', 'slug' => 'standard']);
+    $room = Room::query()->create([
+        'category_id' => $category->id,
+        'room_number' => 'S-PRICING',
+        'name' => 'Standard Room',
+    ]);
+    $booking = RoomBooking::query()->create([
+        'room_id' => $room->id,
+        'guest_name' => 'Guest',
+        'check_in' => now(),
+        'check_out' => now()->addDays($nights),
+        'adults' => $adults,
+        'children' => $children,
+        'base_price' => 100,
+        'total_price' => 100,
+        'status' => 'confirmed',
+        'payment_status' => 'unpaid',
+    ]);
+    $service = RoomAddonService::query()->create([
+        'name' => 'Extra Bed',
+        'pricing_type' => $pricingType,
+        'price' => 150,
+        'is_active' => true,
+    ]);
+
+    $updatedBooking = app(RoomBookingService::class)->addExtraCharge($booking, [
+        'addon_service_id' => $service->id,
+        'quantity' => 2,
+    ]);
+
+    expect($updatedBooking->addons_total)->toBe(number_format($expectedSubtotal, 2, '.', ''));
+    $this->assertDatabaseHas('room_booking_addons', [
+        'booking_id' => $booking->id,
+        'addon_service_id' => $service->id,
+        'subtotal' => number_format($expectedSubtotal, 2, '.', ''),
+    ]);
+})->with([
+    'one-time bed charge' => ['flat', 2, 1, 1, 300.0],
+    'per-night service' => ['per_night', 2, 1, 0, 600.0],
+    'per-person service' => ['per_person', 1, 1, 1, 600.0],
+]);
+
 it('checks in, checks out into housekeeping, and makes the room available after cleaning', function () {
     $category = RoomCategory::query()->create(['name' => 'Standard', 'slug' => 'standard']);
     $room = Room::query()->create([

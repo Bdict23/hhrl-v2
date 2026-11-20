@@ -214,7 +214,12 @@ class RoomBookingService
             $itemName = $addonService?->name ?? trim((string) $data['item_name']);
             $unitPrice = (float) ($addonService?->price ?? $data['unit_price']);
             $quantity = (int) $data['quantity'];
-            $subtotal = round($unitPrice * $quantity, 2);
+            $multiplier = match ($addonService?->pricing_type) {
+                'per_night' => max(1, $lockedBooking->nights),
+                'per_person' => $lockedBooking->adults + $lockedBooking->children,
+                default => 1,
+            };
+            $subtotal = round($unitPrice * $quantity * $multiplier, 2);
 
             $lockedBooking->addons()->create([
                 'addon_service_id' => $addonService?->id,

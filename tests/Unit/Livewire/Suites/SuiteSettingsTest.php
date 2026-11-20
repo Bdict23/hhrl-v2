@@ -100,6 +100,78 @@ it('rejects a duplicate category slug without creating a category', function () 
     expect(RoomCategory::query()->count())->toBe(1);
 });
 
+it('updates a room category from the categories table', function () {
+    $category = RoomCategory::query()->create([
+        'name' => 'Ocean View',
+        'slug' => 'ocean-view',
+        'description' => 'Rooms overlooking the ocean.',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    Livewire::test('suites.suite-settings')
+        ->call('editCategoryAction', $category->id)
+        ->assertSet('createCategoryModal', true)
+        ->assertSet('categoryId', $category->id)
+        ->set([
+            'categoryName' => 'Garden View',
+            'categorySlug' => 'garden-view',
+            'categoryDescription' => 'Rooms overlooking the garden.',
+            'categorySortOrder' => 3,
+            'categoryIsActive' => false,
+        ])
+        ->call('updateCategory')
+        ->assertHasNoErrors()
+        ->assertSet('createCategoryModal', false);
+
+    expect($category->fresh()->only(['name', 'slug', 'description', 'sort_order', 'is_active']))
+        ->toBe([
+            'name' => 'Garden View',
+            'slug' => 'garden-view',
+            'description' => 'Rooms overlooking the garden.',
+            'sort_order' => 3,
+            'is_active' => false,
+        ]);
+});
+
+it('updates the room category slug when its name changes', function () {
+    $category = RoomCategory::query()->create([
+        'name' => 'Ocean View',
+        'slug' => 'ocean-view',
+    ]);
+
+    Livewire::test('suites.suite-settings')
+        ->call('editCategoryAction', $category->id)
+        ->set('categoryName', 'Oceanfront View')
+        ->call('updateCategory')
+        ->assertHasNoErrors();
+
+    expect($category->fresh()->name)->toBe('Oceanfront View')
+        ->and($category->fresh()->slug)->toBe('oceanfront-view');
+});
+
+it('changes a room category between active and inactive', function () {
+    $category = RoomCategory::query()->create([
+        'name' => 'Ocean View',
+        'slug' => 'ocean-view',
+        'is_active' => true,
+    ]);
+
+    Livewire::test('suites.suite-settings')
+        ->call('changeCategoryStatus', $category->id)
+        ->call('toggleCategoryStatus')
+        ->assertHasNoErrors();
+
+    expect($category->fresh()->is_active)->toBeFalse();
+
+    Livewire::test('suites.suite-settings')
+        ->call('changeCategoryStatus', $category->id)
+        ->call('toggleCategoryStatus')
+        ->assertHasNoErrors();
+
+    expect($category->fresh()->is_active)->toBeTrue();
+});
+
 it('creates an amenity using its validated name', function () {
     Livewire::test('suites.suite-settings')
         ->call('openAmenityModal')

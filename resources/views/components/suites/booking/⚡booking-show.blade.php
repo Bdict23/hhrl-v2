@@ -10,8 +10,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use TallStackUi\Traits\Interactions;
 
-new class extends Component
-{
+new class () extends Component {
     use Interactions;
 
     #[Locked]
@@ -124,7 +123,12 @@ new class extends Component
             : null;
         $name = $selectedService?->name ?? $this->itemName;
         $price = (float) ($selectedService?->price ?? $this->unitPrice);
-        $subtotal = $price * (int) $this->quantity;
+        $multiplier = match ($selectedService?->pricing_type) {
+            'per_night' => max(1, $this->booking->nights),
+            'per_person' => $this->booking->adults + $this->booking->children,
+            default => 1,
+        };
+        $subtotal = $price * (int) $this->quantity * $multiplier;
 
         $this->dialog()
             ->question('Add this charge?', "Add {$this->quantity} × {$name} to this booking for ₱".number_format($subtotal, 2).'?')
@@ -466,9 +470,9 @@ new class extends Component
                             <div class="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
                                 <div>
                                     <p class="font-medium text-stone-900 text-sm">{{ $addon->item_name ?? $addon->addonService?->name ?? 'Custom Service' }}</p>
-                                    <p class="text-xs text-stone-400">Qty: {{ $addon->quantity }} × ₱{{ number_format($addon->unit_price, 2) }}</p>
+                                    <p class="text-xs text-stone-400">Qty: {{ $addon->quantity }} × ₱{{ number_format($addon->unit_price, 2) }} per item</p>
                                 </div>
-                                <p class="font-semibold text-stone-900">₱{{ number_format($addon->subtotal, 2) }}</p>
+                                <p class="font-semibold text-stone-900">Line total: ₱{{ number_format($addon->subtotal, 2) }}</p>
                             </div>
                         @endforeach
                     </div>

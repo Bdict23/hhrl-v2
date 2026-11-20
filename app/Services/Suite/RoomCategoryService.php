@@ -19,4 +19,21 @@ class RoomCategoryService
             'is_active' => $data['is_active'] ?? true,
         ]);
     }
+
+    /**
+     * @param array{id: int, name: string, slug: string, description?: string|null, sort_order?: int, is_active?: bool} $data
+     */
+    public function update(array $data): RoomCategory
+    {
+        $category = RoomCategory::query()->findOrFail($data['id']);
+        $category->update([
+            'name' => $data['name'],
+            'slug' => $data['slug'],
+            'description' => $data['description'] ?? null,
+            'sort_order' => $data['sort_order'] ?? 0,
+            'is_active' => $data['is_active'] ?? true,
+        ]);
+
+        return $category;
+    }
 }
